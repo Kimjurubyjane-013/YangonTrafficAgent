@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Hledan Junction",
+    "type": "junction",
+    "traffic": "medium"
+  },
+
+  {
+    "name": "Sule Pagoda",
+    "type": "landmark",
+    "traffic": "high"
+  },
+
+  {
+    "name": "Yangon General Hospital",
+    "type": "hospital",
+    "traffic": "medium"
+  },
+  {
+    "name": "Sule Pagoda",
+    "lat": 16.774,
+    "lon": 96.158
+  }
+]

@@ -1,0 +1,11 @@
+{
+ "Hledan-Sule": {
+    "traffic": "high",
+    "delay": 20
+ },
+
+ "Sule-Airport": {
+    "traffic": "low",
+    "delay": 5
+ }
+}
