@@ -13,6 +13,7 @@ class Dashboard(ctk.CTk):
 
     def find_route(self, request):
         print("Analyzing traffic...")
+        self.map_panel.update_route(request)
 
 
     def __init__(self):
@@ -67,9 +68,9 @@ class Dashboard(ctk.CTk):
 
 
         # Map Panel
-        map_panel = MapPanel(main_frame)
+        self.map_panel = MapPanel(main_frame)
 
-        map_panel.pack(
+        self.map_panel.pack(
             side="right",
             fill="both",
             expand=True,
