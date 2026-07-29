@@ -1,66 +1,88 @@
-# agent/llm.py
-
 import requests
-import json
 
 
-LM_STUDIO_URL = "http://localhost:1234/v1/chat/completions"
+BASE_URL = "http://localhost:1234/v1"
 
 
-def ask_llm(user_message):
+def get_loaded_model():
+    """
+    Ask LM Studio which model is currently loaded, so we don't
+    have to hardcode a model name that may not match.
 
-    prompt = f"""
-You are a traffic route assistant.
+    Returns the model id string, or None if no model is loaded
+    or the server can't be reached.
+    """
 
-Extract information from the user's request.
+    try:
+        response = requests.get(
+            f"{BASE_URL}/models",
+            timeout=5
+        )
 
-Available vehicles:
-Car, Bus, Taxi, Ambulance, Fire Truck,
-Police, Motorcycle, Bicycle, Walking
+        result = response.json()
 
-Available locations:
-Hledan Junction,
-Junction Square,
-Inya Lake,
-Myanmar Plaza,
-Yangon General Hospital,
-Yangon Central Station,
-Sule Pagoda,
-Yangon Airport
+        models = result.get("data", [])
 
-Return ONLY JSON.
+        if not models:
+            return None
 
-Example:
+        return models[0]["id"]
 
-{{
- "vehicle": "Ambulance",
- "start": "Hledan Junction",
- "destination": "Yangon Airport"
-}}
-
-User request:
-{user_message}
-"""
+    except requests.exceptions.RequestException:
+        return None
 
 
-    response = requests.post(
-        LM_STUDIO_URL,
-        json={
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": 0.1
-        }
-    )
+def ask_llm(prompt):
 
+    model = get_loaded_model()
 
-    result = response.json()
+    if model is None:
+        return (
+            "AI Error: Could not reach LM Studio, or no model is "
+            "currently loaded. Make sure the Local Server is "
+            "running and a model is loaded in LM Studio."
+        )
 
+    data = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.7
+    }
 
-    answer = result["choices"][0]["message"]["content"]
+    try:
+        response = requests.post(
+            f"{BASE_URL}/chat/completions",
+            json=data,
+            timeout=60
+        )
 
+        result = response.json()
 
-    return json.loads(answer)
+    except requests.exceptions.RequestException as e:
+        return f"AI Error: Could not reach LM Studio ({e})"
+
+    print(result)   # temporary debugging
+
+    if "choices" in result:
+        return result["choices"][0]["message"]["content"]
+
+    elif "error" in result:
+
+        error = result["error"]
+
+        # LM Studio / OpenAI-style servers may return the error
+        # as a plain string OR as a dict like {"message": "..."}
+        if isinstance(error, dict):
+            error_text = error.get("message", str(error))
+        else:
+            error_text = str(error)
+
+        return "AI Error: " + error_text
+
+    else:
+        return "Unexpected AI response"

@@ -1,17 +1,24 @@
-from agent.traffic_agent import TrafficAgent
+from agent.traffic_agent import run_traffic_agent
 
 
-agent = TrafficAgent()
+result = run_traffic_agent(
+    "Junction Square",
+    "Yangon Airport",
+    "Car"
+)
 
 
-request = {
-    "vehicle": "Car",
-    "start": "Junction Square",
-    "destination": "Yangon Airport"
-}
+print("\nROUTE:")
+print(result["route"])
 
 
-result = agent.solve(request)
+print("\nDISTANCE:")
+print(result["distance"])
 
 
-print(result)
+print("\nTIME:")
+print(result["time"])
+
+
+print("\nAI:")
+print(result["ai_message"])

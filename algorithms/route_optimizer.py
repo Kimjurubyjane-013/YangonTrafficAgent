@@ -1,38 +1,65 @@
-from algorithms.graph import GRAPH, LOCATION_COORDS
 from algorithms.astar import astar
-from algorithms.vehicle import VEHICLE_SPEED
-from algorithms.time_estimator import calculate_time
-from algorithms.traffic import get_traffic_level
+from algorithms.graph import GRAPH, LOCATION_COORDS
+from algorithms.traffic import (
+    get_route_traffic,
+    get_multiplier,
+)
+from algorithms.vehicle import calculate_time
 
 
-def find_optimal_route(vehicle, start, destination):
+def optimize_route(route, distance, vehicle):
+    """
+    Apply simulated traffic conditions and estimate travel time.
+    """
 
-    path, distance = astar(
-        GRAPH,
-        LOCATION_COORDS,
-        start,
-        destination
-    )
+    traffic = get_route_traffic(route)
 
-    if path is None:
-        raise ValueError(
-            f"No route found between {start} and {destination}."
-        )
+    multiplier = get_multiplier(traffic)
 
-    traffic_level, traffic_factor = get_traffic_level()
-
-    speed = VEHICLE_SPEED.get(vehicle, 40)
-
-    time = calculate_time(
+    estimated_time = calculate_time(
         distance,
-        speed,
-        traffic_factor
+        vehicle,
+        multiplier,
     )
 
     return {
         "vehicle": vehicle,
-        "route": path,
+        "route": route,
         "distance": distance,
-        "time": time,
-        "traffic": traffic_level
+        "traffic": traffic,
+        "time": estimated_time,
     }
+
+
+def find_optimal_route(vehicle, start, destination):
+    """
+    Find the best route using A*,
+    then apply simulated traffic conditions.
+    """
+
+    if start not in GRAPH:
+        raise ValueError(f"Unknown start location: {start}")
+
+    if destination not in GRAPH:
+        raise ValueError(f"Unknown destination: {destination}")
+
+    if start == destination:
+        raise ValueError("Start and destination cannot be the same.")
+
+    route, distance = astar(
+        GRAPH,
+        LOCATION_COORDS,
+        start,
+        destination,
+    )
+
+    if route is None:
+        raise ValueError(
+            f"No available route from '{start}' to '{destination}'."
+        )
+
+    return optimize_route(
+        route,
+        distance,
+        vehicle,
+    )
