@@ -11,106 +11,93 @@ class MapPanel(ctk.CTkFrame):
         )
 
 
-        title = ctk.CTkLabel(
+        self.title = ctk.CTkLabel(
             self,
-            text="🗺 Yangon Route Map",
-            font=("Arial", 22, "bold")
+            text="🗺 Yangon Map",
+            font=("Arial",22,"bold")
         )
 
-        title.pack(
-            pady=20
+        self.title.pack(
+            pady=10
         )
 
 
-        self.map_display = ctk.CTkTextbox(
+        self.route_display = ctk.CTkTextbox(
             self,
-            width=600,
-            height=500,
-            font=("Consolas", 15)
+            width=400,
+            height=400,
+            font=("Arial",16)
         )
 
-        self.map_display.pack(
-            expand=True,
-            fill="both",
+        self.route_display.pack(
             padx=20,
-            pady=20
+            pady=20,
+            fill="both",
+            expand=True
         )
 
 
-        self.show_default()
-
-
-
-    def show_default(self):
-
-        self.map_display.delete(
-            "1.0",
-            "end"
+        self.route_display.insert(
+            "0.0",
+            "Waiting for route..."
         )
 
-        self.map_display.insert(
-            "end",
-            """
-        Yangon Map Area
-        
-        Select start and destination
-        to display the optimal route.
-            """
+        self.route_display.configure(
+            state="disabled"
         )
 
 
 
-    def update_route(self, result):
+    def update_route(self, route):
 
-        self.map_display.delete(
-            "1.0",
+        self.route_display.configure(
+            state="normal"
+        )
+
+
+        self.route_display.delete(
+            "0.0",
             "end"
         )
 
 
-        if not result:
-            self.show_default()
+        if not route:
+
+            self.route_display.insert(
+                "0.0",
+                "Waiting for route..."
+            )
+
+
+            self.route_display.configure(
+                state="disabled"
+            )
+
             return
 
 
-        route = result.get("route", [])
+
+        map_text = "🗺 Recommended Route\n\n"
 
 
-        route_text = "\n\n".join(
-            [
-                f"📍 {index + 1}. {location}"
-                for index, location in enumerate(route)
-            ]
+        for index, place in enumerate(route):
+
+            map_text += f"● {place}\n"
+
+
+            if index != len(route)-1:
+
+                map_text += "      |\n"
+                map_text += "      ↓\n"
+
+
+
+        self.route_display.insert(
+            "0.0",
+            map_text
         )
 
 
-        display = f"""
-🚦 Optimal Route Visualization
-
-
-🚗 Vehicle:
-{result.get('vehicle')}
-
-
-🚦 Traffic:
-{result.get('traffic')}
-
-
-🛣 Route:
-
-{route_text}
-
-
-📏 Distance:
-{result.get('distance')} km
-
-
-⏱ Time:
-{result.get('time')} minutes
-"""
-
-
-        self.map_display.insert(
-            "end",
-            display
+        self.route_display.configure(
+            state="disabled"
         )

@@ -3,8 +3,6 @@ import traceback
 
 from ui.vehicle_input import VehicleInput
 from ui.location_input import LocationInput
-from algorithms.route_optimizer import find_optimal_route
-from algorithms.vehicle import format_duration
 
 
 class ControlPanel(ctk.CTkScrollableFrame):
@@ -13,7 +11,7 @@ class ControlPanel(ctk.CTkScrollableFrame):
 
         super().__init__(
             parent,
-            width=380
+            corner_radius=20
         )
 
         self.command = command
@@ -26,11 +24,22 @@ class ControlPanel(ctk.CTkScrollableFrame):
         title = ctk.CTkLabel(
             self,
             text="🚦 Route Request",
-            font=("Arial", 22, "bold")
+            font=("Arial", 24, "bold")
         )
 
         title.pack(
-            pady=20
+            pady=(20, 15)
+        )
+
+
+        subtitle = ctk.CTkLabel(
+            self,
+            text="Enter your travel information",
+            font=("Arial", 14)
+        )
+
+        subtitle.pack(
+            pady=(0, 15)
         )
 
 
@@ -38,98 +47,221 @@ class ControlPanel(ctk.CTkScrollableFrame):
         # Vehicle
         # =========================
 
-        self.vehicle = VehicleInput(self)
+        vehicle_frame = ctk.CTkFrame(
+            self,
+            corner_radius=15
+        )
 
-        self.vehicle.pack(
+        vehicle_frame.pack(
             fill="x",
             padx=20,
             pady=10
         )
 
 
+        vehicle_label = ctk.CTkLabel(
+            vehicle_frame,
+            text="🚗 Vehicle Type",
+            font=("Arial", 15, "bold")
+        )
+
+        vehicle_label.pack(
+            anchor="w",
+            padx=15,
+            pady=(10, 5)
+        )
+
+
+        self.vehicle = VehicleInput(
+            vehicle_frame,
+            title=""
+        )
+
+        self.vehicle.pack(
+            fill="x",
+            padx=15,
+            pady=(0, 10)
+        )
+
+
+
         # =========================
-        # Start Point
+        # Location
         # =========================
 
-        self.start = LocationInput(
+        location_frame = ctk.CTkFrame(
             self,
-            "📍 Start Point",
+            corner_radius=15
+        )
+
+        location_frame.pack(
+            fill="x",
+            padx=20,
+            pady=10
+        )
+
+
+        start_label = ctk.CTkLabel(
+            location_frame,
+            text="📍 Starting Point",
+            font=("Arial", 15, "bold")
+        )
+
+        start_label.pack(
+            anchor="w",
+            padx=15,
+            pady=(10,5)
+        )
+
+
+        self.start = LocationInput(
+            location_frame,
+            "",
             "Search Starting Point"
         )
 
         self.start.pack(
             fill="x",
-            padx=20,
-            pady=10
+            padx=15,
+            pady=(0,10)
         )
 
 
-        # =========================
-        # Destination
-        # =========================
+        destination_label = ctk.CTkLabel(
+            location_frame,
+            text="🎯 Destination",
+            font=("Arial",15,"bold")
+        )
+
+        destination_label.pack(
+            anchor="w",
+            padx=15,
+            pady=(0,5)
+        )
+
 
         self.destination = LocationInput(
-            self,
-            "🎯 Destination",
+            location_frame,
+            "",
             "Search Destination Point"
         )
 
         self.destination.pack(
             fill="x",
-            padx=20,
-            pady=10
+            padx=15,
+            pady=(0,15)
         )
 
 
+
         # =========================
-        # Button
+        # Buttons
         # =========================
 
-        button = ctk.CTkButton(
+        button_row = ctk.CTkFrame(
             self,
-            text="Find Optimal Route",
+            fg_color="transparent"
+        )
+
+        button_row.pack(
+            fill="x",
+            padx=30,
+            pady=20
+        )
+
+
+        button_row.grid_columnconfigure(
+            0,
+            weight=4
+        )
+
+        button_row.grid_columnconfigure(
+            1,
+            weight=1
+        )
+
+
+        self.button = ctk.CTkButton(
+            button_row,
+            text="🔍 Find Optimal Route",
             command=self.send_request,
-            width=300,
             height=45,
-            font=("Arial", 15, "bold")
+            font=("Arial",16,"bold")
         )
 
-        button.pack(
-            pady=15
+        self.button.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=(0,8)
         )
+
+
+
+        self.reset_button = ctk.CTkButton(
+            button_row,
+            text="🔄 Reset",
+            command=self.reset_all,
+            height=45,
+            font=("Arial",16,"bold"),
+            fg_color="gray40",
+            hover_color="gray30"
+        )
+
+        self.reset_button.grid(
+            row=0,
+            column=1,
+            sticky="ew"
+        )
+
 
 
         # =========================
-        # Result Display
+        # Status
         # =========================
 
-        result_title = ctk.CTkLabel(
+        self.status = ctk.CTkLabel(
             self,
-            text="Route Result",
-            font=("Arial", 16, "bold")
+            text="Ready",
+            font=("Arial",14)
         )
 
-        result_title.pack(
-            pady=5
-        )
-
-
-        self.output_box = ctk.CTkTextbox(
-            self,
-            width=330,
-            height=200,
-            font=("Consolas", 13)
-        )
-
-        self.output_box.pack(
-            padx=20,
+        self.status.pack(
             pady=10
         )
 
 
 
     # =========================
-    # Send Route Request
+    # Reset
+    # =========================
+
+    def reset_all(self):
+
+        self.vehicle.reset()
+
+        self.start.reset()
+
+        self.destination.reset()
+
+
+        self.status.configure(
+            text="Ready"
+        )
+
+
+        # notify dashboard/main.py
+
+        self.command(
+            {
+                "reset": True
+            }
+        )
+
+
+
+    # =========================
+    # Find Route
     # =========================
 
     def send_request(self):
@@ -137,121 +269,50 @@ class ControlPanel(ctk.CTkScrollableFrame):
         try:
 
             vehicle = self.vehicle.get_value()
+
             start = self.start.get_value()
+
             destination = self.destination.get_value()
+
 
 
             if not start or not destination:
 
-                self.show_result(
-                    "Please select a valid start and destination "
-                    "from the dropdown list."
+                self.status.configure(
+                    text="⚠️ Please select locations"
                 )
 
                 return
 
 
-            result = find_optimal_route(
-                vehicle,
-                start,
-                destination
+
+            self.status.configure(
+                text="🔍 Searching optimal route..."
             )
 
 
-            print("Route result:", result)
+            request = {
+
+                "vehicle": vehicle,
+
+                "start": start,
+
+                "destination": destination
+
+            }
 
 
-            # Display inside GUI
-            self.show_result(result)
+            self.command(
+                request
+            )
 
-
-            # Send to main window if needed
-            self.command(result)
-
-
-        except ValueError as e:
-
-            # Known, expected failure (e.g. no route exists)
-            self.show_result(str(e))
 
 
         except Exception:
 
             traceback.print_exc()
 
-            self.show_result(
-                "Something went wrong while finding the route. "
-                "Please try again."
+
+            self.status.configure(
+                text="❌ Error occurred"
             )
-
-
-
-    # =========================
-    # Display Result
-    # =========================
-    def show_result(self, result):
-
-        self.output_box.delete(
-            "1.0",
-            "end"
-        )
-
-
-        if isinstance(result, dict):
-
-            route = result.get("route") or []
-            route_text = " → ".join(route) if route else "—"
-
-
-            distance = result.get("distance")
-
-            distance_text = (
-                f"{distance:.1f} km"
-                if distance is not None
-                else "—"
-            )
-
-
-            time_text = (
-                format_duration(result.get("time"))
-                if result.get("time") is not None
-                else "—"
-            )
-
-
-            traffic = result.get("traffic", "Unknown")
-
-
-            text = f"""✅ Optimal Route Found
-
-
-🚗 Vehicle
-   {result.get("vehicle")}
-
-
-🚦 Traffic Condition
-   {traffic}
-
-
-🛣️ Route
-   {route_text}
-
-
-📏 Distance
-   {distance_text}
-
-
-⏱️ Estimated Time
-   {time_text}
-"""
-
-
-        else:
-
-            text = f"⚠️ {result}"
-
-
-        self.output_box.insert(
-            "end",
-            text
-        )

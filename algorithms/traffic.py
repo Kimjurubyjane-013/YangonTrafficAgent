@@ -1,44 +1,49 @@
-from datetime import datetime
+# algorithms/traffic.py
 
-# Traffic multipliers
+
 TRAFFIC_MULTIPLIER = {
+
     "Light": 1.0,
-    "Moderate": 1.3,
-    "Heavy": 1.7,
+
+    "Moderate": 1.2,
+
+    "Heavy": 1.5
+
 }
 
 
-def get_current_traffic():
-    """
-    Simulate Yangon traffic based on the current time.
-    """
-
-    hour = datetime.now().hour
-
-    # Morning rush hour
-    if 7 <= hour < 9:
-        return "Heavy"
-
-    # Working hours
-    elif 9 <= hour < 17:
-        return "Moderate"
-
-    # Evening rush hour
-    elif 17 <= hour < 19:
-        return "Heavy"
-
-    # Night
-    return "Light"
-
 
 def get_route_traffic(route):
+
     """
-    Currently every road uses the same traffic level
-    according to the current time.
-    Later we can make each road different.
+    Simulate traffic condition.
+
+    Later this can be replaced
+    with real traffic API data.
     """
-    return get_current_traffic()
+
+    route_length = len(route)
 
 
-def get_multiplier(level):
-    return TRAFFIC_MULTIPLIER[level]
+    if route_length <= 2:
+
+        return "Light"
+
+
+    elif route_length <= 4:
+
+        return "Moderate"
+
+
+    else:
+
+        return "Heavy"
+
+
+
+def get_multiplier(traffic):
+
+    return TRAFFIC_MULTIPLIER.get(
+        traffic,
+        1.0
+    )

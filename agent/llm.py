@@ -1,17 +1,10 @@
 import requests
 
-
 BASE_URL = "http://localhost:1234/v1"
 
 
 def get_loaded_model():
-    """
-    Ask LM Studio which model is currently loaded, so we don't
-    have to hardcode a model name that may not match.
-
-    Returns the model id string, or None if no model is loaded
-    or the server can't be reached.
-    """
+    """Return the first loaded model ID from LM Studio."""
 
     try:
         response = requests.get(
@@ -19,9 +12,11 @@ def get_loaded_model():
             timeout=5
         )
 
-        result = response.json()
+        response.raise_for_status()
 
-        models = result.get("data", [])
+        data = response.json()
+
+        models = data.get("data", [])
 
         if not models:
             return None
@@ -31,6 +26,9 @@ def get_loaded_model():
     except requests.exceptions.RequestException:
         return None
 
+    except ValueError:
+        return None
+
 
 def ask_llm(prompt):
 
@@ -38,51 +36,70 @@ def ask_llm(prompt):
 
     if model is None:
         return (
-            "AI Error: Could not reach LM Studio, or no model is "
-            "currently loaded. Make sure the Local Server is "
-            "running and a model is loaded in LM Studio."
+            "AI Error: No model is loaded in LM Studio.\n"
+            "Open LM Studio, load a model, and start the Local API Server."
         )
 
-    data = {
+    payload = {
         "model": model,
         "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are an AI traffic assistant for Yangon. "
+                    "Give short, practical recommendations."
+                )
+            },
             {
                 "role": "user",
                 "content": prompt
             }
         ],
-        "temperature": 0.7
+        "temperature": 0.5,
+        "max_tokens": 200
     }
 
     try:
+
         response = requests.post(
             f"{BASE_URL}/chat/completions",
-            json=data,
+            json=payload,
             timeout=60
         )
 
-        result = response.json()
+        # Show HTTP errors directly
+        if response.status_code != 200:
+            return (
+                f"HTTP {response.status_code}\n"
+                f"{response.text}"
+            )
+
+        data = response.json()
 
     except requests.exceptions.RequestException as e:
-        return f"AI Error: Could not reach LM Studio ({e})"
+        return f"Connection Error: {e}"
 
-    print(result)   # temporary debugging
+    except ValueError:
+        return "AI Error: Invalid JSON received from LM Studio."
 
-    if "choices" in result:
-        return result["choices"][0]["message"]["content"]
+    # Normal OpenAI-compatible response
+    if "choices" in data and len(data["choices"]) > 0:
 
-    elif "error" in result:
+        message = data["choices"][0].get("message", {})
 
-        error = result["error"]
+        content = message.get("content")
 
-        # LM Studio / OpenAI-style servers may return the error
-        # as a plain string OR as a dict like {"message": "..."}
+        if content:
+            return content.strip()
+
+    # Error response
+    if "error" in data:
+
+        error = data["error"]
+
         if isinstance(error, dict):
-            error_text = error.get("message", str(error))
-        else:
-            error_text = str(error)
+            return "AI Error: " + error.get("message", str(error))
 
-        return "AI Error: " + error_text
+        return "AI Error: " + str(error)
 
-    else:
-        return "Unexpected AI response"
+    return "AI Error: Unexpected response:\n" + str(data)
