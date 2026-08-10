@@ -1,162 +1,43 @@
-# algorithms/vehicle.py
-
-
-# Average speed (km/h)
 VEHICLE_SPEED = {
-
     "Car": 40,
-
-    "Taxi": 40,
-
     "Bus": 25,
-
-    "Motorcycle": 45,
-
+    "Taxi": 35,
     "Ambulance": 60,
-
-    "Fire Truck": 55,
-
-    "Police": 60,
-
+    "Fire Truck": 50,
+    "Police": 55,
+    "Motorcycle": 45,
     "Bicycle": 15,
-
     "Walking": 5
 }
 
 
+def calculate_time(distance, vehicle, traffic_multiplier=1.0):
 
-def get_vehicle_speed(vehicle):
+    speed = VEHICLE_SPEED.get(vehicle, 40)
 
-    """
-    Get average speed of selected vehicle.
+    time_in_hours = distance / speed
 
-    Returns:
-        speed in km/h
-    """
+    time_in_minutes = time_in_hours * 60 * traffic_multiplier
 
-    return VEHICLE_SPEED.get(
-        vehicle,
-        30
-    )
+    return round(time_in_minutes, 1)
 
 
+def format_duration(time_in_minutes):
 
-def calculate_time(
-        distance,
-        vehicle,
-        multiplier=1.0
-):
+    total_seconds = round(time_in_minutes * 60)
 
-    """
-    Calculate estimated travel time.
-
-    Args:
-        distance:
-            distance in km
-
-        vehicle:
-            vehicle type
-
-        multiplier:
-            traffic effect
-
-            Example:
-            Light traffic = 1.0
-            Medium traffic = 1.2
-            Heavy traffic = 1.5
-
-
-    Returns:
-        travel time in minutes
-    """
-
-
-    if distance <= 0:
-
-        return 0
-
-
-
-    speed = get_vehicle_speed(
-        vehicle
-    )
-
-
-    minutes = (
-        distance / speed
-    ) * 60
-
-
-    minutes *= multiplier
-
-
-    return round(
-        minutes,
-        1
-    )
-
-
-
-def format_duration(minutes):
-
-    """
-    Convert minutes into human readable format.
-
-    Example:
-
-    7.5  -> 8 min
-
-    65   -> 1 hr 5 min
-
-    """
-
-
-    if minutes is None:
-
-        return "Unknown"
-
-
-
-    minutes = float(minutes)
-
-
-
-    if minutes < 1:
-
-        seconds = int(
-            minutes * 60
-        )
-
-        return f"{seconds} sec"
-
-
-
-    total_minutes = round(
-        minutes
-    )
-
-
-    hours = total_minutes // 60
-
-    remaining = total_minutes % 60
-
-
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
 
     if hours > 0:
+        if minutes > 0:
+            return f"{hours} hr {minutes} min"
+        return f"{hours} hr"
 
-        if remaining > 0:
+    if minutes > 0:
+        if seconds > 0:
+            return f"{minutes} min {seconds} sec"
+        return f"{minutes} min"
 
-            return (
-                f"{hours} hr "
-                f"{remaining} min"
-            )
-
-        else:
-
-            return (
-                f"{hours} hr"
-            )
-
-
-
-    return f"{remaining} min"
+    return f"{seconds} sec"

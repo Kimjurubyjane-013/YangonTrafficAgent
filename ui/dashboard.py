@@ -8,15 +8,18 @@ from ui.result_panel import ResultPanel
 from agent.traffic_agent import run_traffic_agent
 
 
+
 class Dashboard(ctk.CTk):
 
     def __init__(self):
 
         super().__init__()
 
+
         self.title(
             "Yangon Traffic Agent"
         )
+
 
         self.geometry(
             "1400x850"
@@ -24,7 +27,7 @@ class Dashboard(ctk.CTk):
 
 
         # =========================
-        # Main Background
+        # Window Layout
         # =========================
 
         self.grid_rowconfigure(
@@ -44,7 +47,7 @@ class Dashboard(ctk.CTk):
 
 
         # =========================
-        # Main Content
+        # Main Frame
         # =========================
 
         self.main_frame = ctk.CTkFrame(
@@ -61,8 +64,6 @@ class Dashboard(ctk.CTk):
         )
 
 
-        # Column sizes
-
         self.main_frame.grid_columnconfigure(
             0,
             weight=1
@@ -78,15 +79,15 @@ class Dashboard(ctk.CTk):
             weight=1
         )
 
-
         self.main_frame.grid_rowconfigure(
             0,
             weight=1
         )
 
 
+
         # =========================
-        # Left - Input
+        # Left Panel
         # =========================
 
         self.control_panel = ControlPanel(
@@ -103,8 +104,9 @@ class Dashboard(ctk.CTk):
         )
 
 
+
         # =========================
-        # Center - Map
+        # Map Panel
         # =========================
 
         self.map_panel = MapPanel(
@@ -120,8 +122,9 @@ class Dashboard(ctk.CTk):
         )
 
 
+
         # =========================
-        # Right - Result
+        # Result Panel
         # =========================
 
         self.result_panel = ResultPanel(
@@ -137,8 +140,9 @@ class Dashboard(ctk.CTk):
         )
 
 
+
         # =========================
-        # Bottom - AI
+        # AI Panel
         # =========================
 
         self.ai_panel = AIRecommendation(
@@ -148,55 +152,95 @@ class Dashboard(ctk.CTk):
         self.ai_panel.grid(
             row=1,
             column=0,
-            columnspan=1,
+            columnspan=3,
             padx=20,
-            pady=(0,15),
+            pady=(0,20),
             sticky="ew"
         )
 
 
 
+    # ==================================
+    # Route Processing
+    # ==================================
+
     def find_route(self, request):
 
-        """
-        Receive request from ControlPanel
 
-        request:
-        {
-            vehicle,
-            start,
-            destination
-        }
-        """
+        # =========================
+        # Reset
+        # =========================
 
-        if "error" in request:
+        if request.get("reset"):
+
+
+            self.map_panel.update_route(
+                []
+            )
+
+
+            self.result_panel.reset()
+
+
 
             self.ai_panel.update_text(
-                request["error"]
+                """
+🤖 AI Traffic Assistant Ready
+
+Waiting for route analysis...
+"""
             )
+
+
+            self.control_panel.update_status(
+                "🔄 Reset complete"
+            )
+
 
             return
 
 
-        vehicle = request["vehicle"]
-        start = request["start"]
-        destination = request["destination"]
+
+
+        vehicle = request.get(
+            "vehicle",
+            "Car"
+        )
+
+
+        start = request.get(
+            "start"
+        )
+
+
+        destination = request.get(
+            "destination"
+        )
+
 
 
         self.ai_panel.update_text(
-            "🔍 Finding optimal route..."
+            "🔍 Analyzing route..."
         )
+
 
 
         try:
 
+
             result = run_traffic_agent(
+
                 start,
+
                 destination,
+
                 vehicle
+
             )
 
+
         except Exception as e:
+
 
             self.ai_panel.update_text(
                 f"❌ Error: {e}"
@@ -205,7 +249,10 @@ class Dashboard(ctk.CTk):
             return
 
 
+
+
         if result.get("error"):
+
 
             self.ai_panel.update_text(
                 result["error"]
@@ -214,41 +261,65 @@ class Dashboard(ctk.CTk):
             return
 
 
+
+
         route = result["route"]
-        distance = result["distance"]
-        time = result["time"]
-        traffic = result.get("traffic", "Unknown")
 
 
-        # Update Map
 
-        self.map_panel.show_route(
-            route
+        # Map
+
+        self.map_panel.update_route(
+            route,
+            vehicle
         )
 
 
-        # Update Route Result
+
+        # Result panel
 
         self.result_panel.update_result(
+
             route,
-            distance,
-            time,
-            traffic
+
+            result["distance"],
+
+            result["time"],
+
+            result["traffic"],
+
+            vehicle
+
         )
 
 
-        # Update AI
+
+        # AI
 
         self.ai_panel.update_text(
+
             result.get(
+
                 "ai_message",
+
                 "No recommendation"
+
             )
+
+        )
+
+
+
+        # Update status
+
+        self.control_panel.update_status(
+            "✅ Route found"
         )
 
 
 
 if __name__ == "__main__":
+
 
     app = Dashboard()
 

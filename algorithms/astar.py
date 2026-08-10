@@ -6,11 +6,6 @@ EARTH_RADIUS_KM = 6371.0
 
 
 def haversine_distance(coord1, coord2):
-    """
-    Great-circle distance in kilometers between two
-    (latitude, longitude) points. Used as the A* heuristic,
-    matching the unit (km) of the graph's edge weights.
-    """
 
     lat1, lon1 = coord1
     lat2, lon2 = coord2
@@ -32,24 +27,13 @@ def haversine_distance(coord1, coord2):
 
 
 def astar(graph, coords, start, destination):
-    """
-    A* search over `graph` (adjacency dict of edge weights),
-    using straight-line haversine distance from `coords` as the
-    heuristic. Returns (path, distance), or (None, None) if no
-    path exists.
-    """
 
     open_set = [(0, start)]
 
-    g_score = {
-        node: float("inf")
-        for node in graph
-    }
-
+    g_score = {node: float("inf") for node in graph}
     g_score[start] = 0
 
     previous = {}
-
     visited = set()
 
     while open_set:
@@ -73,30 +57,19 @@ def astar(graph, coords, start, destination):
                 g_score[neighbor] = tentative_g
                 previous[neighbor] = current_node
 
-                heuristic = haversine_distance(
-                    coords[neighbor],
-                    coords[destination]
-                )
-
+                heuristic = haversine_distance(coords[neighbor], coords[destination])
                 f_score = tentative_g + heuristic
 
-                heapq.heappush(
-                    open_set,
-                    (f_score, neighbor)
-                )
+                heapq.heappush(open_set, (f_score, neighbor))
 
     if g_score[destination] == float("inf"):
-        # No path exists between start and destination
         return None, None
 
     path = []
-
     current = destination
 
     while current in previous:
-
         path.insert(0, current)
-
         current = previous[current]
 
     path.insert(0, start)

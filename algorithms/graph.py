@@ -1,5 +1,3 @@
-# algorithms/graph.py
-
 GRAPH = {
 
     "Hledan Junction": {
@@ -50,35 +48,16 @@ GRAPH = {
 
 # Latitude, Longitude
 LOCATION_COORDS = {
-
-    "Hledan Junction":
-        (16.8225, 96.1372),
-
-    "Junction Square":
-        (16.8175, 96.1436),
-
-    "Inya Lake":
-        (16.8235, 96.1602),
-
-    "Myanmar Plaza":
-        (16.8083, 96.1547),
-
-    "Yangon General Hospital":
-        (16.7961, 96.1483),
-
-    "Yangon Central Station":
-        (16.7834, 96.1425),
-
-    "Sule Pagoda":
-        (16.7742, 96.1592),
-
-    "Yangon Airport":
-        (16.9073, 96.1332),
+    "Hledan Junction": (16.8225, 96.1372),
+    "Junction Square": (16.8175, 96.1436),
+    "Inya Lake": (16.8235, 96.1602),
+    "Myanmar Plaza": (16.8083, 96.1547),
+    "Yangon General Hospital": (16.7961, 96.1483),
+    "Yangon Central Station": (16.7834, 96.1425),
+    "Sule Pagoda": (16.7742, 96.1592),
+    "Yangon Airport": (16.9073, 96.1332),
 }
 
 
 def get_locations():
-    """
-    Return available locations for UI dropdowns.
-    """
     return list(GRAPH.keys())

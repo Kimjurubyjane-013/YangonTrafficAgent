@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Yangon Traffic Map</title>
+
+
+<link 
+rel="stylesheet"
+href="https://unpkg.com/leaflet/dist/leaflet.css"
+/>
+
+
+<style>
+
+html,body{
+
+height:100%;
+margin:0;
+
+}
+
+
+#map{
+
+width:100%;
+height:100%;
+
+}
+
+</style>
+
+
+</head>
+
+
+<body>
+
+
+<div id="map"></div>
+
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+
+<script>
+
+
+// ===========================
+// Yangon Locations
+// ===========================
+
+
+const locations = {
+
+
+"Yangon Airport":
+[16.9073,96.1332],
+
+
+"Myanmar Plaza":
+[16.8123,96.1650],
+
+
+"Inya Lake":
+[16.8265,96.1365],
+
+
+"Junction Square":
+[16.8238,96.1348],
+
+
+"Hledan Junction":
+[16.8350,96.1320],
+
+
+"Yangon General Hospital":
+[16.7805,96.1425],
+
+
+"Yangon Central Station":
+[16.7820,96.1750],
+
+
+"Sule Pagoda":
+[16.7745,96.1585]
+
+};
+
+
+
+
+// ===========================
+// Create Map
+// ===========================
+
+
+let map = L.map('map').setView(
+[16.82,96.16],
+12
+);
+
+
+
+L.tileLayer(
+'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+{
+
+maxZoom:19
+
+}
+
+).addTo(map);
+
+
+
+
+// ===========================
+// Read Route Data
+// ===========================
+
+
+if(window.routeData){
+
+
+let route =
+window.routeData.route;
+
+
+
+let points=[];
+
+
+
+route.forEach(
+(place,index)=>{
+
+
+let coord =
+locations[place];
+
+
+if(coord){
+
+
+points.push(coord);
+
+
+
+let marker =
+L.marker(coord)
+.addTo(map);
+
+
+
+if(index===0){
+
+marker.bindPopup(
+"🟢 Start<br>"+place
+)
+.openPopup();
+
+
+}
+
+
+else if(index===route.length-1){
+
+
+marker.bindPopup(
+"🔴 Destination<br>"+place
+);
+
+
+}
+
+
+else{
+
+
+marker.bindPopup(
+"📍 "+place
+);
+
+
+}
+
+
+}
+
+
+
+});
+
+
+
+
+// Draw route
+
+
+if(points.length>1){
+
+
+let line =
+L.polyline(
+points,
+{
+
+color:"red",
+
+weight:6
+
+}
+
+).addTo(map);
+
+
+
+map.fitBounds(
+line.getBounds()
+);
+
+
+
+}
+
+
+
+
+// car marker
+
+
+if(points.length>0){
+
+
+let car =
+L.marker(
+points[0],
+{
+
+icon:L.divIcon({
+
+html:"🚗",
+
+className:"car",
+
+iconSize:[40,40]
+
+})
+
+}
+
+).addTo(map);
+
+
+
+}
+
+
+
+}
+
+
+
+</script>
+
+
+
+
+<script>
+
+window.routeData =
+{"route": ["Yangon Airport", "Myanmar Plaza", "Junction Square"], "vehicle": "Car"};
+
+</script>
+
+</body>
+
+</html>

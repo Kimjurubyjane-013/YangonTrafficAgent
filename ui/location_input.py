@@ -9,42 +9,24 @@ class LocationInput(ctk.CTkFrame):
         self.placeholder = placeholder
 
         self.locations = [
-            "Hledan Junction",
-            "Sule Pagoda",
-            "Yangon General Hospital",
-            "Junction Square",
-            "Inya Lake",
-            "Yangon Airport",
-            "Myanmar Plaza",
-            "Yangon Central Station"
+            "Hledan Junction", "Sule Pagoda", "Yangon General Hospital",
+            "Junction Square", "Inya Lake", "Yangon Airport",
+            "Myanmar Plaza", "Yangon Central Station"
         ]
 
         if title:
-            label = ctk.CTkLabel(
-                self,
-                text=title,
-                font=("Arial", 16, "bold")
-            )
+            label = ctk.CTkLabel(self, text=title, font=("Arial", 16, "bold"))
             label.pack(anchor="w", padx=10)
 
         self.location = ctk.CTkComboBox(
-            self,
-            values=self.locations,
-            width=300,
-            height=35,
+            self, values=self.locations, width=300, height=35,
             command=self.on_select
         )
 
         self.location.set(self.placeholder)
-
-        self.location.pack(
-            fill="x",
-            padx=10,
-            pady=5
-        )
+        self.location.pack(fill="x", padx=10, pady=5)
 
         self.entry = self.location._entry
-
         self.entry.bind("<FocusIn>", self.on_focus_in)
         self.entry.bind("<FocusOut>", self.on_focus_out)
 

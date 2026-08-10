@@ -1,0 +1,1 @@
+localStorage.setItem('route','["Sule Pagoda", "Myanmar Plaza", "Junction Square", "Hledan Junction"]')

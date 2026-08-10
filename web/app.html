@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Yangon Traffic Agent</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<style>
+    * { box-sizing: border-box; font-family: Arial, sans-serif; }
+    body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: #eee; }
+
+    .main { flex: 1; display: flex; gap: 15px; padding: 15px; min-height: 0; }
+
+    .panel { background: #e5e5e5; border-radius: 15px; padding: 15px; overflow-y: auto; }
+
+    .control { width: 320px; flex-shrink: 0; }
+    .map-area { flex: 1; display: flex; flex-direction: column; position: relative; }
+    .result { width: 300px; flex-shrink: 0; }
+
+    #map, #three-canvas { flex: 1; border-radius: 10px; margin-top: 10px; }
+    #three-canvas { display: none; position: relative; overflow: hidden; }
+
+    h2 { margin: 0 0 15px 0; }
+
+    label { display: block; font-weight: bold; margin: 12px 0 4px; }
+
+    select {
+        width: 100%; padding: 8px; border-radius: 6px;
+        border: 1px solid #ccc; font-size: 14px;
+    }
+
+    button {
+        width: 100%; padding: 12px; margin-top: 15px;
+        border: none; border-radius: 8px; font-weight: bold;
+        font-size: 15px; cursor: pointer; color: white;
+        -webkit-appearance: none;
+        appearance: none;
+        opacity: 1;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        transition: filter 0.15s ease, transform 0.1s ease;
+    }
+
+    button:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+    button:active:not(:disabled) { filter: brightness(0.92); transform: translateY(0); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; transform: none; }
+
+    .btn-find { background: #0B5394; }
+    .btn-reset { background: #0E7C86; }
+    .btn-sim { background: #00838F; }
+
+    .status { margin-top: 15px; font-style: italic; color: #444; }
+
+    .legend { margin-top: 10px; font-size: 13px; }
+    .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+
+    .ai-panel {
+        background: #e5e5e5; border-radius: 15px; margin: 0 15px 15px 15px;
+        padding: 15px; min-height: 100px;
+    }
+
+    .result p { margin: 8px 0; }
+
+    .car-icon { font-size: 24px; text-align: center; line-height: 30px; }
+
+    .sim-hud {
+        position: absolute; top: 10px; left: 10px;
+        background: rgba(0,0,0,0.6); color: white;
+        padding: 8px 12px; border-radius: 8px; font-size: 13px;
+        display: none; z-index: 10;
+    }
+</style>
+</head>
+<body>
+
+<div class="main">
+
+    <div class="panel control">
+        <h2>🚦 Route Request</h2>
+
+        <label>🚗 Vehicle Type</label>
+        <select id="vehicle" onchange="onVehicleChange()"></select>
+
+        <label>📍 Starting Point</label>
+        <select id="start"></select>
+
+        <label>🎯 Destination</label>
+        <select id="destination"></select>
+
+        <button class="btn-find" onclick="findRoute()">🔍 Find Optimal Route</button>
+        <button class="btn-reset" onclick="resetAll()">🔄 Reset</button>
+        <button class="btn-sim" id="sim-btn" onclick="openSimulation()" disabled>🚘 Vehicle Route Simulation</button>
+
+        <div class="status" id="status">Ready</div>
+
+        <div class="legend">
+            <span style="background:#2ecc71"></span> Light
+            <span style="background:#f39c12"></span> Moderate
+            <span style="background:#e74c3c"></span> Heavy
+        </div>
+    </div>
+
+    <div class="panel map-area">
+        <h2>🗺 Yangon Route Map</h2>
+        <div id="map"></div>
+        <div id="three-canvas">
+            <div class="sim-hud" id="sim-hud">Driving...</div>
+        </div>
+    </div>
+
+    <div class="panel result">
+        <h2>🛣 Route Result</h2>
+        <p id="r-route">Route: -</p>
+        <p id="r-distance">Distance: -</p>
+        <p id="r-time">Estimated Time: -</p>
+        <p id="r-traffic">Traffic: -</p>
+    </div>
+
+</div>
+
+<div class="ai-panel">
+    <h2>🤖 AI Traffic Assistant</h2>
+    <div id="ai-text" style="white-space: pre-wrap;">Waiting for route analysis...</div>
+</div>
+
+<script>
+    // ============================================
+    // Leaflet map (planning view)
+    // ============================================
+
+    let map, routeLayers = [], carMarker, animFrame;
+    let currentRouteCoords = null;
+    let currentRouteNames = null;
+    let currentSegmentTraffic = null;
+    let simRunning = false;
+
+    const LOCATION_COORDS = {
+        "Hledan Junction": [16.8225, 96.1372],
+        "Junction Square": [16.8175, 96.1436],
+        "Inya Lake": [16.8235, 96.1602],
+        "Myanmar Plaza": [16.8083, 96.1547],
+        "Yangon General Hospital": [16.7961, 96.1483],
+        "Yangon Central Station": [16.7834, 96.1425],
+        "Sule Pagoda": [16.7742, 96.1592],
+        "Yangon Airport": [16.9073, 96.1332]
+    };
+
+    const GRAPH_EDGES = [
+        ["Hledan Junction", "Junction Square"],
+        ["Hledan Junction", "Inya Lake"],
+        ["Junction Square", "Myanmar Plaza"],
+        ["Junction Square", "Yangon General Hospital"],
+        ["Inya Lake", "Myanmar Plaza"],
+        ["Inya Lake", "Yangon Airport"],
+        ["Myanmar Plaza", "Yangon Airport"],
+        ["Myanmar Plaza", "Sule Pagoda"],
+        ["Yangon General Hospital", "Yangon Central Station"],
+        ["Yangon Central Station", "Sule Pagoda"]
+    ];
+
+    const VEHICLE_SPEED = {
+        "Car": 40, "Bus": 25, "Taxi": 35,
+        "Ambulance": 60, "Fire Truck": 50, "Police": 55
+    };
+
+    const VEHICLE_ICONS = {
+        "Car": "🚗", "Bus": "🚌", "Taxi": "🚕",
+        "Ambulance": "🚑", "Fire Truck": "🚒", "Police": "🚓"
+    };
+
+    const VEHICLE_COLOR_3D = {
+        "Car": 0x2E86DE, "Bus": 0xf1c40f, "Taxi": 0xf39c12,
+        "Ambulance": 0xffffff, "Fire Truck": 0xe74c3c, "Police": 0x1a1a2e
+    };
+
+    const TRAFFIC_COLOR = { "Light": "#2ecc71", "Moderate": "#f39c12", "Heavy": "#e74c3c" };
+    const TRAFFIC_COLOR_3D = { "Light": 0x2ecc71, "Moderate": 0xf39c12, "Heavy": 0xe74c3c };
+    const TRAFFIC_MULTIPLIER = { "Light": 1.0, "Moderate": 1.4, "Heavy": 1.9 };
+
+    function getVehicleIcon(vehicle) {
+        return L.divIcon({ html: VEHICLE_ICONS[vehicle] || "🚗", className: 'car-icon', iconSize: [30, 30] });
+    }
+
+    function formatDuration(minutes) {
+        const totalSeconds = Math.round(minutes * 60);
+        const hours = Math.floor(totalSeconds / 3600);
+        const mins = Math.floor((totalSeconds % 3600) / 60);
+        const secs = totalSeconds % 60;
+        if (hours > 0) return mins > 0 ? `${hours} hr ${mins} min` : `${hours} hr`;
+        if (mins > 0) return secs > 0 ? `${mins} min ${secs} sec` : `${mins} min`;
+        return `${secs} sec`;
+    }
+
+    function initMap() {
+        map = L.map('map').setView([16.8409, 96.1735], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+        }).addTo(map);
+    }
+
+    function clearMap() {
+        routeLayers.forEach(l => map.removeLayer(l));
+        routeLayers = [];
+        if (carMarker) { map.removeLayer(carMarker); carMarker = null; }
+        if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+        simRunning = false;
+    }
+
+    function onVehicleChange() {
+        if (carMarker) {
+            const vehicle = document.getElementById('vehicle').value;
+            carMarker.setIcon(getVehicleIcon(vehicle));
+        }
+    }
+
+    function generateSegmentTraffic(segmentCount, overallTraffic) {
+        const weights = {
+            "Light":    { Light: 0.7, Moderate: 0.25, Heavy: 0.05 },
+            "Moderate": { Light: 0.25, Moderate: 0.55, Heavy: 0.2 },
+            "Heavy":    { Light: 0.05, Moderate: 0.3, Heavy: 0.65 }
+        }[overallTraffic] || { Light: 0.34, Moderate: 0.33, Heavy: 0.33 };
+
+        const levels = [];
+        for (let i = 0; i < segmentCount; i++) {
+            const r = Math.random();
+            if (r < weights.Light) levels.push("Light");
+            else if (r < weights.Light + weights.Moderate) levels.push("Moderate");
+            else levels.push("Heavy");
+        }
+        return levels;
+    }
+
+    // Fetches real road-following geometry for a single leg from
+    // OSRM's public routing API. Falls back to a straight line
+    // between the two points if the request fails.
+    async function fetchRoadRoute(coords) {
+
+        const coordStr = coords.map(c => `${c[1]},${c[0]}`).join(';');
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`;
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+            }
+        } catch (e) {
+            console.warn('Road routing failed, falling back to straight line:', e);
+        }
+
+        return coords;
+    }
+
+    async function drawStaticPreview(routeNames, vehicle) {
+        clearMap();
+        const coords = routeNames.map(name => LOCATION_COORDS[name]);
+        currentRouteCoords = coords;
+        currentRouteNames = routeNames;
+
+        coords.forEach((c, i) => {
+            const m = L.circleMarker(c, { radius: 6, color: 'green' })
+                .bindTooltip(routeNames[i], { permanent: false })
+                .addTo(map);
+            routeLayers.push(m);
+        });
+
+        document.getElementById('status').innerText = '🛣️ Fetching real road route...';
+
+        // Fetch each leg separately so each real-road stretch can
+        // be colored by its own traffic level and inspected via
+        // popup, instead of one flat line for the whole trip.
+        for (let i = 0; i < coords.length - 1; i++) {
+
+            const legCoords = await fetchRoadRoute([coords[i], coords[i + 1]]);
+            const traffic = currentSegmentTraffic[i];
+
+            const legLine = L.polyline(legCoords, {
+                color: TRAFFIC_COLOR[traffic] || '#2E86DE',
+                weight: 6,
+                opacity: 0.85
+            }).addTo(map);
+
+            legLine.bindPopup(
+                `<b>${routeNames[i]} → ${routeNames[i + 1]}</b><br>` +
+                `Traffic: ${traffic}<br>` +
+                `Vehicle: ${vehicle}`
+            );
+
+            routeLayers.push(legLine);
+        }
+
+        const bounds = L.latLngBounds(coords);
+        map.fitBounds(bounds, { padding: [40, 40] });
+
+        carMarker = L.marker(coords[0], { icon: getVehicleIcon(vehicle) }).addTo(map);
+
+        document.getElementById('status').innerText = '✅ Route planned - press Simulation to drive it';
+    }
+
+    // ============================================
+    // Three.js 3D town view
+    // ============================================
+
+    let renderer3D, scene3D, camera3D, carGroup3D;
+    let townBuilt = false;
+    let locationPositions3D = {};
+
+    const WORLD_SCALE = 0.02;
+    const REF_LAT = 16.8409;
+    const REF_LON = 96.1735;
+    const EARTH_R = 6371000;
+
+    function projectLatLon(lat, lon) {
+        const latRad = lat * Math.PI / 180;
+        const lonRad = lon * Math.PI / 180;
+        const refLatRad = REF_LAT * Math.PI / 180;
+        const refLonRad = REF_LON * Math.PI / 180;
+
+        const x = (lonRad - refLonRad) * Math.cos(refLatRad) * EARTH_R * WORLD_SCALE;
+        const z = -(latRad - refLatRad) * EARTH_R * WORLD_SCALE;
+
+        return { x, z };
+    }
+
+    function init3D() {
+        if (townBuilt) return;
+
+        const container = document.getElementById('three-canvas');
+
+        scene3D = new THREE.Scene();
+        scene3D.background = new THREE.Color(0x87CEEB);
+        scene3D.fog = new THREE.Fog(0x87CEEB, 100, 500);
+
+        camera3D = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight || 1, 0.1, 2000);
+
+        renderer3D = new THREE.WebGLRenderer({ antialias: true });
+        renderer3D.setSize(container.clientWidth || 600, container.clientHeight || 400);
+        container.insertBefore(renderer3D.domElement, container.firstChild);
+
+        scene3D.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+        const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+        sun.position.set(60, 100, 40);
+        scene3D.add(sun);
+
+        const groundGeo = new THREE.PlaneGeometry(3000, 3000);
+        const groundMat = new THREE.MeshLambertMaterial({ color: 0x4a7a3c });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.5;
+        scene3D.add(ground);
+
+        buildTown();
+
+        carGroup3D = buildCarMesh();
+        scene3D.add(carGroup3D);
+
+        townBuilt = true;
+        window.addEventListener('resize', onResize3D);
+    }
+
+    function onResize3D() {
+        const container = document.getElementById('three-canvas');
+        if (!renderer3D || container.style.display === 'none') return;
+        const w = container.clientWidth || 600;
+        const h = container.clientHeight || 400;
+        camera3D.aspect = w / h;
+        camera3D.updateProjectionMatrix();
+        renderer3D.setSize(w, h);
+    }
+
+    function makeLabelSprite(text) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.fillRect(0, 0, 256, 64);
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 22px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(text, 128, 40);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const mat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(16, 4, 1);
+        return sprite;
+    }
+
+    function buildTown() {
+
+        for (const name in LOCATION_COORDS) {
+            const [lat, lon] = LOCATION_COORDS[name];
+            locationPositions3D[name] = projectLatLon(lat, lon);
+        }
+
+        GRAPH_EDGES.forEach(([a, b]) => {
+            const pa = locationPositions3D[a];
+            const pb = locationPositions3D[b];
+
+            const dx = pb.x - pa.x;
+            const dz = pb.z - pa.z;
+            const length = Math.sqrt(dx * dx + dz * dz);
+            const angle = Math.atan2(dx, dz);
+
+            const roadMat = new THREE.MeshLambertMaterial({ color: 0x999999 });
+            const road = new THREE.Mesh(new THREE.PlaneGeometry(5, length), roadMat);
+            road.rotation.x = -Math.PI / 2;
+            road.rotation.z = -angle;
+            road.position.set((pa.x + pb.x) / 2, 0, (pa.z + pb.z) / 2);
+            scene3D.add(road);
+        });
+
+        for (const name in locationPositions3D) {
+            const p = locationPositions3D[name];
+
+            const marker = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.5, 1.5, 0.4, 16),
+                new THREE.MeshLambertMaterial({ color: 0x2E86DE })
+            );
+            marker.position.set(p.x, 0.2, p.z);
+            scene3D.add(marker);
+
+            const label = makeLabelSprite(name);
+            label.position.set(p.x, 6, p.z);
+            scene3D.add(label);
+        }
+
+        const buildingMats = [0xc0392b, 0x8e44ad, 0x2c3e50, 0xd35400, 0x27ae60].map(
+            c => new THREE.MeshLambertMaterial({ color: c })
+        );
+
+        const positions = Object.values(locationPositions3D);
+        const minX = Math.min(...positions.map(p => p.x)) - 60;
+        const maxX = Math.max(...positions.map(p => p.x)) + 60;
+        const minZ = Math.min(...positions.map(p => p.z)) - 60;
+        const maxZ = Math.max(...positions.map(p => p.z)) + 60;
+
+        let seed = 42;
+        function rand() {
+            seed = (seed * 9301 + 49297) % 233280;
+            return seed / 233280;
+        }
+
+        for (let i = 0; i < 90; i++) {
+            const x = minX + rand() * (maxX - minX);
+            const z = minZ + rand() * (maxZ - minZ);
+
+            const tooClose = positions.some(p => Math.hypot(p.x - x, p.z - z) < 12);
+            if (tooClose) continue;
+
+            const height = 3 + rand() * 12;
+            const mat = buildingMats[Math.floor(rand() * buildingMats.length)];
+            const building = new THREE.Mesh(new THREE.BoxGeometry(4 + rand() * 4, height, 4 + rand() * 4), mat);
+            building.position.set(x, height / 2, z);
+            scene3D.add(building);
+        }
+    }
+
+    function buildCarMesh(colorHex) {
+        const group = new THREE.Group();
+
+        const body = new THREE.Mesh(
+            new THREE.BoxGeometry(2, 0.8, 4),
+            new THREE.MeshLambertMaterial({ color: colorHex || 0x2E86DE })
+        );
+        body.position.y = 0.6;
+        group.add(body);
+
+        const cabin = new THREE.Mesh(
+            new THREE.BoxGeometry(1.6, 0.6, 2),
+            new THREE.MeshLambertMaterial({ color: 0x222222 })
+        );
+        cabin.position.set(0, 1.2, -0.3);
+        group.add(cabin);
+
+        const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16);
+        const wheelMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+
+        [[-1, 0.4, 1.3], [1, 0.4, 1.3], [-1, 0.4, -1.3], [1, 0.4, -1.3]].forEach(([x, y, z]) => {
+            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+            wheel.rotation.z = Math.PI / 2;
+            wheel.position.set(x, y, z);
+            group.add(wheel);
+        });
+
+        return group;
+    }
+
+    function setCarColor(colorHex) {
+        scene3D.remove(carGroup3D);
+        carGroup3D = buildCarMesh(colorHex);
+        scene3D.add(carGroup3D);
+    }
+
+    function highlightRoute(routeNames, segmentTraffic) {
+        for (let i = 0; i < routeNames.length - 1; i++) {
+            const pa = locationPositions3D[routeNames[i]];
+            const pb = locationPositions3D[routeNames[i + 1]];
+
+            const dx = pb.x - pa.x;
+            const dz = pb.z - pa.z;
+            const length = Math.sqrt(dx * dx + dz * dz);
+            const angle = Math.atan2(dx, dz);
+
+            const mat = new THREE.MeshLambertMaterial({
+                color: TRAFFIC_COLOR_3D[segmentTraffic[i]] || 0xf1c40f
+            });
+
+            const road = new THREE.Mesh(new THREE.PlaneGeometry(5.5, length), mat);
+            road.rotation.x = -Math.PI / 2;
+            road.rotation.z = -angle;
+            road.position.set((pa.x + pb.x) / 2, 0.02, (pa.z + pb.z) / 2);
+            road.userData.isRouteHighlight = true;
+            scene3D.add(road);
+        }
+    }
+
+    function clearRouteHighlight() {
+        const toRemove = scene3D.children.filter(c => c.userData && c.userData.isRouteHighlight);
+        toRemove.forEach(c => scene3D.remove(c));
+    }
+
+    function showMapView() {
+        document.getElementById('map').style.display = 'block';
+        document.getElementById('three-canvas').style.display = 'none';
+        document.getElementById('sim-hud').style.display = 'none';
+    }
+
+    function show3DView() {
+        document.getElementById('map').style.display = 'none';
+        document.getElementById('three-canvas').style.display = 'block';
+        document.getElementById('sim-hud').style.display = 'block';
+        init3D();
+        onResize3D();
+    }
+
+    async function animate3DDrive(routeNames, segmentTraffic, baseSpeed) {
+
+        clearRouteHighlight();
+        highlightRoute(routeNames, segmentTraffic);
+
+        const waypoints = routeNames.map(name => locationPositions3D[name]);
+
+        carGroup3D.position.set(waypoints[0].x, 0, waypoints[0].z);
+
+        simRunning = true;
+        document.getElementById('sim-btn').disabled = true;
+
+        const avgFactor = segmentTraffic.reduce((s, t) => s + (TRAFFIC_MULTIPLIER[t] || 1), 0) / segmentTraffic.length;
+        const effectiveSpeed = baseSpeed / avgFactor;
+        const totalDurationMs = 9000 * (40 / effectiveSpeed);
+
+        const segLengths = [];
+        let totalLen = 0;
+        for (let i = 0; i < waypoints.length - 1; i++) {
+            const d = Math.hypot(waypoints[i + 1].x - waypoints[i].x, waypoints[i + 1].z - waypoints[i].z);
+            segLengths.push(d);
+            totalLen += d;
+        }
+
+        const startTime = performance.now();
+
+        return new Promise(resolve => {
+
+            function frame(now) {
+
+                if (!simRunning) { resolve(); return; }
+
+                const fraction = Math.min((now - startTime) / totalDurationMs, 1);
+                const distAlong = fraction * totalLen;
+
+                let traveled = 0;
+                let px, pz, heading = 0;
+                let segIndex = 0;
+
+                for (let i = 0; i < segLengths.length; i++) {
+                    if (traveled + segLengths[i] >= distAlong || i === segLengths.length - 1) {
+                        const segFrac = segLengths[i] > 0 ? (distAlong - traveled) / segLengths[i] : 0;
+                        const a = waypoints[i], b = waypoints[i + 1];
+
+                        px = a.x + (b.x - a.x) * segFrac;
+                        pz = a.z + (b.z - a.z) * segFrac;
+                        heading = Math.atan2(b.x - a.x, b.z - a.z);
+                        segIndex = i;
+                        break;
+                    }
+                    traveled += segLengths[i];
+                }
+
+                carGroup3D.position.set(px, 0, pz);
+                carGroup3D.rotation.y = heading;
+
+                const camOffset = 12;
+                camera3D.position.set(
+                    px - Math.sin(heading) * camOffset,
+                    7,
+                    pz - Math.cos(heading) * camOffset
+                );
+                camera3D.lookAt(px, 1.5, pz);
+
+                document.getElementById('sim-hud').innerText =
+                    `Traffic: ${segmentTraffic[segIndex]} | ${Math.round(fraction * 100)}% complete`;
+
+                renderer3D.render(scene3D, camera3D);
+
+                if (fraction < 1) {
+                    animFrame = requestAnimationFrame(frame);
+                } else {
+                    resolve();
+                }
+            }
+
+            animFrame = requestAnimationFrame(frame);
+        });
+    }
+
+    // ============================================
+    // App logic
+    // ============================================
+
+    async function populateDropdowns() {
+        const locations = await pywebview.api.get_locations();
+        const vehicles = await pywebview.api.get_vehicles();
+
+        const startSel = document.getElementById('start');
+        const destSel = document.getElementById('destination');
+        const vehicleSel = document.getElementById('vehicle');
+
+        locations.forEach(loc => {
+            startSel.innerHTML += `<option value="${loc}">${loc}</option>`;
+            destSel.innerHTML += `<option value="${loc}">${loc}</option>`;
+        });
+
+        vehicles.forEach(v => {
+            const icon = VEHICLE_ICONS[v] || "";
+            vehicleSel.innerHTML += `<option value="${v}">${icon} ${v}</option>`;
+        });
+    }
+
+    async function findRoute() {
+        const vehicle = document.getElementById('vehicle').value;
+        const start = document.getElementById('start').value;
+        const destination = document.getElementById('destination').value;
+
+        if (start === destination) {
+            document.getElementById('status').innerText = '⚠️ Start and destination must differ';
+            return;
+        }
+
+        showMapView();
+        document.getElementById('status').innerText = '🔍 Searching optimal route...';
+
+        const result = await pywebview.api.find_route(vehicle, start, destination);
+
+        if (result.error) {
+            document.getElementById('status').innerText = '❌ ' + result.error;
+            document.getElementById('ai-text').innerText = result.error;
+            document.getElementById('sim-btn').disabled = true;
+            return;
+        }
+
+        document.getElementById('r-route').innerText = 'Route: ' + result.route.join(' → ');
+        document.getElementById('r-distance').innerText = 'Distance: ' + result.distance + ' km';
+        document.getElementById('r-time').innerText = 'Estimated Time: ' + formatDuration(result.time);
+        document.getElementById('r-traffic').innerText = 'Traffic: ' + result.traffic;
+        document.getElementById('ai-text').innerText = result.ai_message || 'No recommendation';
+
+        currentSegmentTraffic = generateSegmentTraffic(result.route.length - 1, result.traffic);
+
+        await drawStaticPreview(result.route, vehicle);
+
+        document.getElementById('sim-btn').disabled = false;
+    }
+
+    function resetAll() {
+        clearMap();
+        clearRouteHighlight();
+        showMapView();
+        currentRouteCoords = null;
+        currentRouteNames = null;
+        currentSegmentTraffic = null;
+
+        document.getElementById('r-route').innerText = 'Route: -';
+        document.getElementById('r-distance').innerText = 'Distance: -';
+        document.getElementById('r-time').innerText = 'Estimated Time: -';
+        document.getElementById('r-traffic').innerText = 'Traffic: -';
+        document.getElementById('ai-text').innerText = 'Waiting for route analysis...';
+        document.getElementById('status').innerText = 'Ready';
+        document.getElementById('sim-btn').disabled = true;
+    }
+
+    async function openSimulation() {
+
+        if (!currentRouteNames || !currentSegmentTraffic) {
+            document.getElementById('status').innerText = '⚠️ Find a route first';
+            return;
+        }
+
+        const vehicle = document.getElementById('vehicle').value;
+        const baseSpeed = VEHICLE_SPEED[vehicle] || 40;
+
+        document.getElementById('status').innerText = `🚗 Driving as ${vehicle}... (3D view)`;
+
+        show3DView();
+        setCarColor(VEHICLE_COLOR_3D[vehicle] || 0x2E86DE);
+
+        await animate3DDrive(currentRouteNames, currentSegmentTraffic, baseSpeed);
+
+        if (simRunning) {
+            document.getElementById('status').innerText = '✅ Arrived - back to map';
+            document.getElementById('ai-text').innerText = '✅ Arrived at destination.';
+        }
+
+        simRunning = false;
+        document.getElementById('sim-btn').disabled = false;
+
+        setTimeout(showMapView, 1500);
+    }
+
+    window.addEventListener('pywebviewready', () => {
+        initMap();
+        populateDropdowns();
+    });
+</script>
+
+</body>
+</html>
