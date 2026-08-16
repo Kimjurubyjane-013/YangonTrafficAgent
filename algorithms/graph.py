@@ -1,5 +1,4 @@
 GRAPH = {
-
     "Hledan Junction": {
         "Junction Square": 2,
         "Inya Lake": 3,
@@ -45,17 +44,15 @@ GRAPH = {
     }
 }
 
-
-# Latitude, Longitude
 LOCATION_COORDS = {
-    "Hledan Junction": (16.8225, 96.1372),
-    "Junction Square": (16.8175, 96.1436),
-    "Inya Lake": (16.8235, 96.1602),
-    "Myanmar Plaza": (16.8083, 96.1547),
-    "Yangon General Hospital": (16.7961, 96.1483),
-    "Yangon Central Station": (16.7834, 96.1425),
-    "Sule Pagoda": (16.7742, 96.1592),
-    "Yangon Airport": (16.9073, 96.1332),
+    "Hledan Junction": (16.8168, 96.1297),
+    "Junction Square": (16.8172, 96.1314),
+    "Inya Lake": (16.8368, 96.1452),
+    "Myanmar Plaza": (16.8282, 96.1550),
+    "Yangon General Hospital": (16.7789, 96.1481),
+    "Yangon Central Station": (16.7817, 96.1613),
+    "Sule Pagoda": (16.7744, 96.1588),
+    "Yangon Airport": (16.9072, 96.1331),
 }
 
 

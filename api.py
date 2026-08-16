@@ -1,5 +1,5 @@
 from agent.traffic_agent import run_traffic_agent
-from algorithms.graph import get_locations
+from algorithms.graph import get_locations, GRAPH, LOCATION_COORDS
 from algorithms.vehicle import VEHICLE_SPEED
 
 
@@ -13,6 +13,28 @@ class Api:
 
     def get_vehicles(self):
         return list(VEHICLE_SPEED.keys())[:6]
+
+    def get_graph_data(self):
+        """
+        Returns coordinates and edges so the frontend never
+        needs its own hardcoded copy that could drift out of
+        sync with the real graph.
+        """
+
+        edges = []
+        seen = set()
+
+        for a, neighbors in GRAPH.items():
+            for b in neighbors:
+                pair = tuple(sorted([a, b]))
+                if pair not in seen:
+                    seen.add(pair)
+                    edges.append([a, b])
+
+        return {
+            "coords": {name: list(coord) for name, coord in LOCATION_COORDS.items()},
+            "edges": edges
+        }
 
     def find_route(self, vehicle, start, destination):
 

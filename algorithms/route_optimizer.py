@@ -1,32 +1,19 @@
-from algorithms.graph import GRAPH, LOCATION_COORDS
-from algorithms.astar import astar
-from algorithms.traffic import get_route_traffic, get_multiplier
-from algorithms.vehicle import calculate_time
+from algorithms.route_finder import find_best_route
 
 
 def find_optimal_route(vehicle, start, destination):
 
-    path, distance = astar(
-        GRAPH,
-        LOCATION_COORDS,
-        start,
-        destination
-    )
+    result = find_best_route(vehicle, start, destination)
 
-    if path is None:
+    if result is None:
         raise ValueError(
             f"No route found between {start} and {destination}."
         )
 
-    traffic = get_route_traffic(path)
-    multiplier = get_multiplier(traffic)
+    best, alternatives = result
 
-    time = calculate_time(distance, vehicle, multiplier)
+    best = dict(best)
+    best["vehicle"] = vehicle
+    best["alternatives"] = alternatives
 
-    return {
-        "vehicle": vehicle,
-        "route": path,
-        "distance": distance,
-        "time": time,
-        "traffic": traffic
-    }
+    return best

@@ -3,27 +3,40 @@
 <head>
 <meta charset="utf-8" />
 <title>Yangon Traffic Agent</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="vendor/leaflet.js"></script>
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 <style>
     * { box-sizing: border-box; font-family: Arial, sans-serif; }
-    body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: #eee; }
+    body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: #eef1f4; }
 
     .main { flex: 1; display: flex; gap: 15px; padding: 15px; min-height: 0; }
 
-    .panel { background: #e5e5e5; border-radius: 15px; padding: 15px; overflow-y: auto; }
+    .panel {
+        background: #ffffff; border-radius: 14px; padding: 16px;
+        overflow-y: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
 
     .control { width: 320px; flex-shrink: 0; }
     .map-area { flex: 1; display: flex; flex-direction: column; position: relative; }
-    .result { width: 300px; flex-shrink: 0; }
+    .result { width: 320px; flex-shrink: 0; }
 
-    #map, #three-canvas { flex: 1; border-radius: 10px; margin-top: 10px; }
-    #three-canvas { display: none; position: relative; overflow: hidden; }
+    #map, #three-canvas {
+        flex: 1; border-radius: 12px; margin-top: 10px;
+        border: 1px solid #dfe3e8; overflow: hidden;
+    }
+    #three-canvas { display: none; position: relative; border-color: #2a2a2a; }
 
-    h2 { margin: 0 0 15px 0; }
+    #map-error {
+        display: none; align-items: center; justify-content: center;
+        flex: 1; margin-top: 10px; border-radius: 12px;
+        border: 1px dashed #e74c3c; background: #fff5f5;
+        color: #c0392b; font-size: 14px; text-align: center; padding: 20px;
+    }
 
-    label { display: block; font-weight: bold; margin: 12px 0 4px; }
+    h2 { margin: 0 0 15px 0; color: #1a2b3c; }
+    h3 { margin: 15px 0 8px 0; font-size: 15px; color: #1a2b3c; }
+
+    label { display: block; font-weight: bold; margin: 12px 0 4px; color: #2c3e50; }
 
     select {
         width: 100%; padding: 8px; border-radius: 6px;
@@ -49,26 +62,137 @@
     .btn-reset { background: #0E7C86; }
     .btn-sim { background: #00838F; }
 
-    .status { margin-top: 15px; font-style: italic; color: #444; }
+    .status { margin-top: 15px; font-style: italic; color: #555; }
 
-    .legend { margin-top: 10px; font-size: 13px; }
+    .legend { margin-top: 10px; font-size: 13px; color: #444; }
     .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
 
     .ai-panel {
-        background: #e5e5e5; border-radius: 15px; margin: 0 15px 15px 15px;
-        padding: 15px; min-height: 100px;
+        background: #ffffff; border-radius: 14px; margin: 0 15px 15px 15px;
+        padding: 16px; min-height: 100px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
     }
 
-    .result p { margin: 8px 0; }
+    .result p { margin: 8px 0; color: #2c3e50; }
 
-    .car-icon { font-size: 24px; text-align: center; line-height: 30px; }
+    .car-icon {
+        font-size: 22px; text-align: center; line-height: 34px;
+        width: 34px; height: 34px; background: #0B5394;
+        border-radius: 50%; border: 3px solid white;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+
+    .pin-start {
+        width: 22px; height: 22px; background: #2ecc71;
+        border-radius: 50% 50% 50% 0; border: 3px solid white;
+        transform: rotate(-45deg);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+
+    .pin-end {
+        width: 22px; height: 22px; background: #e74c3c;
+        border-radius: 50% 50% 50% 0; border: 3px solid white;
+        transform: rotate(-45deg);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+
+    .chevron-icon {
+        width: 14px; height: 14px;
+        display: flex; align-items: center; justify-content: center;
+    }
 
     .sim-hud {
         position: absolute; top: 10px; left: 10px;
-        background: rgba(0,0,0,0.6); color: white;
+        background: rgba(0,0,0,0.65); color: white;
         padding: 8px 12px; border-radius: 8px; font-size: 13px;
         display: none; z-index: 10;
     }
+
+    .nav-card {
+        position: absolute; bottom: 14px; left: 14px; right: 14px;
+        background: #0B5394; color: white; border-radius: 14px;
+        padding: 14px 18px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        display: none; z-index: 15; align-items: center; gap: 16px;
+    }
+
+    .nav-card .eta-block { font-size: 26px; font-weight: bold; line-height: 1; }
+    .nav-card .eta-sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+    .nav-card .next-turn { flex: 1; font-size: 14px; }
+    .nav-card .traffic-chip {
+        padding: 4px 10px; border-radius: 12px; font-size: 12px;
+        font-weight: bold; color: white;
+    }
+
+    .recenter-btn {
+        position: absolute; bottom: 90px; right: 20px;
+        width: 42px; height: 42px; border-radius: 50%;
+        background: white; border: 1px solid #ddd;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        display: none; align-items: center; justify-content: center;
+        cursor: pointer; font-size: 18px; z-index: 15;
+        margin: 0;
+    }
+
+    .route-option {
+        background: #f7f9fb; border-radius: 8px; padding: 10px;
+        margin-bottom: 8px; font-size: 13px; cursor: pointer;
+        border: 2px solid transparent; color: #2c3e50;
+    }
+
+    .route-option:hover { border-color: #0B5394; }
+    .route-option.active { border-color: #2ecc71; background: #eafff0; }
+
+    .route-option .badge {
+        display: inline-block; padding: 2px 8px; border-radius: 10px;
+        color: white; font-size: 11px; font-weight: bold;
+    }
+
+    .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
+    .leaflet-container{overflow:hidden;background:#ddd}
+    .leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow{-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
+    .leaflet-tile::selection{background:transparent}
+    .leaflet-marker-icon,.leaflet-marker-shadow{display:block}
+    .leaflet-container .leaflet-overlay-pane svg,.leaflet-container .leaflet-marker-pane img,.leaflet-container .leaflet-shadow-pane img,.leaflet-container .leaflet-tile-pane img,.leaflet-container img.leaflet-image-layer,.leaflet-container .leaflet-tile{max-width:none!important;max-height:none!important}
+    .leaflet-tile{filter:inherit;visibility:hidden}
+    .leaflet-tile-loaded{visibility:inherit}
+    .leaflet-zoom-box{width:0;height:0;-moz-box-sizing:border-box;box-sizing:border-box;z-index:800}
+    .leaflet-pane{z-index:400}
+    .leaflet-tile-pane{z-index:200}
+    .leaflet-overlay-pane{z-index:400}
+    .leaflet-shadow-pane{z-index:500}
+    .leaflet-marker-pane{z-index:600}
+    .leaflet-tooltip-pane{z-index:650}
+    .leaflet-popup-pane{z-index:700}
+    .leaflet-map-pane canvas{z-index:100}
+    .leaflet-map-pane svg{z-index:200}
+    .leaflet-control{position:relative;z-index:800;pointer-events:visiblePainted;pointer-events:auto}
+    .leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
+    .leaflet-top{top:0}
+    .leaflet-right{right:0}
+    .leaflet-bottom{bottom:0}
+    .leaflet-left{left:0}
+    .leaflet-control{float:left;clear:both}
+    .leaflet-right .leaflet-control{float:right}
+    .leaflet-top .leaflet-control{margin-top:10px}
+    .leaflet-bottom .leaflet-control{margin-bottom:10px}
+    .leaflet-left .leaflet-control{margin-left:10px}
+    .leaflet-right .leaflet-control{margin-right:10px}
+    .leaflet-interactive{cursor:pointer}
+    .leaflet-grab{cursor:grab}
+    .leaflet-container{background:#ddd;outline-offset:1px;-webkit-tap-highlight-color:transparent}
+    .leaflet-container a{color:#0078A8}
+    .leaflet-bar{box-shadow:0 1px 5px rgba(0,0,0,.65);border-radius:4px}
+    .leaflet-bar a{background-color:#fff;border-bottom:1px solid #ccc;width:26px;height:26px;line-height:26px;display:block;text-align:center;text-decoration:none;color:#000;font:bold 18px monospace}
+    .leaflet-bar a:hover,.leaflet-bar a:focus{background-color:#f4f4f4}
+    .leaflet-bar a:first-child{border-top-left-radius:4px;border-top-right-radius:4px}
+    .leaflet-bar a:last-child{border-bottom-left-radius:4px;border-bottom-right-radius:4px;border-bottom:none}
+    .leaflet-control-zoom-in,.leaflet-control-zoom-out{font:bold 18px monospace;text-indent:1px}
+    .leaflet-popup{position:absolute;text-align:center;margin-bottom:20px}
+    .leaflet-popup-content-wrapper{padding:1px;text-align:left;border-radius:12px}
+    .leaflet-popup-content{margin:13px 24px 13px 20px;line-height:1.3;font-size:13px;min-height:1px}
+    .leaflet-popup-tip-container{width:40px;height:20px;position:absolute;left:50%;margin-left:-20px;overflow:hidden;pointer-events:none}
+    .leaflet-popup-tip{background:#fff;width:17px;height:17px;padding:1px;margin:-10px auto 0;transform:rotate(45deg)}
+    .leaflet-tooltip{position:absolute;padding:6px;background-color:#fff;border:1px solid #fff;border-radius:3px;white-space:nowrap;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.4)}
 </style>
 </head>
 <body>
@@ -91,7 +215,7 @@
         <button class="btn-reset" onclick="resetAll()">🔄 Reset</button>
         <button class="btn-sim" id="sim-btn" onclick="openSimulation()" disabled>🚘 Vehicle Route Simulation</button>
 
-        <div class="status" id="status">Ready</div>
+        <div class="status" id="status">Loading...</div>
 
         <div class="legend">
             <span style="background:#2ecc71"></span> Light
@@ -103,6 +227,16 @@
     <div class="panel map-area">
         <h2>🗺 Yangon Route Map</h2>
         <div id="map"></div>
+        <div id="map-error"></div>
+        <div class="nav-card" id="nav-card">
+            <div>
+                <div class="eta-block" id="nav-eta">--</div>
+                <div class="eta-sub" id="nav-dist">-- km</div>
+            </div>
+            <div class="next-turn" id="nav-next">Waiting for route...</div>
+            <div class="traffic-chip" id="nav-traffic-chip" style="background:#888">-</div>
+        </div>
+        <button class="recenter-btn" id="recenter-btn" onclick="recenterOnCar()">🎯</button>
         <div id="three-canvas">
             <div class="sim-hud" id="sim-hud">Driving...</div>
         </div>
@@ -114,6 +248,9 @@
         <p id="r-distance">Distance: -</p>
         <p id="r-time">Estimated Time: -</p>
         <p id="r-traffic">Traffic: -</p>
+
+        <h3>🔀 Route Options (best first)</h3>
+        <div id="route-options"></div>
     </div>
 
 </div>
@@ -124,39 +261,21 @@
 </div>
 
 <script>
-    // ============================================
-    // Leaflet map (planning view)
-    // ============================================
-
     let map, routeLayers = [], carMarker, animFrame;
     let currentRouteCoords = null;
     let currentRouteNames = null;
     let currentSegmentTraffic = null;
+    let currentRoadCoords = null;
     let simRunning = false;
+    let mapReady = false;
+    let followCar = true;
 
-    const LOCATION_COORDS = {
-        "Hledan Junction": [16.8225, 96.1372],
-        "Junction Square": [16.8175, 96.1436],
-        "Inya Lake": [16.8235, 96.1602],
-        "Myanmar Plaza": [16.8083, 96.1547],
-        "Yangon General Hospital": [16.7961, 96.1483],
-        "Yangon Central Station": [16.7834, 96.1425],
-        "Sule Pagoda": [16.7742, 96.1592],
-        "Yangon Airport": [16.9073, 96.1332]
-    };
+    let allOptionsData = [];
+    let activeOptionIndex = 0;
 
-    const GRAPH_EDGES = [
-        ["Hledan Junction", "Junction Square"],
-        ["Hledan Junction", "Inya Lake"],
-        ["Junction Square", "Myanmar Plaza"],
-        ["Junction Square", "Yangon General Hospital"],
-        ["Inya Lake", "Myanmar Plaza"],
-        ["Inya Lake", "Yangon Airport"],
-        ["Myanmar Plaza", "Yangon Airport"],
-        ["Myanmar Plaza", "Sule Pagoda"],
-        ["Yangon General Hospital", "Yangon Central Station"],
-        ["Yangon Central Station", "Sule Pagoda"]
-    ];
+    // Filled in from the backend on load - see populateDropdowns()
+    let LOCATION_COORDS = {};
+    let GRAPH_EDGES = [];
 
     const VEHICLE_SPEED = {
         "Car": 40, "Bus": 25, "Taxi": 35,
@@ -177,8 +296,32 @@
     const TRAFFIC_COLOR_3D = { "Light": 0x2ecc71, "Moderate": 0xf39c12, "Heavy": 0xe74c3c };
     const TRAFFIC_MULTIPLIER = { "Light": 1.0, "Moderate": 1.4, "Heavy": 1.9 };
 
-    function getVehicleIcon(vehicle) {
-        return L.divIcon({ html: VEHICLE_ICONS[vehicle] || "🚗", className: 'car-icon', iconSize: [30, 30] });
+    function showMapError(message) {
+        const errBox = document.getElementById('map-error');
+        errBox.style.display = 'flex';
+        errBox.innerText = '⚠️ ' + message;
+        document.getElementById('map').style.display = 'none';
+    }
+
+    function getVehicleIcon(vehicle, angle) {
+        const rot = angle !== undefined ? `transform: rotate(${angle}deg);` : '';
+        return L.divIcon({
+            html: `<div style="${rot}">${VEHICLE_ICONS[vehicle] || "🚗"}</div>`,
+            className: 'car-icon',
+            iconSize: [34, 34]
+        });
+    }
+
+    function chevronIcon(angle) {
+        return L.divIcon({
+            html: `<div class="chevron-icon" style="transform: rotate(${angle}deg);">
+                     <svg width="14" height="14" viewBox="0 0 24 24">
+                       <path d="M12 2 L20 20 L12 15 L4 20 Z" fill="#ffffff" stroke="#0B5394" stroke-width="1"/>
+                     </svg>
+                   </div>`,
+            className: '',
+            iconSize: [14, 14]
+        });
     }
 
     function formatDuration(minutes) {
@@ -192,18 +335,39 @@
     }
 
     function initMap() {
-        map = L.map('map').setView([16.8409, 96.1735], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
-        }).addTo(map);
+        try {
+            document.getElementById('status').innerText = 'Loading map...';
+
+            if (typeof L === 'undefined') {
+                throw new Error('Leaflet failed to load from local file (check web/vendor/leaflet.js exists)');
+            }
+
+            map = L.map('map', { zoomControl: true }).setView([16.8409, 96.1735], 12);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            map.on('dragstart', () => { followCar = false; });
+
+            mapReady = true;
+
+        } catch (e) {
+            console.error('initMap failed:', e);
+            showMapError('Map failed to load: ' + e.message);
+        }
     }
 
     function clearMap() {
+        if (!mapReady) return;
         routeLayers.forEach(l => map.removeLayer(l));
         routeLayers = [];
         if (carMarker) { map.removeLayer(carMarker); carMarker = null; }
         if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
         simRunning = false;
+        document.getElementById('nav-card').style.display = 'none';
+        document.getElementById('recenter-btn').style.display = 'none';
     }
 
     function onVehicleChange() {
@@ -213,26 +377,11 @@
         }
     }
 
-    function generateSegmentTraffic(segmentCount, overallTraffic) {
-        const weights = {
-            "Light":    { Light: 0.7, Moderate: 0.25, Heavy: 0.05 },
-            "Moderate": { Light: 0.25, Moderate: 0.55, Heavy: 0.2 },
-            "Heavy":    { Light: 0.05, Moderate: 0.3, Heavy: 0.65 }
-        }[overallTraffic] || { Light: 0.34, Moderate: 0.33, Heavy: 0.33 };
-
-        const levels = [];
-        for (let i = 0; i < segmentCount; i++) {
-            const r = Math.random();
-            if (r < weights.Light) levels.push("Light");
-            else if (r < weights.Light + weights.Moderate) levels.push("Moderate");
-            else levels.push("Heavy");
-        }
-        return levels;
+    function recenterOnCar() {
+        followCar = true;
+        if (carMarker) map.panTo(carMarker.getLatLng());
     }
 
-    // Fetches real road-following geometry for a single leg from
-    // OSRM's public routing API. Falls back to a straight line
-    // between the two points if the request fails.
     async function fetchRoadRoute(coords) {
 
         const coordStr = coords.map(c => `${c[1]},${c[0]}`).join(';');
@@ -252,33 +401,60 @@
         return coords;
     }
 
-    async function drawStaticPreview(routeNames, vehicle) {
+    function bearing(a, b) {
+        const lat1 = a[0] * Math.PI / 180, lat2 = b[0] * Math.PI / 180;
+        const dLon = (b[1] - a[1]) * Math.PI / 180;
+        const y = Math.sin(dLon) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
+    async function drawRouteOnMap(routeNames, segmentTraffic, vehicle, result) {
+        if (!mapReady) return;
+
         clearMap();
+
         const coords = routeNames.map(name => LOCATION_COORDS[name]);
         currentRouteCoords = coords;
         currentRouteNames = routeNames;
+        currentSegmentTraffic = segmentTraffic;
 
-        coords.forEach((c, i) => {
-            const m = L.circleMarker(c, { radius: 6, color: 'green' })
+        const allRoadCoords = [];
+
+        for (let i = 0; i < coords.length; i++) {
+            const isStart = i === 0;
+            const isEnd = i === coords.length - 1;
+
+            const icon = isStart
+                ? L.divIcon({ html: '', className: 'pin-start', iconSize: [22, 22] })
+                : isEnd
+                    ? L.divIcon({ html: '', className: 'pin-end', iconSize: [22, 22] })
+                    : L.divIcon({
+                        html: '<div style="width:10px;height:10px;background:#2E86DE;border:2px solid white;border-radius:50%;"></div>',
+                        className: '', iconSize: [14, 14]
+                    });
+
+            const m = L.marker(coords[i], { icon })
                 .bindTooltip(routeNames[i], { permanent: false })
                 .addTo(map);
             routeLayers.push(m);
-        });
+        }
 
-        document.getElementById('status').innerText = '🛣️ Fetching real road route...';
-
-        // Fetch each leg separately so each real-road stretch can
-        // be colored by its own traffic level and inspected via
-        // popup, instead of one flat line for the whole trip.
         for (let i = 0; i < coords.length - 1; i++) {
 
             const legCoords = await fetchRoadRoute([coords[i], coords[i + 1]]);
-            const traffic = currentSegmentTraffic[i];
+            const traffic = segmentTraffic[i];
+            const color = TRAFFIC_COLOR[traffic] || '#2E86DE';
+
+            allRoadCoords.push(...legCoords);
+
+            const glow = L.polyline(legCoords, {
+                color, weight: 12, opacity: 0.25
+            }).addTo(map);
+            routeLayers.push(glow);
 
             const legLine = L.polyline(legCoords, {
-                color: TRAFFIC_COLOR[traffic] || '#2E86DE',
-                weight: 6,
-                opacity: 0.85
+                color, weight: 6, opacity: 0.95
             }).addTo(map);
 
             legLine.bindPopup(
@@ -288,22 +464,142 @@
             );
 
             routeLayers.push(legLine);
+
+            for (let j = 4; j < legCoords.length - 2; j += 8) {
+                const angle = bearing(legCoords[j], legCoords[j + 1]);
+                const chevron = L.marker(legCoords[j], { icon: chevronIcon(angle), interactive: false }).addTo(map);
+                routeLayers.push(chevron);
+            }
         }
+
+        currentRoadCoords = allRoadCoords;
 
         const bounds = L.latLngBounds(coords);
         map.fitBounds(bounds, { padding: [40, 40] });
 
         carMarker = L.marker(coords[0], { icon: getVehicleIcon(vehicle) }).addTo(map);
 
-        document.getElementById('status').innerText = '✅ Route planned - press Simulation to drive it';
+        document.getElementById('recenter-btn').style.display = 'flex';
+
+        if (result) {
+            showNavCard(result, routeNames[0], routeNames[routeNames.length - 1]);
+        }
+
+        followCar = true;
+        await driveAlongRoad(allRoadCoords, vehicle, result);
     }
 
-    // ============================================
-    // Three.js 3D town view
-    // ============================================
+    function showNavCard(result, startName, endName) {
+        document.getElementById('nav-card').style.display = 'flex';
+        document.getElementById('nav-eta').innerText = formatDuration(result.time);
+        document.getElementById('nav-dist').innerText = result.distance + ' km';
+        document.getElementById('nav-next').innerText = `To ${endName}`;
+
+        const chip = document.getElementById('nav-traffic-chip');
+        chip.innerText = result.traffic;
+        chip.style.background = TRAFFIC_COLOR[result.traffic] || '#888';
+    }
+
+    async function driveAlongRoad(roadCoords, vehicle, result) {
+        if (!roadCoords || roadCoords.length < 2 || !carMarker) return;
+
+        const durationMs = Math.max(4000, (result ? result.time : 5) * 700);
+
+        const segLengths = [];
+        let total = 0;
+        for (let i = 0; i < roadCoords.length - 1; i++) {
+            const d = map.distance(roadCoords[i], roadCoords[i + 1]);
+            segLengths.push(d);
+            total += d;
+        }
+
+        if (total === 0) return;
+
+        const startTime = performance.now();
+        simRunning = true;
+
+        return new Promise(resolve => {
+            function frame(now) {
+                if (!simRunning) { resolve(); return; }
+
+                const fraction = Math.min((now - startTime) / durationMs, 1);
+                const distAlong = fraction * total;
+
+                let traveled = 0;
+                for (let i = 0; i < segLengths.length; i++) {
+                    if (traveled + segLengths[i] >= distAlong || i === segLengths.length - 1) {
+                        const p = segLengths[i] > 0 ? (distAlong - traveled) / segLengths[i] : 0;
+                        const a = roadCoords[i], b = roadCoords[i + 1];
+                        const lat = a[0] + (b[0] - a[0]) * p;
+                        const lon = a[1] + (b[1] - a[1]) * p;
+                        const angle = bearing(a, b);
+
+                        carMarker.setLatLng([lat, lon]);
+                        carMarker.setIcon(getVehicleIcon(vehicle, angle));
+
+                        if (followCar) map.panTo([lat, lon], { animate: false });
+
+                        break;
+                    }
+                    traveled += segLengths[i];
+                }
+
+                if (fraction < 1) {
+                    animFrame = requestAnimationFrame(frame);
+                } else {
+                    resolve();
+                }
+            }
+            animFrame = requestAnimationFrame(frame);
+        });
+    }
+
+    function renderRouteOptions() {
+        const container = document.getElementById('route-options');
+        container.innerHTML = '';
+
+        allOptionsData.forEach((opt, index) => {
+            const div = document.createElement('div');
+            div.className = 'route-option' + (index === activeOptionIndex ? ' active' : '');
+            div.onclick = () => selectOption(index);
+
+            const label = index === 0 ? '⭐ Best (avoids traffic)' : `Alternative ${index}`;
+            const color = TRAFFIC_COLOR[opt.traffic] || '#888';
+
+            div.innerHTML = `
+                <b>${label}</b><br>
+                ${opt.route.join(' → ')}<br>
+                ${opt.distance} km · ${formatDuration(opt.time)}
+                <span class="badge" style="background:${color}">${opt.traffic}</span>
+            `;
+
+            container.appendChild(div);
+        });
+    }
+
+    async function selectOption(index) {
+        activeOptionIndex = index;
+        renderRouteOptions();
+
+        const opt = allOptionsData[index];
+        const vehicle = document.getElementById('vehicle').value;
+
+        document.getElementById('r-route').innerText = 'Route: ' + opt.route.join(' → ');
+        document.getElementById('r-distance').innerText = 'Distance: ' + opt.distance + ' km';
+        document.getElementById('r-time').innerText = 'Estimated Time: ' + formatDuration(opt.time);
+        document.getElementById('r-traffic').innerText = 'Traffic: ' + opt.traffic;
+
+        document.getElementById('status').innerText =
+            index === 0
+                ? '✅ Showing best (traffic-avoiding) route'
+                : '👁️ Previewing alternative route';
+
+        await drawRouteOnMap(opt.route, opt.segment_traffic, vehicle, opt);
+    }
 
     let renderer3D, scene3D, camera3D, carGroup3D;
     let townBuilt = false;
+    let threeReady = false;
     let locationPositions3D = {};
 
     const WORLD_SCALE = 0.02;
@@ -326,38 +622,49 @@
     function init3D() {
         if (townBuilt) return;
 
-        const container = document.getElementById('three-canvas');
+        try {
+            if (typeof THREE === 'undefined') {
+                throw new Error('Three.js library failed to load');
+            }
 
-        scene3D = new THREE.Scene();
-        scene3D.background = new THREE.Color(0x87CEEB);
-        scene3D.fog = new THREE.Fog(0x87CEEB, 100, 500);
+            const container = document.getElementById('three-canvas');
 
-        camera3D = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight || 1, 0.1, 2000);
+            scene3D = new THREE.Scene();
+            scene3D.background = new THREE.Color(0x0d1b2a);
+            scene3D.fog = new THREE.Fog(0x0d1b2a, 60, 300);
 
-        renderer3D = new THREE.WebGLRenderer({ antialias: true });
-        renderer3D.setSize(container.clientWidth || 600, container.clientHeight || 400);
-        container.insertBefore(renderer3D.domElement, container.firstChild);
+            camera3D = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight || 1, 0.1, 2000);
 
-        scene3D.add(new THREE.AmbientLight(0xffffff, 0.6));
+            renderer3D = new THREE.WebGLRenderer({ antialias: true });
+            renderer3D.setSize(container.clientWidth || 600, container.clientHeight || 400);
+            container.insertBefore(renderer3D.domElement, container.firstChild);
 
-        const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-        sun.position.set(60, 100, 40);
-        scene3D.add(sun);
+            scene3D.add(new THREE.AmbientLight(0x8899aa, 0.5));
 
-        const groundGeo = new THREE.PlaneGeometry(3000, 3000);
-        const groundMat = new THREE.MeshLambertMaterial({ color: 0x4a7a3c });
-        const ground = new THREE.Mesh(groundGeo, groundMat);
-        ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -0.5;
-        scene3D.add(ground);
+            const moon = new THREE.DirectionalLight(0xaabbee, 0.9);
+            moon.position.set(60, 100, 40);
+            scene3D.add(moon);
 
-        buildTown();
+            const groundGeo = new THREE.PlaneGeometry(3000, 3000);
+            const groundMat = new THREE.MeshLambertMaterial({ color: 0x1c2b1c });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.5;
+            scene3D.add(ground);
 
-        carGroup3D = buildCarMesh();
-        scene3D.add(carGroup3D);
+            buildTown();
 
-        townBuilt = true;
-        window.addEventListener('resize', onResize3D);
+            carGroup3D = buildCarMesh();
+            scene3D.add(carGroup3D);
+
+            townBuilt = true;
+            threeReady = true;
+            window.addEventListener('resize', onResize3D);
+
+        } catch (e) {
+            console.error('init3D failed:', e);
+            document.getElementById('status').innerText = '⚠️ 3D view failed to load: ' + e.message;
+        }
     }
 
     function onResize3D() {
@@ -374,9 +681,9 @@
         const canvas = document.createElement('canvas');
         canvas.width = 256; canvas.height = 64;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.fillStyle = 'rgba(20,30,45,0.85)';
         ctx.fillRect(0, 0, 256, 64);
-        ctx.fillStyle = 'white';
+        ctx.fillStyle = '#e8eef5';
         ctx.font = 'bold 22px Arial';
         ctx.textAlign = 'center';
         ctx.fillText(text, 128, 40);
@@ -404,7 +711,7 @@
             const length = Math.sqrt(dx * dx + dz * dz);
             const angle = Math.atan2(dx, dz);
 
-            const roadMat = new THREE.MeshLambertMaterial({ color: 0x999999 });
+            const roadMat = new THREE.MeshLambertMaterial({ color: 0x2a2a2a });
             const road = new THREE.Mesh(new THREE.PlaneGeometry(5, length), roadMat);
             road.rotation.x = -Math.PI / 2;
             road.rotation.z = -angle;
@@ -417,7 +724,7 @@
 
             const marker = new THREE.Mesh(
                 new THREE.CylinderGeometry(1.5, 1.5, 0.4, 16),
-                new THREE.MeshLambertMaterial({ color: 0x2E86DE })
+                new THREE.MeshLambertMaterial({ color: 0x2E86DE, emissive: 0x0a2a4a })
             );
             marker.position.set(p.x, 0.2, p.z);
             scene3D.add(marker);
@@ -427,7 +734,7 @@
             scene3D.add(label);
         }
 
-        const buildingMats = [0xc0392b, 0x8e44ad, 0x2c3e50, 0xd35400, 0x27ae60].map(
+        const buildingMats = [0x2c3e50, 0x34495e, 0x1c2833, 0x283747, 0x212f3d].map(
             c => new THREE.MeshLambertMaterial({ color: c })
         );
 
@@ -443,18 +750,25 @@
             return seed / 233280;
         }
 
-        for (let i = 0; i < 90; i++) {
+        for (let i = 0; i < 110; i++) {
             const x = minX + rand() * (maxX - minX);
             const z = minZ + rand() * (maxZ - minZ);
 
             const tooClose = positions.some(p => Math.hypot(p.x - x, p.z - z) < 12);
             if (tooClose) continue;
 
-            const height = 3 + rand() * 12;
+            const height = 4 + rand() * 20;
             const mat = buildingMats[Math.floor(rand() * buildingMats.length)];
             const building = new THREE.Mesh(new THREE.BoxGeometry(4 + rand() * 4, height, 4 + rand() * 4), mat);
             building.position.set(x, height / 2, z);
             scene3D.add(building);
+
+            if (rand() > 0.5) {
+                const windowMat = new THREE.MeshBasicMaterial({ color: 0xffd580 });
+                const windowMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), windowMat);
+                windowMesh.position.set(x, height * 0.6, z + 2.01);
+                scene3D.add(windowMesh);
+            }
         }
     }
 
@@ -470,10 +784,17 @@
 
         const cabin = new THREE.Mesh(
             new THREE.BoxGeometry(1.6, 0.6, 2),
-            new THREE.MeshLambertMaterial({ color: 0x222222 })
+            new THREE.MeshLambertMaterial({ color: 0x111111 })
         );
         cabin.position.set(0, 1.2, -0.3);
         group.add(cabin);
+
+        const headlightMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
+        [[-0.7, 0.6, 2.05], [0.7, 0.6, 2.05]].forEach(([x, y, z]) => {
+            const light = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), headlightMat);
+            light.position.set(x, y, z);
+            group.add(light);
+        });
 
         const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16);
         const wheelMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
@@ -505,7 +826,9 @@
             const angle = Math.atan2(dx, dz);
 
             const mat = new THREE.MeshLambertMaterial({
-                color: TRAFFIC_COLOR_3D[segmentTraffic[i]] || 0xf1c40f
+                color: TRAFFIC_COLOR_3D[segmentTraffic[i]] || 0xf1c40f,
+                emissive: TRAFFIC_COLOR_3D[segmentTraffic[i]] || 0xf1c40f,
+                emissiveIntensity: 0.3
             });
 
             const road = new THREE.Mesh(new THREE.PlaneGeometry(5.5, length), mat);
@@ -518,12 +841,13 @@
     }
 
     function clearRouteHighlight() {
+        if (!threeReady) return;
         const toRemove = scene3D.children.filter(c => c.userData && c.userData.isRouteHighlight);
         toRemove.forEach(c => scene3D.remove(c));
     }
 
     function showMapView() {
-        document.getElementById('map').style.display = 'block';
+        document.getElementById('map').style.display = mapReady ? 'block' : 'none';
         document.getElementById('three-canvas').style.display = 'none';
         document.getElementById('sim-hud').style.display = 'none';
     }
@@ -537,6 +861,10 @@
     }
 
     async function animate3DDrive(routeNames, segmentTraffic, baseSpeed) {
+        if (!threeReady) {
+            document.getElementById('status').innerText = '⚠️ 3D view unavailable';
+            return;
+        }
 
         clearRouteHighlight();
         highlightRoute(routeNames, segmentTraffic);
@@ -592,16 +920,23 @@
                 carGroup3D.position.set(px, 0, pz);
                 carGroup3D.rotation.y = heading;
 
-                const camOffset = 12;
+                const camOffset = 6;
+                const camHeight = 2.8;
                 camera3D.position.set(
                     px - Math.sin(heading) * camOffset,
-                    7,
+                    camHeight,
                     pz - Math.cos(heading) * camOffset
                 );
-                camera3D.lookAt(px, 1.5, pz);
+                camera3D.lookAt(
+                    px + Math.sin(heading) * 15,
+                    1.5,
+                    pz + Math.cos(heading) * 15
+                );
+
+                const effSpeed = Math.round(baseSpeed / (TRAFFIC_MULTIPLIER[segmentTraffic[segIndex]] || 1));
 
                 document.getElementById('sim-hud').innerText =
-                    `Traffic: ${segmentTraffic[segIndex]} | ${Math.round(fraction * 100)}% complete`;
+                    `${effSpeed} km/h | Traffic: ${segmentTraffic[segIndex]} | ${Math.round(fraction * 100)}% complete`;
 
                 renderer3D.render(scene3D, camera3D);
 
@@ -616,27 +951,35 @@
         });
     }
 
-    // ============================================
-    // App logic
-    // ============================================
-
     async function populateDropdowns() {
-        const locations = await pywebview.api.get_locations();
-        const vehicles = await pywebview.api.get_vehicles();
+        try {
+            const graphData = await pywebview.api.get_graph_data();
+            LOCATION_COORDS = graphData.coords;
+            GRAPH_EDGES = graphData.edges;
 
-        const startSel = document.getElementById('start');
-        const destSel = document.getElementById('destination');
-        const vehicleSel = document.getElementById('vehicle');
+            const locations = await pywebview.api.get_locations();
+            const vehicles = await pywebview.api.get_vehicles();
 
-        locations.forEach(loc => {
-            startSel.innerHTML += `<option value="${loc}">${loc}</option>`;
-            destSel.innerHTML += `<option value="${loc}">${loc}</option>`;
-        });
+            const startSel = document.getElementById('start');
+            const destSel = document.getElementById('destination');
+            const vehicleSel = document.getElementById('vehicle');
 
-        vehicles.forEach(v => {
-            const icon = VEHICLE_ICONS[v] || "";
-            vehicleSel.innerHTML += `<option value="${v}">${icon} ${v}</option>`;
-        });
+            locations.forEach(loc => {
+                startSel.innerHTML += `<option value="${loc}">${loc}</option>`;
+                destSel.innerHTML += `<option value="${loc}">${loc}</option>`;
+            });
+
+            vehicles.forEach(v => {
+                const icon = VEHICLE_ICONS[v] || "";
+                vehicleSel.innerHTML += `<option value="${v}">${icon} ${v}</option>`;
+            });
+
+            document.getElementById('status').innerText = 'Ready';
+
+        } catch (e) {
+            console.error('populateDropdowns failed:', e);
+            document.getElementById('status').innerText = '⚠️ Failed to load locations: ' + e.message;
+        }
     }
 
     async function findRoute() {
@@ -650,7 +993,7 @@
         }
 
         showMapView();
-        document.getElementById('status').innerText = '🔍 Searching optimal route...';
+        document.getElementById('status').innerText = '🔍 Comparing possible routes...';
 
         const result = await pywebview.api.find_route(vehicle, start, destination);
 
@@ -661,15 +1004,27 @@
             return;
         }
 
+        const bestRouteData = {
+            route: result.route,
+            distance: result.distance,
+            time: result.time,
+            traffic: result.traffic,
+            segment_traffic: result.segment_traffic
+        };
+
+        allOptionsData = [bestRouteData, ...(result.alternatives || [])];
+        activeOptionIndex = 0;
+
+        renderRouteOptions();
+
         document.getElementById('r-route').innerText = 'Route: ' + result.route.join(' → ');
         document.getElementById('r-distance').innerText = 'Distance: ' + result.distance + ' km';
         document.getElementById('r-time').innerText = 'Estimated Time: ' + formatDuration(result.time);
         document.getElementById('r-traffic').innerText = 'Traffic: ' + result.traffic;
         document.getElementById('ai-text').innerText = result.ai_message || 'No recommendation';
+        document.getElementById('status').innerText = '✅ Best route selected - avoids traffic among ' + allOptionsData.length + ' options';
 
-        currentSegmentTraffic = generateSegmentTraffic(result.route.length - 1, result.traffic);
-
-        await drawStaticPreview(result.route, vehicle);
+        await drawRouteOnMap(result.route, result.segment_traffic, vehicle, bestRouteData);
 
         document.getElementById('sim-btn').disabled = false;
     }
@@ -681,7 +1036,11 @@
         currentRouteCoords = null;
         currentRouteNames = null;
         currentSegmentTraffic = null;
+        currentRoadCoords = null;
+        allOptionsData = [];
+        activeOptionIndex = 0;
 
+        document.getElementById('route-options').innerHTML = '';
         document.getElementById('r-route').innerText = 'Route: -';
         document.getElementById('r-distance').innerText = 'Distance: -';
         document.getElementById('r-time').innerText = 'Estimated Time: -';
