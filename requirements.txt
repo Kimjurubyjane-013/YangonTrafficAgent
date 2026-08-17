@@ -1,3 +1,4 @@
-pyswip>=0.3.2,<1
+fastapi>=0.115,<1
+pydantic>=2.9,<3
 requests>=2.31,<3
-pywebview>=5,<7
+uvicorn>=0.30,<1

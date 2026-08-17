@@ -65,5 +65,15 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("function ensureMapInitialized()",html)
         self.assertNotIn("pywebviewready', () => {\n        initMap();",html)
 
+    def test_browser_transport_and_vercel_entrypoint_are_present(self):
+        root=Path(__file__).parent
+        api_js=(root/"web"/"api.js").read_text(encoding="utf-8")
+        web_api=(root/"web_api.py").read_text(encoding="utf-8")
+        vercel=(root/"vercel.json").read_text(encoding="utf-8")
+        self.assertIn("fetch(`/api/${path}`",api_js)
+        self.assertIn("app = FastAPI",web_api)
+        self.assertIn('"src": "web_api.py"',vercel)
+        self.assertNotIn("import webview",web_api)
+
 
 if __name__ == "__main__": unittest.main()

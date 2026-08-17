@@ -2005,9 +2005,19 @@
         restartMapSimulation();
     }
 
-    window.addEventListener('pywebviewready', () => {
+    let backendDataInitialized = false;
+    function initializeBackendData() {
+        if (backendDataInitialized) return;
+        backendDataInitialized = true;
         populateDropdowns();
-    });
+    }
+
+    window.addEventListener('pywebviewready', initializeBackendData);
+    document.addEventListener('DOMContentLoaded', () => {
+        // A normal browser has no pywebview event. Give the desktop bridge a
+        // brief chance to attach before selecting the HTTP transport.
+        if (window.location.protocol !== 'file:') initializeBackendData();
+    }, { once: true });
 
 </script>
 <script src="./app.js"></script>

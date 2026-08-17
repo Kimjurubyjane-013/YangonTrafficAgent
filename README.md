@@ -14,14 +14,70 @@ An AI-based Traffic Management Agent developed using Python and Prolog.
 
 University AI Agent Project
 
-## Run
+## Run the desktop application
 
 ```powershell
 cd "C:\Users\Lenovo\Documents\Codex\YangonTrafficAgent"
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-desktop.txt
 python main.py
+```
+
+## Run the web application
+
+The browser version uses the same validation, route service, real-road routing,
+traffic calculations, serialization, and decision engine as the desktop app.
+Only the transport changes from pywebview calls to HTTP/JSON.
+
+```powershell
+cd "C:\Users\Lenovo\Documents\Codex\YangonTrafficAgent"
+python -m venv .venv-web
+.\.venv-web\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m uvicorn web_api:app --reload
+```
+
+Open `http://127.0.0.1:8000`. API documentation is available at
+`http://127.0.0.1:8000/docs`.
+
+HTTP endpoints:
+
+- `GET /api/health`
+- `GET /api/locations`
+- `GET /api/vehicles`
+- `GET /api/graph`
+- `POST /api/route`
+
+## Deploy to Vercel
+
+1. Push the repository to GitHub.
+2. Import the repository in Vercel.
+3. Use the repository root as the Root Directory.
+4. Leave Framework Preset as **Other**.
+5. Do not set a custom Build Command or Output Directory.
+6. Deploy. `vercel.json` directs API and static browser requests to the
+   top-level FastAPI `app` exported by `web_api.py`; desktop `main.py` is not
+   treated as the web entry point.
+
+The frontend uses relative `/api/*` paths, so no localhost URL or production
+API environment variable is required for the same-origin Vercel deployment.
+
+Vercel does not provide the native SWI-Prolog runtime. The decision engine
+therefore reports `python-fallback` and uses the existing deterministic Python
+implementation of the same scoring contract. Nothing is mocked. Deploy the
+backend to a container/VPS with SWI-Prolog installed if Prolog execution is a
+hard production requirement.
+
+Public OSRM/Valhalla and OpenStreetMap services remain external dependencies.
+Vercel serverless memory and the in-process route cache are not persistent
+between instances.
+
+For the complete HTTP test suite, install `requirements-dev.txt` and run:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+python -m unittest discover -p "test_*.py" -v
 ```
 
 ## Route intelligence demonstrations

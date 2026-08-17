@@ -1,13 +1,38 @@
 (function () {
     'use strict';
-    function backend() {
-        if (!window.pywebview || !window.pywebview.api) throw new Error('The application backend is not ready.');
-        return window.pywebview.api;
+
+    function desktopBackend() {
+        return window.pywebview && window.pywebview.api ? window.pywebview.api : null;
     }
+
+    async function request(path, options = {}) {
+        const response = await fetch(`/api/${path}`, {
+            ...options,
+            headers: { 'Accept': 'application/json', ...(options.headers || {}) }
+        });
+        let payload;
+        try { payload = await response.json(); }
+        catch (_) { throw new Error(`The server returned an invalid response (${response.status}).`); }
+        // Route validation responses are returned to the existing UI because
+        // it already renders their structured error_details contract.
+        if (!response.ok && payload && payload.error) return payload;
+        if (!response.ok) throw new Error(payload?.detail || `Request failed (${response.status}).`);
+        return payload;
+    }
+
     window.YangonApi = Object.freeze({
-        locations: () => backend().get_locations(),
-        vehicles: () => backend().get_vehicles(),
-        graph: () => backend().get_graph_data(),
-        findRoute: ({ vehicle, start, destination, conditions }) => backend().find_route(vehicle, start, destination, conditions || {})
+        mode: () => desktopBackend() ? 'desktop' : 'http',
+        locations: () => desktopBackend()?.get_locations() || request('locations'),
+        vehicles: () => desktopBackend()?.get_vehicles() || request('vehicles'),
+        graph: () => desktopBackend()?.get_graph_data() || request('graph'),
+        findRoute: ({ vehicle, start, destination, conditions }) => {
+            const desktop = desktopBackend();
+            if (desktop) return desktop.find_route(vehicle, start, destination, conditions || {});
+            return request('route', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ vehicle, start, destination, conditions: conditions || {} })
+            });
+        }
     });
 }());
