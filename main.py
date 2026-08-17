@@ -1,18 +1,5 @@
-import webview
-
-from api import Api
+from app.startup import run
 
 
 if __name__ == "__main__":
-
-    api = Api()
-
-    webview.create_window(
-        "Yangon Traffic Agent",
-        "web/app.html",
-        js_api=api,
-        width=1400,
-        height=900
-    )
-
-    webview.start()
+    run()

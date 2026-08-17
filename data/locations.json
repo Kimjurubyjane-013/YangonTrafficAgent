@@ -1,8 +1,18 @@
 [
   {
-    "name": "Hledan Junction",
-    "type": "junction",
-    "traffic": "medium"
+    "name": "Hledan Centre",
+    "type": "shopping_center",
+    "traffic": "medium",
+    "lat": 16.8262,
+    "lon": 96.13049
+  },
+
+  {
+    "name": "Junction City",
+    "type": "shopping_center",
+    "traffic": "high",
+    "lat": 16.77896,
+    "lon": 96.15427
   },
 
   {

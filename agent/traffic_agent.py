@@ -1,191 +1,72 @@
+"""Explainable hybrid traffic-agent orchestration."""
 import hashlib
 from datetime import datetime
-
 from algorithms.graph import GRAPH
+from algorithms.road_metadata import ROAD_METADATA, road_attributes
 from algorithms.route_finder import find_all_simple_paths
-from algorithms.vehicle import calculate_time
+from algorithms.vehicle import VEHICLE_SPEED, calculate_time
+from services.route_decision_engine import RouteDecisionEngine
 
+TRAFFIC_MULTIPLIER = {"Light": 1.0, "Moderate": 1.4, "Heavy": 1.9}
+MAX_CANDIDATES, MAX_ROUTE_OPTIONS = 24, 4
+_ENGINE = None
 
-TRAFFIC_MULTIPLIER = {
-    "Light": 1.0,
-    "Moderate": 1.4,
-    "Heavy": 1.9
-}
+def _decision_engine():
+    global _ENGINE
+    if _ENGINE is None: _ENGINE = RouteDecisionEngine()
+    return _ENGINE
 
-MAX_ROUTE_OPTIONS = 4
+def _time_band(now=None):
+    return "peak" if (now or datetime.now()).hour in {7,8,9,16,17,18,19} else "off_peak"
 
+def _segment_traffic_for_edge(a, b, weight, now=None):
+    key = f"{a}|{b}|{(now or datetime.now()).strftime('%Y-%m-%d-%H')}"
+    roll = int(hashlib.sha256(key.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+    thresholds = [0.6,0.9] if weight <= 3 else ([0.35,0.75] if weight <= 6 else [0.2,0.55])
+    return "Light" if roll < thresholds[0] else ("Moderate" if roll < thresholds[1] else "Heavy")
 
-def _segment_traffic_for_edge(place_a, place_b, weight):
-    """
-    Deterministic traffic level for a single edge: the same edge,
-    in the same hour, always returns the same result — no more
-    "changes every time you click" behavior. It only shifts once
-    the real-world hour changes, giving a stable but still
-    time-of-day-aware traffic pattern instead of pure randomness.
-    """
+def _build_candidate(cid, path, distance, vehicle, conditions, graph, metadata):
+    overrides, segments, levels = conditions.get("segment_traffic", {}), [], []
+    for index, (start, end) in enumerate(zip(path, path[1:])):
+        attrs = road_attributes(start, end, metadata)
+        level = overrides.get((start,end)) or _segment_traffic_for_edge(start,end,graph[start][end],conditions.get("now"))
+        level = str(level).title(); level = level if level in TRAFFIC_MULTIPLIER else "Moderate"
+        levels.append(level)
+        segments.append({"index":index,"name":f"{start} -> {end}","start":start,"end":end,
+            "road_class":attrs["road_class"],"preferred":bool(attrs["preferred"]),
+            "one_way_ok":bool(attrs["one_way_ok"]),"traffic":level.lower()})
+    multiplier = sum(TRAFFIC_MULTIPLIER[x] for x in levels) / len(levels)
+    return {"candidate_id":cid,"route":list(path),"distance":round(distance,1),
+        "time":round(calculate_time(distance,vehicle)*multiplier,1),
+        "traffic":max(levels,key=TRAFFIC_MULTIPLIER.get),"segment_traffic":levels,"segments":segments}
 
-    hour_bucket = datetime.now().strftime("%Y-%m-%d-%H")
-    seed_key = f"{place_a}|{place_b}|{hour_bucket}"
+def _recommendation(best, alternatives, diagnostic):
+    d=best["decision"]; reasons=", ".join(d["reasons"]) or "lowest combined numeric and rule-based cost"
+    return (f"Route Decision\n\nEngine: {d['engine']}\nSelected: {' -> '.join(best['route'])}\n"
+        f"Score: {d['total_score']:.2f}\nReason: {reasons}.\nDistance: {best['distance']} km; "
+        f"estimated time: {best['time']} min; traffic: {best['traffic'].lower()}.\n"
+        f"{len(alternatives)} alternative route(s) retained.\n\nDiagnostic: {diagnostic}")
 
-    digest = hashlib.sha256(seed_key.encode()).hexdigest()
-    roll = int(digest[:8], 16) / 0xFFFFFFFF  # deterministic float in [0, 1)
-
-    if weight <= 3:
-        thresholds = [0.6, 0.9]   # Light, Moderate, Heavy
-
-    elif weight <= 6:
-        thresholds = [0.35, 0.75]
-
-    else:
-        thresholds = [0.2, 0.55]
-
-    if roll < thresholds[0]:
-        return "Light"
-
-    if roll < thresholds[1]:
-        return "Moderate"
-
-    return "Heavy"
-
-
-def _build_route_option(path, distance, vehicle):
-
-    segment_traffic = [
-        _segment_traffic_for_edge(path[i], path[i + 1], GRAPH[path[i]][path[i + 1]])
-        for i in range(len(path) - 1)
-    ]
-
-    avg_multiplier = sum(
-        TRAFFIC_MULTIPLIER[t] for t in segment_traffic
-    ) / len(segment_traffic)
-
-    # Worst segment sets the overall traffic label — a single
-    # heavy leg is worth calling out even if the rest is clear
-    overall_traffic = max(
-        segment_traffic,
-        key=lambda t: TRAFFIC_MULTIPLIER[t]
-    )
-
-    base_time = calculate_time(distance, vehicle)
-    adjusted_time = round(base_time * avg_multiplier, 1)
-
-    # Ranking cost: favors routes that avoid traffic, not just
-    # the shortest distance
-    cost = distance * avg_multiplier
-
-    return {
-        "route": path,
-        "distance": round(distance, 1),
-        "time": adjusted_time,
-        "traffic": overall_traffic,
-        "segment_traffic": segment_traffic,
-        "_cost": cost
-    }
-
-
-def _get_ai_message(vehicle, best, num_alternatives):
-
-    traffic = best["traffic"]
-    distance = best["distance"]
-    time = best["time"]
-
-    lines = [
-        "🎯 Route Assessment",
-        "",
-        f"Vehicle: {vehicle.lower()}",
-        f"Traffic Condition: {traffic.lower()}",
-        f"Distance: {distance} km",
-        f"Estimated Time: {round(time)} min",
-        ""
-    ]
-
-    lines.append("- Priority Action")
-
-    if traffic == "Heavy":
-        lines.append("Consider an alternative route or delay travel if possible.")
-
-    elif traffic == "Moderate":
-        lines.append("Fastest available route, moderate delays possible.")
-
-    else:
-        lines.append("Fastest available route.")
-
-    lines.append("")
-    lines.append("- Distance Insight")
-
-    if distance <= 4:
-        lines.append("Short trip - minimal travel time expected.")
-
-    elif distance <= 8:
-        lines.append("Medium-length trip - plan for normal travel time.")
-
-    else:
-        lines.append("Longer trip - allow extra time.")
-
-    lines.append("")
-    lines.append("- Safety Note")
-
-    if traffic == "Heavy":
-        lines.append("Drive cautiously, congestion increases accident risk.")
-
-    else:
-        lines.append("Traffic conditions are favorable for normal driving.")
-
-    if num_alternatives > 0:
-        lines.append("")
-        lines.append(f"- {num_alternatives} alternative route(s) available in the panel.")
-
-    return "\n".join(lines)
-
-
-def run_traffic_agent(start, destination, vehicle):
-    """
-    Returns:
-    {
-        route, distance, time, traffic, segment_traffic,
-        alternatives: [ {route, distance, time, traffic, segment_traffic}, ... ],
-        ai_message
-    }
-    or {"error": "..."} if no route exists.
-    """
-
-    if start == destination:
-        return {"error": "Start and destination must be different."}
-
-    if start not in GRAPH or destination not in GRAPH:
-        return {"error": "Unknown location."}
-
-    raw_paths = find_all_simple_paths(GRAPH, start, destination)
-
-    if not raw_paths:
-        return {
-            "error": f"No route found between {start} and {destination}."
-        }
-
-    options = [
-        _build_route_option(path, distance, vehicle)
-        for path, distance in raw_paths
-    ]
-
-    # Best (lowest traffic-adjusted cost) first
-    options.sort(key=lambda o: o["_cost"])
-
-    options = options[:MAX_ROUTE_OPTIONS]
-
-    for option in options:
-        option.pop("_cost", None)
-
-    best = options[0]
-    alternatives = options[1:]
-
-    ai_message = _get_ai_message(vehicle, best, len(alternatives))
-
-    return {
-        "route": best["route"],
-        "distance": best["distance"],
-        "time": best["time"],
-        "traffic": best["traffic"],
-        "segment_traffic": best["segment_traffic"],
-        "alternatives": alternatives,
-        "ai_message": ai_message
-    }
+def run_traffic_agent(start, destination, vehicle, conditions=None, graph=None, road_metadata=None, decision_engine=None):
+    graph=graph or GRAPH; metadata=ROAD_METADATA if road_metadata is None else road_metadata
+    conditions=dict(conditions or {}); conditions.setdefault("time_band",_time_band(conditions.get("now")))
+    conditions.setdefault("weather","clear"); conditions.setdefault("incident","none")
+    if not all(isinstance(x,str) for x in (start,destination,vehicle)):
+        return {"error":"Start, destination, and vehicle must be text values."}
+    if start==destination: return {"error":"Start and destination must be different."}
+    if start not in graph or destination not in graph: return {"error":"Unknown location."}
+    if vehicle not in VEHICLE_SPEED: return {"error":"Unknown vehicle type."}
+    paths=find_all_simple_paths(graph,start,destination,max_depth=min(8,len(graph)),max_candidates=MAX_CANDIDATES)
+    if not paths: return {"error":f"No route found between {start} and {destination}."}
+    candidates=[_build_candidate(i,p,d,vehicle,conditions,graph,metadata) for i,(p,d) in enumerate(paths)]
+    engine=decision_engine or _decision_engine(); eligible,evaluated=engine.evaluate(candidates,vehicle,conditions)
+    if not eligible: return {"error":"No eligible route satisfies the active restrictions.",
+        "decision_engine":engine.engine_name,"diagnostic":engine.diagnostic,
+        "rejected_candidates":[x["decision"] for x in evaluated]}
+    options=eligible[:MAX_ROUTE_OPTIONS]
+    for item in options: item.pop("segments",None); item.pop("candidate_id",None)
+    best,alternatives=options[0],options[1:]
+    return {"route":best["route"],"distance":best["distance"],"time":best["time"],
+        "traffic":best["traffic"],"segment_traffic":best["segment_traffic"],"alternatives":alternatives,
+        "decision":best["decision"],"decision_engine":engine.engine_name,"diagnostic":engine.diagnostic,
+        "ai_message":_recommendation(best,alternatives,engine.diagnostic)}

@@ -1,4 +1,4 @@
-def find_all_simple_paths(graph, start, destination, max_depth=6):
+def find_all_simple_paths(graph, start, destination, max_depth=8, max_candidates=24):
     """
     Depth-first search returning every simple (no repeated node)
     path between start and destination, each paired with its
@@ -17,7 +17,10 @@ def find_all_simple_paths(graph, start, destination, max_depth=6):
         if len(path) > max_depth:
             return
 
-        for neighbor, weight in graph.get(current, {}).items():
+        if len(results) >= max_candidates:
+            return
+
+        for neighbor, weight in sorted(graph.get(current, {}).items()):
 
             if neighbor in visited:
                 continue
@@ -29,6 +32,9 @@ def find_all_simple_paths(graph, start, destination, max_depth=6):
 
             path.pop()
             visited.remove(neighbor)
+
+    if start not in graph or destination not in graph:
+        return []
 
     dfs(start, {start}, [start], 0)
 

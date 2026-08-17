@@ -3,28 +3,67 @@
 <head>
 <meta charset="utf-8" />
 <title>Yangon Traffic Agent</title>
-<script src="vendor/leaflet.js"></script>
-<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="./lib/leaflet.js"></script>
+<script src="./state.js"></script>
+<script src="./api.js"></script>
 <style>
     * { box-sizing: border-box; font-family: Arial, sans-serif; }
-    body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: #eef1f4; }
+    body {
+        margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+        background: #e9edf1;
+        color: #1d2b36;
+    }
 
-    .main { flex: 1; display: flex; gap: 15px; padding: 15px; min-height: 0; }
+    .main {
+        flex: 1; display: flex; gap: 16px; padding: 16px;
+        min-height: 0; max-width: 1500px; width: 100%; margin: 0 auto;
+    }
 
     .panel {
-        background: #ffffff; border-radius: 14px; padding: 16px;
-        overflow-y: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        background: #fff;
+        border: 1px solid #dfe6ec;
+        border-radius: 12px; padding: 16px;
+        overflow: hidden; box-shadow: 0 1px 2px rgba(14, 25, 38, 0.04);
     }
 
-    .control { width: 320px; flex-shrink: 0; }
-    .map-area { flex: 1; display: flex; flex-direction: column; position: relative; }
-    .result { width: 320px; flex-shrink: 0; }
+    .control { width: 300px; flex-shrink: 0; }
+    .map-area {
+        flex: 1; display: flex; flex-direction: column; position: relative;
+        min-width: 0; padding: 14px 14px 12px; overflow: hidden;
+    }
+    .result { width: 300px; flex-shrink: 0; }
 
     #map, #three-canvas {
-        flex: 1; border-radius: 12px; margin-top: 10px;
-        border: 1px solid #dfe3e8; overflow: hidden;
+        flex: 1; min-height: 510px; border-radius: 10px; margin-top: 10px;
+        border: 1px solid #cfd8df; overflow: hidden;
+        background: #edf2f6;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
     }
-    #three-canvas { display: none; position: relative; border-color: #2a2a2a; }
+    #three-canvas { display: none; position: relative; }
+    #three-canvas canvas { display: block; width: 100%; height: 100%; }
+
+    .sim-hud {
+        display: none; position: absolute; z-index: 12; top: 12px; left: 12px;
+        width: min(420px, calc(100% - 24px)); padding: 12px;
+        grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;
+        background: rgba(8, 20, 31, .88); color: #fff; border: 1px solid rgba(255,255,255,.16);
+        border-radius: 12px; backdrop-filter: blur(8px); box-shadow: 0 8px 24px rgba(0,0,0,.28);
+    }
+    .sim-hud.visible { display: grid; }
+    .sim-hud.arrived { border-color: #2ecc71; }
+    .sim-metric { min-width: 0; }
+    .sim-metric.wide { grid-column: span 2; }
+    .sim-metric strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    .sim-metric small { display: block; margin-top: 2px; color: #a8bfd0; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
+    .sim-controls {
+        display: none; position: absolute; z-index: 13; left: 12px; right: 12px; bottom: 12px;
+        align-items: center; gap: 8px; padding: 9px; border-radius: 12px;
+        background: rgba(8, 20, 31, .88); backdrop-filter: blur(8px);
+    }
+    .sim-controls.visible { display: flex; }
+    .sim-controls button, .sim-controls select { width: auto; margin: 0; min-height: 36px; padding: 8px 12px; }
+    .sim-controls button { background: #176b8f; }
+    .sim-controls [data-action="exit"] { margin-left: auto; background: #a43c3c; }
 
     #map-error {
         display: none; align-items: center; justify-content: center;
@@ -33,47 +72,58 @@
         color: #c0392b; font-size: 14px; text-align: center; padding: 20px;
     }
 
-    h2 { margin: 0 0 15px 0; color: #1a2b3c; }
-    h3 { margin: 15px 0 8px 0; font-size: 15px; color: #1a2b3c; }
+    h2 {
+        margin: 0 0 14px 0; color: #1d2b36; font-size: clamp(1.2rem, 2vw, 1.7rem);
+        letter-spacing: -0.02em; font-weight: 700;
+    }
+    h3 { margin: 16px 0 8px 0; font-size: 15px; color: #1d2b36; }
 
-    label { display: block; font-weight: bold; margin: 12px 0 4px; color: #2c3e50; }
+    label { display: block; font-weight: 600; margin: 12px 0 5px; color: #2d3d4d; }
 
     select {
-        width: 100%; padding: 8px; border-radius: 6px;
-        border: 1px solid #ccc; font-size: 14px;
+        width: 100%; padding: 9px 10px; border-radius: 8px;
+        border: 1px solid #d0d9df; background: #f9fbfc;
+        font-size: 14px; color: #1f2d3b;
     }
 
     button {
-        width: 100%; padding: 12px; margin-top: 15px;
-        border: none; border-radius: 8px; font-weight: bold;
+        width: 100%; padding: 11px 12px; margin-top: 14px;
+        border: none; border-radius: 8px; font-weight: 700;
         font-size: 15px; cursor: pointer; color: white;
-        -webkit-appearance: none;
-        appearance: none;
-        opacity: 1;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-        transition: filter 0.15s ease, transform 0.1s ease;
+        -webkit-appearance: none; appearance: none; opacity: 1;
+        box-shadow: none; transition: opacity 0.15s ease;
     }
 
-    button:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
-    button:active:not(:disabled) { filter: brightness(0.92); transform: translateY(0); }
-    button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; transform: none; }
+    button:hover:not(:disabled) { opacity: 0.96; }
+    button:active:not(:disabled) { opacity: 0.9; }
+    button:disabled { opacity: 0.42; cursor: not-allowed; }
 
-    .btn-find { background: #0B5394; }
-    .btn-reset { background: #0E7C86; }
-    .btn-sim { background: #00838F; }
+    .btn-find { background: #0f5f9c; }
+    .btn-reset { background: #0d7e84; }
+    .btn-sim { background: #0a8a93; }
 
-    .status { margin-top: 15px; font-style: italic; color: #555; }
+    .status {
+        margin-top: 15px; font-style: italic; color: #4e6578; line-height: 1.5;
+        min-height: 24px;
+    }
 
-    .legend { margin-top: 10px; font-size: 13px; color: #444; }
-    .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+    .legend {
+        margin-top: 14px; font-size: 13px; color: #40586d; display: flex;
+        gap: 12px; flex-wrap: wrap; align-items: center;
+    }
+    .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 5px; vertical-align: middle; }
 
     .ai-panel {
-        background: #ffffff; border-radius: 14px; margin: 0 15px 15px 15px;
-        padding: 16px; min-height: 100px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        background: #fff;
+        border: 1px solid #dfe6ec;
+        border-radius: 12px; margin: 0 16px 16px 16px; padding: 16px;
+        min-height: 110px; box-shadow: 0 1px 2px rgba(14, 25, 38, 0.04);
     }
 
-    .result p { margin: 8px 0; color: #2c3e50; }
+    .result p {
+        margin: 8px 0; color: #2c3e50; background: #f6f8fa;
+        border: 1px solid #edf1f4; border-radius: 8px; padding: 10px 12px;
+    }
 
     .car-icon {
         font-size: 22px; text-align: center; line-height: 34px;
@@ -82,80 +132,142 @@
         box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     }
 
-    .pin-start {
-        width: 22px; height: 22px; background: #2ecc71;
-        border-radius: 50% 50% 50% 0; border: 3px solid white;
-        transform: rotate(-45deg);
-        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-    }
-
-    .pin-end {
-        width: 22px; height: 22px; background: #e74c3c;
-        border-radius: 50% 50% 50% 0; border: 3px solid white;
-        transform: rotate(-45deg);
-        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-    }
-
-    .chevron-icon {
-        width: 14px; height: 14px;
-        display: flex; align-items: center; justify-content: center;
-    }
-
-    .sim-hud {
-        position: absolute; top: 10px; left: 10px;
-        background: rgba(0,0,0,0.65); color: white;
-        padding: 8px 12px; border-radius: 8px; font-size: 13px;
-        display: none; z-index: 10;
-    }
-
-    .nav-card {
-        position: absolute; bottom: 14px; left: 14px; right: 14px;
-        background: #0B5394; color: white; border-radius: 14px;
-        padding: 14px 18px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-        display: none; z-index: 15; align-items: center; gap: 16px;
-    }
-
-    .nav-card .eta-block { font-size: 26px; font-weight: bold; line-height: 1; }
-    .nav-card .eta-sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
-    .nav-card .next-turn { flex: 1; font-size: 14px; }
-    .nav-card .traffic-chip {
-        padding: 4px 10px; border-radius: 12px; font-size: 12px;
-        font-weight: bold; color: white;
-    }
-
-    .recenter-btn {
-        position: absolute; bottom: 90px; right: 20px;
-        width: 42px; height: 42px; border-radius: 50%;
-        background: white; border: 1px solid #ddd;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    .compass {
+        position: absolute; top: 62px; right: 12px;
+        width: 34px; height: 34px; border-radius: 50%;
+        background: rgba(11, 23, 35, 0.8); color: #cfe0f0;
         display: none; align-items: center; justify-content: center;
-        cursor: pointer; font-size: 18px; z-index: 15;
-        margin: 0;
+        font-size: 12px; font-weight: 700; z-index: 10;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.18);
+        border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .nav-hud {
+        position: absolute; bottom: 12px; left: 12px; right: 12px;
+        background: rgba(11, 23, 35, 0.84); color: #eef4fa;
+        border-radius: 16px; padding: 12px 18px;
+        display: none; z-index: 10;
+        justify-content: space-around; align-items: center;
+        box-shadow: 0 10px 22px rgba(0,0,0,0.2);
+        border: 1px solid rgba(255,255,255,0.08);
+        backdrop-filter: blur(10px);
+    }
+
+    .nav-hud.visible { display: flex; }
+
+    .nav-hud-item {
+        display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+
+    .nav-hud-value {
+        font-size: 18px; font-weight: 700;
+    }
+
+    .nav-hud-label {
+        font-size: 10px; color: #9fb3c8; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    .nav-hud-badge {
+        font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+        color: white; min-width: 56px; text-align: center;
     }
 
     .route-option {
-        background: #f7f9fb; border-radius: 8px; padding: 10px;
+        background: #f8fafb;
+        border-radius: 8px; padding: 10px 12px;
         margin-bottom: 8px; font-size: 13px; cursor: pointer;
-        border: 2px solid transparent; color: #2c3e50;
+        border: 1px solid #e4ebf0; color: #2c3e50;
+        transition: border-color 0.15s ease, background 0.15s ease;
     }
 
-    .route-option:hover { border-color: #0B5394; }
-    .route-option.active { border-color: #2ecc71; background: #eafff0; }
+    .route-option:hover { border-color: #c9d6df; }
+    .route-option.active {
+        border-color: #9ad9b5; background: #edfdf3;
+    }
 
     .route-option .badge {
-        display: inline-block; padding: 2px 8px; border-radius: 10px;
-        color: white; font-size: 11px; font-weight: bold;
+        display: inline-block; padding: 3px 8px; border-radius: 999px;
+        color: white; font-size: 11px; font-weight: 700; float: right; margin-top: 4px;
     }
 
+    .loc-label {
+        background: rgba(255,255,255,0.94) !important;
+        border: 1px solid rgba(22, 41, 61, 0.08) !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.12) !important;
+        font-size: 10px !important; font-weight: 700; color: #23374a !important;
+        padding: 4px 8px !important; border-radius: 8px !important;
+    }
+
+    .leaflet-control-zoom {
+        border: 1px solid #d9e2e8 !important; overflow: hidden; border-radius: 8px !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08) !important;
+    }
+
+    .leaflet-control-zoom a {
+        background: rgba(255,255,255,0.9) !important; color: #2f3f4d !important;
+        border-bottom: 1px solid #dfe7eb !important; width: 30px !important; height: 30px !important;
+        line-height: 30px !important; font-size: 18px !important; font-weight: 700 !important;
+    }
+
+    .leaflet-control-zoom a:hover {
+        background: #ffffff !important; color: #1f2c39 !important;
+    }
+
+    /* Neutral light canvas used only when every real map-tile provider is
+       unreachable. It deliberately avoids fabricated buildings or roads. */
+    .offline-city-bg {
+        background-color: #eef2f4 !important;
+        background-image:
+            linear-gradient(rgba(116, 136, 150, 0.10) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(116, 136, 150, 0.10) 1px, transparent 1px) !important;
+        background-size: 48px 48px !important;
+    }
+
+    .map-sim-panel {
+        display: none; position: absolute; z-index: 1001; top: 70px; left: 28px;
+        width: min(430px, calc(100% - 56px)); padding: 11px 13px;
+        grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px;
+        background: rgba(8, 24, 38, 0.92); color: #fff; border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.25); backdrop-filter: blur(8px);
+    }
+    .map-sim-panel.visible { display: grid; }
+    .map-sim-panel strong { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .map-sim-panel small { color: #abc0d0; font-size: 9px; text-transform: uppercase; letter-spacing: .05em; }
+    .map-sim-controls {
+        display: none; position: absolute; z-index: 1001; left: 28px; right: 28px; bottom: 28px;
+        gap: 8px; padding: 9px; border-radius: 12px; background: rgba(8,24,38,.92);
+    }
+    .map-sim-controls.visible { display: flex; }
+    .map-sim-controls button { width: auto; margin: 0; min-height: 36px; padding: 8px 14px; background: #137798; }
+    .map-sim-controls #map-sim-exit { margin-left: auto; background: #a43c3c; }
+
+    .map-source-notice {
+        background: rgba(255,255,255,0.96);
+        border: 1px solid #d6e0e6;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(22,41,61,0.12);
+        color: #425466;
+        font: 600 11px/1.3 Arial, sans-serif;
+        padding: 7px 10px;
+    }
+
+    /* Leaflet base styles - inlined so we don't depend on an
+       extra CSS CDN request that could also fail */
     .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
-    .leaflet-container{overflow:hidden;background:#ddd}
+    .leaflet-container{overflow:hidden;background:#e7edf2}
     .leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow{-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
     .leaflet-tile::selection{background:transparent}
+    .leaflet-safari .leaflet-tile{image-rendering:-webkit-optimize-contrast}
+    .leaflet-safari .leaflet-tile-container{width:1600px;height:1600px;-webkit-transform-origin:0 0}
     .leaflet-marker-icon,.leaflet-marker-shadow{display:block}
     .leaflet-container .leaflet-overlay-pane svg,.leaflet-container .leaflet-marker-pane img,.leaflet-container .leaflet-shadow-pane img,.leaflet-container .leaflet-tile-pane img,.leaflet-container img.leaflet-image-layer,.leaflet-container .leaflet-tile{max-width:none!important;max-height:none!important}
+    .leaflet-container.leaflet-touch-zoom{-ms-touch-action:pan-x pan-y;touch-action:pan-x pan-y}
+    .leaflet-container.leaflet-touch-drag{-ms-touch-action:pinch-zoom;touch-action:none;touch-action:pinch-zoom}
+    .leaflet-container.leaflet-touch-drag.leaflet-touch-zoom{touch-action:none}
     .leaflet-tile{filter:inherit;visibility:hidden}
     .leaflet-tile-loaded{visibility:inherit}
     .leaflet-zoom-box{width:0;height:0;-moz-box-sizing:border-box;box-sizing:border-box;z-index:800}
+    .leaflet-overlay-pane svg{-moz-user-select:none}
     .leaflet-pane{z-index:400}
     .leaflet-tile-pane{z-index:200}
     .leaflet-overlay-pane{z-index:400}
@@ -165,6 +277,8 @@
     .leaflet-popup-pane{z-index:700}
     .leaflet-map-pane canvas{z-index:100}
     .leaflet-map-pane svg{z-index:200}
+    .leaflet-vml-shape{width:1px;height:1px}
+    .lvml{behavior:url(#default#VML);display:inline-block;position:absolute}
     .leaflet-control{position:relative;z-index:800;pointer-events:visiblePainted;pointer-events:auto}
     .leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
     .leaflet-top{top:0}
@@ -177,43 +291,138 @@
     .leaflet-bottom .leaflet-control{margin-bottom:10px}
     .leaflet-left .leaflet-control{margin-left:10px}
     .leaflet-right .leaflet-control{margin-right:10px}
+    .leaflet-fade-anim .leaflet-popup{opacity:0;-webkit-transition:opacity .2s linear;-moz-transition:opacity .2s linear;-o-transition:opacity .2s linear;transition:opacity .2s linear}
+    .leaflet-fade-anim .leaflet-map-pane .leaflet-popup{opacity:1}
+    .leaflet-zoom-animated{-webkit-transform-origin:0 0;-ms-transform-origin:0 0;transform-origin:0 0}
+    svg.leaflet-zoom-animated{will-change:transform}
+    .leaflet-zoom-anim .leaflet-zoom-animated{-webkit-transition:-webkit-transform .25s cubic-bezier(0,0,.25,1);-moz-transition:-moz-transform .25s cubic-bezier(0,0,.25,1);-o-transition:-o-transform .25s cubic-bezier(0,0,.25,1);transition:transform .25s cubic-bezier(0,0,.25,1)}
+    .leaflet-zoom-anim .leaflet-tile,.leaflet-pan-anim .leaflet-tile{-webkit-transition:none;-moz-transition:none;-o-transition:none;transition:none}
+    .leaflet-zoom-anim .leaflet-zoom-hide{visibility:hidden}
     .leaflet-interactive{cursor:pointer}
-    .leaflet-grab{cursor:grab}
-    .leaflet-container{background:#ddd;outline-offset:1px;-webkit-tap-highlight-color:transparent}
+    .leaflet-grab{cursor:-webkit-grab;cursor:-moz-grab;cursor:grab}
+    .leaflet-crosshair,.leaflet-crosshair .leaflet-interactive{cursor:crosshair}
+    .leaflet-popup-pane,.leaflet-control{cursor:auto}
+    .leaflet-dragging .leaflet-grab,.leaflet-dragging .leaflet-grab .leaflet-interactive,.leaflet-dragging .leaflet-marker-draggable{cursor:move;cursor:-webkit-grabbing;cursor:-moz-grabbing;cursor:grabbing}
+    .leaflet-marker-icon.leaflet-interactive,.leaflet-image-layer.leaflet-interactive,.leaflet-pane>svg path.leaflet-interactive,svg.leaflet-image-layer.leaflet-interactive path{pointer-events:visiblePainted;pointer-events:auto}
+    .leaflet-container{background:#12253d;outline-offset:1px;-webkit-tap-highlight-color:transparent}
     .leaflet-container a{color:#0078A8}
+    .leaflet-zoom-box{border:2px dotted #38f;background:rgba(255,255,255,.5)}
+    .leaflet-container-touch{-ms-touch-action:none;touch-action:none}
     .leaflet-bar{box-shadow:0 1px 5px rgba(0,0,0,.65);border-radius:4px}
-    .leaflet-bar a{background-color:#fff;border-bottom:1px solid #ccc;width:26px;height:26px;line-height:26px;display:block;text-align:center;text-decoration:none;color:#000;font:bold 18px monospace}
-    .leaflet-bar a:hover,.leaflet-bar a:focus{background-color:#f4f4f4}
+    .leaflet-bar a{background-color:#2a2a2a;border-bottom:1px solid #444;width:26px;height:26px;line-height:26px;display:block;text-align:center;text-decoration:none;color:#fff;font:bold 18px 'Lucida Console',Monaco,monospace}
+    .leaflet-bar a,.leaflet-control-layers-toggle{background-position:50% 50%;background-repeat:no-repeat;display:block}
+    .leaflet-bar a:hover,.leaflet-bar a:focus{background-color:#3a3a3a}
     .leaflet-bar a:first-child{border-top-left-radius:4px;border-top-right-radius:4px}
     .leaflet-bar a:last-child{border-bottom-left-radius:4px;border-bottom-right-radius:4px;border-bottom:none}
-    .leaflet-control-zoom-in,.leaflet-control-zoom-out{font:bold 18px monospace;text-indent:1px}
+    .leaflet-bar a.leaflet-disabled{cursor:default;background-color:#1a1a1a;color:#555}
+    .leaflet-control-zoom-in,.leaflet-control-zoom-out{font:bold 18px 'Lucida Console',Monaco,monospace;text-indent:1px}
     .leaflet-popup{position:absolute;text-align:center;margin-bottom:20px}
-    .leaflet-popup-content-wrapper{padding:1px;text-align:left;border-radius:12px}
+    .leaflet-popup-content-wrapper{padding:1px;text-align:left;border-radius:12px;background:#2a2a2a;color:#eee}
     .leaflet-popup-content{margin:13px 24px 13px 20px;line-height:1.3;font-size:13px;min-height:1px}
+    .leaflet-popup-content p{margin:17px 0}
     .leaflet-popup-tip-container{width:40px;height:20px;position:absolute;left:50%;margin-left:-20px;overflow:hidden;pointer-events:none}
-    .leaflet-popup-tip{background:#fff;width:17px;height:17px;padding:1px;margin:-10px auto 0;transform:rotate(45deg)}
-    .leaflet-tooltip{position:absolute;padding:6px;background-color:#fff;border:1px solid #fff;border-radius:3px;white-space:nowrap;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+    .leaflet-popup-tip{background:#2a2a2a;width:17px;height:17px;padding:1px;margin:-10px auto 0;transform:rotate(45deg)}
+    .leaflet-popup-close-button{color:#ccc}
+    .leaflet-tooltip{position:absolute;padding:6px;background-color:#2a2a2a;color:#eee;border:1px solid #444;border-radius:3px;white-space:nowrap;-webkit-user-select:none;user-select:none;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.4)}
 </style>
+<link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
 
+<header class="app-header">
+    <div class="brand-lockup">
+        <div class="brand-mark agent-face-mini" aria-hidden="true"><i></i><i></i></div>
+        <div><strong>Yangon Route Agent</strong><span>Traffic-aware guidance that explains itself</span></div>
+    </div>
+    <nav class="app-nav" aria-label="Primary navigation">
+        <button type="button" id="nav-home" class="nav-link active">Home</button>
+        <button type="button" id="nav-planner" class="nav-link">Route planner</button>
+        <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark mode">☾</button>
+    </nav>
+</header>
+
+<main class="home-view" id="home-view">
+    <section class="home-hero">
+        <div class="hero-copy">
+            <div class="eyebrow"><span></span>Your Yangon travel companion</div>
+            <h1>A route recommendation you can understand.</h1>
+            <p>Choose where you are going. Your route agent checks real streets, traffic conditions, vehicle needs, and practical alternatives—then explains why a route fits.</p>
+            <div class="hero-actions">
+                <button type="button" class="primary-action" id="home-plan-route">Plan my route <span>→</span></button>
+                <button type="button" class="text-action" id="home-learn">How the agent thinks</button>
+            </div>
+            <div class="trust-row" aria-label="Route agent capabilities">
+                <span>Real road geometry</span><span>Traffic-aware ETA</span><span>Explainable decisions</span>
+            </div>
+        </div>
+        <div class="agent-scene" aria-label="Friendly Yangon route agent illustration">
+            <div class="agent-orbit orbit-one"></div><div class="agent-orbit orbit-two"></div>
+            <div class="agent-robot" aria-hidden="true">
+                <div class="robot-antenna"><b></b></div>
+                <div class="robot-head"><i></i><i></i><span></span></div>
+                <div class="robot-body"><b>YGN</b><span></span><span></span><span></span></div>
+            </div>
+            <div class="agent-bubble"><strong>Route checked</strong><span>I found a practical way through current traffic.</span></div>
+            <div class="route-sketch"><i></i><i></i><i></i><b></b></div>
+        </div>
+    </section>
+    <section class="home-features" id="agent-method">
+        <article><div class="feature-icon">01</div><h2>Grounded in real streets</h2><p>Routes follow mapped Yangon roads instead of straight landmark-to-landmark lines.</p></article>
+        <article><div class="feature-icon">02</div><h2>Adjusted to your journey</h2><p>Vehicle type and traffic conditions shape estimated time and route ranking.</p></article>
+        <article><div class="feature-icon">03</div><h2>Reasoning you can inspect</h2><p>Python optimization and symbolic rules provide a recommendation with a clear explanation.</p></article>
+    </section>
+    <section class="quick-start">
+        <div><div class="eyebrow">Quick start</div><h2>Where would you like to go?</h2></div>
+        <div class="quick-destinations">
+            <button type="button" data-quick-destination="Junction City">Junction City <span>→</span></button>
+            <button type="button" data-quick-destination="Myanmar Plaza">Myanmar Plaza <span>→</span></button>
+            <button type="button" data-quick-destination="Yangon Airport">Yangon Airport <span>→</span></button>
+        </div>
+    </section>
+</main>
+
+<div class="planner-view" id="planner-view" hidden>
 <div class="main">
 
     <div class="panel control">
-        <h2>🚦 Route Request</h2>
+        <div class="panel-kicker">Plan a journey</div>
+        <h2 class="primary-panel-title">Route Request</h2>
 
-        <label>🚗 Vehicle Type</label>
-        <select id="vehicle" onchange="onVehicleChange()"></select>
+        <label for="vehicle">Vehicle type</label>
+        <select id="vehicle" aria-label="Vehicle type"></select>
 
-        <label>📍 Starting Point</label>
+        <label for="start">Starting point</label>
         <select id="start"></select>
 
-        <label>🎯 Destination</label>
+        <button class="swap-route" id="swap-route" type="button" aria-label="Swap starting point and destination">⇅ <span>Swap locations</span></button>
+
+        <label for="destination">Destination</label>
         <select id="destination"></select>
 
-        <button class="btn-find" onclick="findRoute()">🔍 Find Optimal Route</button>
-        <button class="btn-reset" onclick="resetAll()">🔄 Reset</button>
-        <button class="btn-sim" id="sim-btn" onclick="openSimulation()" disabled>🚘 Vehicle Route Simulation</button>
+        <details class="journey-conditions" id="journey-conditions">
+            <summary>Journey conditions <span>Optional</span></summary>
+            <label for="scenario-mode">Demonstration scenario</label>
+            <select id="scenario-mode">
+                <option value="normal">Normal journey</option>
+                <option value="peak">Peak-hour congestion</option>
+                <option value="incident">Major traffic incident</option>
+                <option value="closure">Road closure rerouting</option>
+                <option value="emergency">Emergency response</option>
+            </select>
+            <div class="condition-grid">
+                <div><label for="departure-band">Departure period</label><select id="departure-band"><option value="">Current time</option><option value="peak">Peak hour</option><option value="off_peak">Off-peak</option></select></div>
+                <div><label for="incident-level">Incident level</label><select id="incident-level"><option value="none">None</option><option value="minor">Minor</option><option value="major">Major</option></select></div>
+            </div>
+            <div id="closure-field" hidden>
+                <label for="closed-road">Closed road name</label>
+                <input id="closed-road" type="text" maxlength="80" placeholder="Example: Pyay Road" autocomplete="off">
+                <small>Enter an English road name shown in a route result. A reroute is reported only when the provider data matches it.</small>
+            </div>
+        </details>
+
+        <button class="btn-find" id="find-btn" type="button">Find best route</button>
+        <button class="btn-reset" id="reset-btn" type="button">Reset journey</button>
+        <button class="btn-sim" id="sim-btn" type="button" disabled>Start navigation</button>
 
         <div class="status" id="status">Loading...</div>
 
@@ -225,57 +434,207 @@
     </div>
 
     <div class="panel map-area">
-        <h2>🗺 Yangon Route Map</h2>
+        <div class="map-heading">
+            <div><div class="panel-kicker">Live route canvas</div><h2 class="primary-panel-title">Yangon Road Map</h2></div>
+            <div class="map-data-pill">OSM road data</div>
+        </div>
         <div id="map"></div>
         <div id="map-error"></div>
-        <div class="nav-card" id="nav-card">
-            <div>
-                <div class="eta-block" id="nav-eta">--</div>
-                <div class="eta-sub" id="nav-dist">-- km</div>
-            </div>
-            <div class="next-turn" id="nav-next">Waiting for route...</div>
-            <div class="traffic-chip" id="nav-traffic-chip" style="background:#888">-</div>
+        <div class="map-sim-panel" id="map-sim-panel" aria-live="polite">
+            <div><strong id="map-sim-speed">0 km/h</strong><small>Speed</small></div>
+            <div><strong id="map-sim-traffic">-</strong><small>Traffic</small></div>
+            <div><strong id="map-sim-progress">0%</strong><small>Progress</small></div>
+            <div><strong id="map-sim-eta">-</strong><small>Remaining ETA</small></div>
+            <div><strong id="map-sim-distance">-</strong><small>Remaining</small></div>
+            <div><strong id="map-sim-state">Ready</strong><small>State</small></div>
         </div>
-        <button class="recenter-btn" id="recenter-btn" onclick="recenterOnCar()">🎯</button>
+        <div class="map-sim-controls" id="map-sim-controls">
+            <button type="button" id="map-sim-pause">Pause</button>
+            <button type="button" id="map-sim-restart">Restart</button>
+            <button type="button" id="map-sim-exit">Exit Simulation</button>
+        </div>
         <div id="three-canvas">
-            <div class="sim-hud" id="sim-hud">Driving...</div>
+            <div class="sim-hud" id="sim-hud" aria-live="polite">
+                <div class="sim-metric"><strong data-hud="speed">0 km/h</strong><small>Speed</small></div>
+                <div class="sim-metric"><strong data-hud="traffic">-</strong><small>Traffic</small></div>
+                <div class="sim-metric"><strong data-hud="progress">0%</strong><small>Progress</small></div>
+                <div class="sim-metric"><strong data-hud="eta">-</strong><small>Sim ETA</small></div>
+                <div class="sim-metric wide"><strong data-hud="road">-</strong><small>Current segment</small></div>
+                <div class="sim-metric"><strong data-hud="remaining">-</strong><small>Remaining</small></div>
+                <div class="sim-metric"><strong data-hud="camera">Follow</strong><small>Camera</small></div>
+                <div class="sim-metric"><strong data-hud="state">Ready</strong><small>State</small></div>
+            </div>
+            <div class="sim-controls" id="sim-controls">
+                <button type="button" data-action="pause">Pause</button>
+                <button type="button" data-action="restart">Restart</button>
+                <select data-camera aria-label="Simulation camera mode">
+                    <option value="follow">Follow camera</option><option value="driver">Driver camera</option>
+                    <option value="top">Top camera</option><option value="orbit">Orbit camera</option>
+                </select>
+                <button type="button" data-action="day-night">Night</button>
+                <button type="button" data-action="exit">Exit Simulation</button>
+            </div>
+        </div>
+        <div class="compass" id="compass-2d">N</div>
+        <div class="nav-hud" id="nav-hud-2d">
+            <div class="nav-hud-item">
+                <span class="nav-hud-value" id="hud-time">-</span>
+                <span class="nav-hud-label">time</span>
+            </div>
+            <div class="nav-hud-item">
+                <span class="nav-hud-value" id="hud-distance">-</span>
+                <span class="nav-hud-label">distance</span>
+            </div>
+            <div class="nav-hud-item">
+                <span class="nav-hud-badge" id="hud-traffic">-</span>
+                <span class="nav-hud-label">traffic</span>
+            </div>
         </div>
     </div>
 
     <div class="panel result">
-        <h2>🛣 Route Result</h2>
+        <div class="panel-kicker">Journey summary</div>
+        <h2 class="primary-panel-title">Route Result</h2>
         <p id="r-route">Route: -</p>
         <p id="r-distance">Distance: -</p>
         <p id="r-time">Estimated Time: -</p>
         <p id="r-traffic">Traffic: -</p>
+        <div class="route-provenance" id="route-provenance" hidden></div>
 
-        <h3>🔀 Route Options (best first)</h3>
+        <h3>Route options <span class="muted">best first</span></h3>
+        <div class="route-comparison" id="route-comparison" hidden></div>
         <div id="route-options"></div>
     </div>
 
 </div>
 
 <div class="ai-panel">
-    <h2>🤖 AI Traffic Assistant</h2>
-    <div id="ai-text" style="white-space: pre-wrap;">Waiting for route analysis...</div>
+    <div class="agent-panel-head">
+        <div class="route-agent-avatar" aria-hidden="true"><i></i><i></i><span></span></div>
+        <div><div class="panel-kicker">Your route agent</div><h2>Route Intelligence</h2></div>
+        <div class="agent-ready"><span></span>Ready to reason</div>
+    </div>
+    <div class="agent-conversation">
+        <div class="agent-name">Yangon Route Agent</div>
+        <div id="ai-text">Tell me where you want to go, and I’ll explain the route I recommend.</div>
+    </div>
+    <details class="decision-details">
+        <summary>How this decision was made</summary>
+        <div id="decision-details-text">Route evidence will appear after a search.</div>
+    </details>
+    <div class="evaluation-actions">
+        <button id="evaluation-toggle" type="button" aria-expanded="false" disabled>View decision evaluation</button>
+    </div>
+    <section id="evaluation-dashboard" class="evaluation-dashboard" hidden aria-label="Route decision evaluation"></section>
+</div>
 </div>
 
 <script>
+    // ============================================
+    // Resilient script loader - tries multiple
+    // sources in sequence (local file first, then
+    // CDNs as fallback), so one flaky/unreachable
+    // source can't blank the whole map.
+    // ============================================
+
+    function loadScript(url, timeoutMs = 8000) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = url;
+
+            const timer = setTimeout(() => {
+                script.remove();
+                reject(new Error('timeout loading ' + url));
+            }, timeoutMs);
+
+            script.onload = () => {
+                clearTimeout(timer);
+                resolve();
+            };
+
+            script.onerror = () => {
+                clearTimeout(timer);
+                script.remove();
+                reject(new Error('failed to load ' + url));
+            };
+
+            document.head.appendChild(script);
+        });
+    }
+
+    async function loadLeaflet() {
+        // The bundled local library is loaded in <head>. Keep the fallback
+        // list below for installations where that file is unavailable.
+        if (typeof L !== 'undefined') return true;
+
+        const sources = [
+            './lib/leaflet.js',
+            'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+            'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
+            'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'
+        ];
+
+        for (const url of sources) {
+            try {
+                await loadScript(url);
+                if (typeof L !== 'undefined') return true;
+            } catch (e) {
+                console.warn('Leaflet source failed, trying next:', url, e.message);
+            }
+        }
+
+        return false;
+    }
+
+    // ============================================
+    // State
+    // ============================================
+
     let map, routeLayers = [], carMarker, animFrame;
     let currentRouteCoords = null;
+    let currentRouteLegs = null;
+    let routeGeometryRequestId = 0;
+    let routeSearchRequestId = 0;
+    const roadGeometryCache = new Map();
     let currentRouteNames = null;
     let currentSegmentTraffic = null;
-    let currentRoadCoords = null;
     let simRunning = false;
+    let mapSimulation = null;
     let mapReady = false;
-    let followCar = true;
+    let mapInitializationPromise = null;
+    let retryBaseMapTiles = null;
+    let lastBaseMapRetry = 0;
 
     let allOptionsData = [];
     let activeOptionIndex = 0;
 
-    // Filled in from the backend on load - see populateDropdowns()
-    let LOCATION_COORDS = {};
-    let GRAPH_EDGES = [];
+    let LOCATION_COORDS = {
+        "Hledan Centre": [16.8262, 96.13049],
+        "Junction Square": [16.8172, 96.1314],
+        "Inya Lake": [16.8368, 96.1452],
+        "Myanmar Plaza": [16.8282, 96.1550],
+        "Yangon General Hospital": [16.7789, 96.1481],
+        "Yangon Central Station": [16.7817, 96.1613],
+        "Sule Pagoda": [16.7744, 96.1588],
+        "Yangon Airport": [16.9072, 96.1331],
+        "Junction City": [16.77896, 96.15427]
+    };
+
+    let GRAPH_EDGES = [
+        ["Hledan Centre", "Junction Square"],
+        ["Hledan Centre", "Inya Lake"],
+        ["Junction Square", "Myanmar Plaza"],
+        ["Junction Square", "Yangon General Hospital"],
+        ["Inya Lake", "Myanmar Plaza"],
+        ["Inya Lake", "Yangon Airport"],
+        ["Myanmar Plaza", "Yangon Airport"],
+        ["Myanmar Plaza", "Sule Pagoda"],
+        ["Yangon General Hospital", "Yangon Central Station"],
+        ["Yangon Central Station", "Sule Pagoda"],
+        ["Junction City", "Yangon General Hospital"],
+        ["Junction City", "Yangon Central Station"],
+        ["Junction City", "Sule Pagoda"]
+    ];
 
     const VEHICLE_SPEED = {
         "Car": 40, "Bus": 25, "Taxi": 35,
@@ -303,24 +662,11 @@
         document.getElementById('map').style.display = 'none';
     }
 
-    function getVehicleIcon(vehicle, angle) {
-        const rot = angle !== undefined ? `transform: rotate(${angle}deg);` : '';
+    function getVehicleIcon(vehicle) {
         return L.divIcon({
-            html: `<div style="${rot}">${VEHICLE_ICONS[vehicle] || "🚗"}</div>`,
+            html: VEHICLE_ICONS[vehicle] || "🚗",
             className: 'car-icon',
             iconSize: [34, 34]
-        });
-    }
-
-    function chevronIcon(angle) {
-        return L.divIcon({
-            html: `<div class="chevron-icon" style="transform: rotate(${angle}deg);">
-                     <svg width="14" height="14" viewBox="0 0 24 24">
-                       <path d="M12 2 L20 20 L12 15 L4 20 Z" fill="#ffffff" stroke="#0B5394" stroke-width="1"/>
-                     </svg>
-                   </div>`,
-            className: '',
-            iconSize: [14, 14]
         });
     }
 
@@ -334,28 +680,131 @@
         return `${secs} sec`;
     }
 
-    function initMap() {
+    async function initMap() {
         try {
             document.getElementById('status').innerText = 'Loading map...';
 
-            if (typeof L === 'undefined') {
-                throw new Error('Leaflet failed to load from local file (check web/vendor/leaflet.js exists)');
+            const loaded = await loadLeaflet();
+
+            if (!loaded) {
+                throw new Error('Leaflet failed to load from all available sources');
             }
 
-            map = L.map('map', { zoomControl: true }).setView([16.8409, 96.1735], 12);
+            map = L.map('map', {
+                zoomControl: true,
+                attributionControl: true
+            }).setView([16.8409, 96.1735], 13);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors',
-                maxZoom: 19
-            }).addTo(map);
+            const tileProviders = [
+                {
+                    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    options: { maxZoom: 19, subdomains: 'abc', attribution: '&copy; OpenStreetMap contributors' }
+                },
+                {
+                    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                    options: { maxZoom: 20, subdomains: 'abcd', attribution: '&copy; OpenStreetMap contributors &copy; CARTO' }
+                },
+                {
+                    url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+                    options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
+                }
+            ];
 
-            map.on('dragstart', () => { followCar = false; });
+            let activeTileLayer = null;
+            let providerAttempt = 0;
+            let mapSourceNotice = null;
+
+            function showMapSourceNotice(text) {
+                if (mapSourceNotice) map.removeControl(mapSourceNotice);
+                mapSourceNotice = L.control({ position: 'bottomright' });
+                mapSourceNotice.onAdd = () => {
+                    const notice = L.DomUtil.create('div', 'map-source-notice');
+                    notice.textContent = text;
+                    return notice;
+                };
+                mapSourceNotice.addTo(map);
+            }
+
+            function useOfflineCanvas() {
+                const mapElement = document.getElementById('map');
+                if (!mapElement.offsetParent) {
+                    setTimeout(() => loadTileProvider(0), 500);
+                    return;
+                }
+                if (activeTileLayer && map.hasLayer(activeTileLayer)) map.removeLayer(activeTileLayer);
+                document.getElementById('map').classList.add('offline-city-bg');
+                showMapSourceNotice('Map imagery unavailable — route geometry is still accurate');
+                console.warn('All real map-tile providers are unavailable; using the neutral offline route canvas.');
+            }
+
+            function loadTileProvider(index) {
+                const mapElement = document.getElementById('map');
+                if (!mapElement.offsetParent) {
+                    setTimeout(() => loadTileProvider(index), 500);
+                    return;
+                }
+                if (index >= tileProviders.length) {
+                    useOfflineCanvas();
+                    return;
+                }
+
+                providerAttempt++;
+                const thisAttempt = providerAttempt;
+                const provider = tileProviders[index];
+                let loadedCount = 0;
+                let errorCount = 0;
+
+                if (activeTileLayer && map.hasLayer(activeTileLayer)) map.removeLayer(activeTileLayer);
+                document.getElementById('map').classList.remove('offline-city-bg');
+                activeTileLayer = L.tileLayer(provider.url, provider.options);
+
+                activeTileLayer.on('tileload', () => {
+                    if (thisAttempt !== providerAttempt) return;
+                    loadedCount++;
+                    if (mapSourceNotice) {
+                        map.removeControl(mapSourceNotice);
+                        mapSourceNotice = null;
+                    }
+                });
+                activeTileLayer.on('tileerror', () => {
+                    if (thisAttempt !== providerAttempt || loadedCount > 0) return;
+                    errorCount++;
+                    if (errorCount >= 4) loadTileProvider(index + 1);
+                });
+                activeTileLayer.addTo(map);
+
+                setTimeout(() => {
+                    if (thisAttempt === providerAttempt && loadedCount === 0) {
+                        loadTileProvider(index + 1);
+                    }
+                }, 2800);
+            }
+
+            retryBaseMapTiles = () => loadTileProvider(0);
+            loadTileProvider(0);
 
             mapReady = true;
+            document.getElementById('status').innerText = 'Ready';
+            showMapView();
 
         } catch (e) {
             console.error('initMap failed:', e);
             showMapError('Map failed to load: ' + e.message);
+        }
+    }
+
+    // Show known places only. Graph edges are intentionally not drawn because
+    // they are abstract connectivity links, not geographic road geometry.
+    function drawStaticNetwork() {
+        if (!map || !LOCATION_COORDS || Object.keys(LOCATION_COORDS).length === 0) return;
+
+        for (const name in LOCATION_COORDS) {
+            L.circleMarker(LOCATION_COORDS[name], {
+                radius: 6, color: '#1f4461', weight: 2,
+                fillColor: '#ffffff', fillOpacity: 1
+            })
+                .bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -8], className: 'loc-label' })
+                .addTo(map);
         }
     }
 
@@ -366,95 +815,166 @@
         if (carMarker) { map.removeLayer(carMarker); carMarker = null; }
         if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
         simRunning = false;
-        document.getElementById('nav-card').style.display = 'none';
-        document.getElementById('recenter-btn').style.display = 'none';
+        mapSimulation = null;
+        document.getElementById('map-sim-panel').classList.remove('visible');
+        document.getElementById('map-sim-controls').classList.remove('visible');
     }
 
-    function onVehicleChange() {
+    async function onVehicleChange() {
         if (carMarker) {
             const vehicle = document.getElementById('vehicle').value;
             carMarker.setIcon(getVehicleIcon(vehicle));
         }
-    }
-
-    function recenterOnCar() {
-        followCar = true;
-        if (carMarker) map.panTo(carMarker.getLatLng());
-    }
-
-    async function fetchRoadRoute(coords) {
-
-        const coordStr = coords.map(c => `${c[1]},${c[0]}`).join(';');
-        const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`;
-
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-
-            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-            }
-        } catch (e) {
-            console.warn('Road routing failed, falling back to straight line:', e);
+        // Vehicle choice affects duration and route ranking. Recalculate the
+        // real-world candidates instead of leaving stale car timing on screen.
+        if (allOptionsData.length > 0 && !simRunning) {
+            document.getElementById('status').innerText = '⏱ Recalculating routes for selected vehicle...';
+            await findRoute();
         }
-
-        return coords;
     }
 
-    function bearing(a, b) {
-        const lat1 = a[0] * Math.PI / 180, lat2 = b[0] * Math.PI / 180;
-        const dLon = (b[1] - a[1]) * Math.PI / 180;
-        const y = Math.sin(dLon) * Math.cos(lat2);
-        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    function ensureMapInitialized() {
+        if (mapReady && map) {
+            setTimeout(() => map.invalidateSize(), 0);
+            const offline = document.getElementById('map').classList.contains('offline-city-bg');
+            const now = Date.now();
+            if (offline && retryBaseMapTiles && now - lastBaseMapRetry > 8000) {
+                lastBaseMapRetry = now;
+                retryBaseMapTiles();
+            }
+            return Promise.resolve(true);
+        }
+        if (!mapInitializationPromise) {
+            mapInitializationPromise = initMap().then(() => mapReady).finally(() => {
+                if (!mapReady) mapInitializationPromise = null;
+            });
+        }
+        return mapInitializationPromise;
     }
 
-    async function drawRouteOnMap(routeNames, segmentTraffic, vehicle, result) {
-        if (!mapReady) return;
+    async function fetchRoadLeg(from, to) {
+        const key = `${from[0]},${from[1]}|${to[0]},${to[1]}`;
+        if (roadGeometryCache.has(key)) return await roadGeometryCache.get(key);
 
+        const request = (async () => {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 9000);
+            try {
+                const points = `${from[1]},${from[0]};${to[1]},${to[0]}`;
+                const response = await fetch(
+                    `https://router.project-osrm.org/route/v1/driving/${points}?overview=full&geometries=geojson&steps=false`,
+                    { signal: controller.signal }
+                );
+                if (!response.ok) throw new Error(`OSRM returned HTTP ${response.status}`);
+                const data = await response.json();
+                const geometry = data.routes && data.routes[0] && data.routes[0].geometry;
+                if (!geometry || !Array.isArray(geometry.coordinates) || geometry.coordinates.length < 2) {
+                    throw new Error('OSRM returned no usable road geometry');
+                }
+                return geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+            } finally {
+                clearTimeout(timeout);
+            }
+        })();
+        // Cache the in-flight promise too, so shared legs used by several
+        // alternatives do not trigger duplicate public routing requests.
+        roadGeometryCache.set(key, request);
+        try {
+            const leg = await request;
+            roadGeometryCache.set(key, leg);
+            return leg;
+        } catch (error) {
+            roadGeometryCache.delete(key);
+            throw error;
+        }
+    }
+
+    async function resolveRoadLegs(routeNames) {
+        const waypoints = routeNames.map(name => LOCATION_COORDS[name]);
+        return Promise.all(waypoints.slice(0, -1).map((from, index) =>
+            fetchRoadLeg(from, waypoints[index + 1]).catch(error => {
+                console.warn(`Using graph fallback for ${routeNames[index]} -> ${routeNames[index + 1]}:`, error);
+                return [from, waypoints[index + 1]];
+            })
+        ));
+    }
+
+    async function drawRouteOnMap(routeNames, segmentTraffic, vehicle) {
+        if (!mapReady) return false;
+
+        const requestId = ++routeGeometryRequestId;
+        const options = allOptionsData.length
+            ? allOptionsData
+            : [{ route: routeNames, segment_traffic: segmentTraffic, traffic: segmentTraffic[0] || 'Light' }];
+        const resolved = await Promise.all(options.map(async option => ({
+            option,
+            // Geometry returned by the backend is the real-world candidate.
+            legs: Array.isArray(option.geometry) && option.geometry.length > 1
+                ? [option.geometry]
+                : await resolveRoadLegs(option.route)
+        })));
+        if (requestId !== routeGeometryRequestId) return false;
         clearMap();
 
+        const selectedIndex = Math.min(activeOptionIndex, resolved.length - 1);
+        const selected = resolved[selectedIndex];
+        const legs = selected.legs;
+        routeNames = selected.option.route;
+        segmentTraffic = selected.option.segment_traffic;
         const coords = routeNames.map(name => LOCATION_COORDS[name]);
-        currentRouteCoords = coords;
+        currentRouteLegs = legs;
+        currentRouteCoords = legs.flatMap((leg, index) => index === 0 ? leg : leg.slice(1));
         currentRouteNames = routeNames;
         currentSegmentTraffic = segmentTraffic;
 
-        const allRoadCoords = [];
+        // Draw alternatives first so the selected route always remains on top.
+        resolved.forEach(({ option, legs: alternativeLegs }, index) => {
+            if (index === selectedIndex) return;
+            alternativeLegs.forEach((legCoords, legIndex) => {
+                const alternative = L.polyline(legCoords, {
+                    color: '#52718f', weight: 4, opacity: 0.5,
+                    lineCap: 'round', lineJoin: 'round', dashArray: '10, 8'
+                }).addTo(map);
+                alternative.bindTooltip(
+                    `Alternative ${index}: ${(option.display_route || option.route).join(' → ')} · ${option.distance} km`,
+                    { sticky: true, direction: 'top' }
+                );
+                alternative.on('click', () => selectOption(index));
+                routeLayers.push(alternative);
+            });
+        });
 
-        for (let i = 0; i < coords.length; i++) {
+        coords.forEach((c, i) => {
             const isStart = i === 0;
-            const isEnd = i === coords.length - 1;
-
-            const icon = isStart
-                ? L.divIcon({ html: '', className: 'pin-start', iconSize: [22, 22] })
-                : isEnd
-                    ? L.divIcon({ html: '', className: 'pin-end', iconSize: [22, 22] })
-                    : L.divIcon({
-                        html: '<div style="width:10px;height:10px;background:#2E86DE;border:2px solid white;border-radius:50%;"></div>',
-                        className: '', iconSize: [14, 14]
-                    });
-
-            const m = L.marker(coords[i], { icon })
-                .bindTooltip(routeNames[i], { permanent: false })
+            const isDestination = i === coords.length - 1;
+            const m = L.circleMarker(c, {
+                radius: 7, color: '#fff', weight: 2,
+                fillColor: isStart ? '#2563eb' : (isDestination ? '#ef4444' : '#2ecc71'), fillOpacity: 1
+            })
+                .bindTooltip(`${isStart ? 'Start' : (isDestination ? 'Destination' : 'Via')}: ${routeNames[i]}`, {
+                    permanent: isStart || isDestination,
+                    direction: 'top',
+                    className: 'loc-label'
+                })
                 .addTo(map);
             routeLayers.push(m);
-        }
+        });
 
         for (let i = 0; i < coords.length - 1; i++) {
 
-            const legCoords = await fetchRoadRoute([coords[i], coords[i + 1]]);
+            const legCoords = legs[i];
             const traffic = segmentTraffic[i];
             const color = TRAFFIC_COLOR[traffic] || '#2E86DE';
 
-            allRoadCoords.push(...legCoords);
-
+            // Outer glow line for a modern nav-app feel
             const glow = L.polyline(legCoords, {
                 color, weight: 12, opacity: 0.25
             }).addTo(map);
             routeLayers.push(glow);
 
             const legLine = L.polyline(legCoords, {
-                color, weight: 6, opacity: 0.95
+                color, weight: 7, opacity: 1,
+                lineCap: 'round', lineJoin: 'round'
             }).addTo(map);
 
             legLine.bindPopup(
@@ -465,93 +985,21 @@
 
             routeLayers.push(legLine);
 
-            for (let j = 4; j < legCoords.length - 2; j += 8) {
-                const angle = bearing(legCoords[j], legCoords[j + 1]);
-                const chevron = L.marker(legCoords[j], { icon: chevronIcon(angle), interactive: false }).addTo(map);
-                routeLayers.push(chevron);
-            }
+            // Decorative dashed center stripe, like a real nav
+            // app's route line - purely visual, the color above
+            // still carries the real traffic-severity data.
+            const centerDash = L.polyline(legCoords, {
+                color: '#ffffff', weight: 2, opacity: 0.85,
+                dashArray: '6, 10'
+            }).addTo(map);
+            routeLayers.push(centerDash);
         }
 
-        currentRoadCoords = allRoadCoords;
-
-        const bounds = L.latLngBounds(coords);
+        const bounds = L.latLngBounds(currentRouteCoords);
         map.fitBounds(bounds, { padding: [40, 40] });
 
-        carMarker = L.marker(coords[0], { icon: getVehicleIcon(vehicle) }).addTo(map);
-
-        document.getElementById('recenter-btn').style.display = 'flex';
-
-        if (result) {
-            showNavCard(result, routeNames[0], routeNames[routeNames.length - 1]);
-        }
-
-        followCar = true;
-        await driveAlongRoad(allRoadCoords, vehicle, result);
-    }
-
-    function showNavCard(result, startName, endName) {
-        document.getElementById('nav-card').style.display = 'flex';
-        document.getElementById('nav-eta').innerText = formatDuration(result.time);
-        document.getElementById('nav-dist').innerText = result.distance + ' km';
-        document.getElementById('nav-next').innerText = `To ${endName}`;
-
-        const chip = document.getElementById('nav-traffic-chip');
-        chip.innerText = result.traffic;
-        chip.style.background = TRAFFIC_COLOR[result.traffic] || '#888';
-    }
-
-    async function driveAlongRoad(roadCoords, vehicle, result) {
-        if (!roadCoords || roadCoords.length < 2 || !carMarker) return;
-
-        const durationMs = Math.max(4000, (result ? result.time : 5) * 700);
-
-        const segLengths = [];
-        let total = 0;
-        for (let i = 0; i < roadCoords.length - 1; i++) {
-            const d = map.distance(roadCoords[i], roadCoords[i + 1]);
-            segLengths.push(d);
-            total += d;
-        }
-
-        if (total === 0) return;
-
-        const startTime = performance.now();
-        simRunning = true;
-
-        return new Promise(resolve => {
-            function frame(now) {
-                if (!simRunning) { resolve(); return; }
-
-                const fraction = Math.min((now - startTime) / durationMs, 1);
-                const distAlong = fraction * total;
-
-                let traveled = 0;
-                for (let i = 0; i < segLengths.length; i++) {
-                    if (traveled + segLengths[i] >= distAlong || i === segLengths.length - 1) {
-                        const p = segLengths[i] > 0 ? (distAlong - traveled) / segLengths[i] : 0;
-                        const a = roadCoords[i], b = roadCoords[i + 1];
-                        const lat = a[0] + (b[0] - a[0]) * p;
-                        const lon = a[1] + (b[1] - a[1]) * p;
-                        const angle = bearing(a, b);
-
-                        carMarker.setLatLng([lat, lon]);
-                        carMarker.setIcon(getVehicleIcon(vehicle, angle));
-
-                        if (followCar) map.panTo([lat, lon], { animate: false });
-
-                        break;
-                    }
-                    traveled += segLengths[i];
-                }
-
-                if (fraction < 1) {
-                    animFrame = requestAnimationFrame(frame);
-                } else {
-                    resolve();
-                }
-            }
-            animFrame = requestAnimationFrame(frame);
-        });
+        carMarker = L.marker(currentRouteCoords[0] || coords[0], { icon: getVehicleIcon(vehicle) }).addTo(map);
+        return true;
     }
 
     function renderRouteOptions() {
@@ -561,41 +1009,92 @@
         allOptionsData.forEach((opt, index) => {
             const div = document.createElement('div');
             div.className = 'route-option' + (index === activeOptionIndex ? ' active' : '');
-            div.onclick = () => selectOption(index);
+            div.setAttribute('role', 'button');
+            div.tabIndex = 0;
+            div.addEventListener('click', () => selectOption(index));
+            div.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectOption(index); }
+            });
 
-            const label = index === 0 ? '⭐ Best (avoids traffic)' : `Alternative ${index}`;
+            const label = index === 0 ? '⭐ Recommended real route' : `Real alternative ${index}`;
             const color = TRAFFIC_COLOR[opt.traffic] || '#888';
 
-            div.innerHTML = `
-                <b>${label}</b><br>
-                ${opt.route.join(' → ')}<br>
-                ${opt.distance} km · ${formatDuration(opt.time)}
-                <span class="badge" style="background:${color}">${opt.traffic}</span>
-            `;
+            const title = document.createElement('b'); title.textContent = label;
+            const routeText = document.createElement('span'); routeText.textContent = (opt.display_route || opt.route).join(' → ');
+            const metrics = document.createElement('span'); metrics.textContent = `${opt.distance} km · ${formatDuration(opt.time)}`;
+            const badge = document.createElement('span'); badge.className = 'badge'; badge.style.background = color; badge.textContent = opt.traffic;
+            div.append(title, document.createElement('br'), routeText, document.createElement('br'), metrics, badge);
 
             container.appendChild(div);
         });
     }
 
+    function updateNavHud(opt) {
+        const hud = document.getElementById('nav-hud-2d');
+
+        document.getElementById('hud-time').innerText = formatDuration(opt.time);
+        document.getElementById('hud-distance').innerText = opt.distance + ' km';
+
+        const badge = document.getElementById('hud-traffic');
+        badge.innerText = opt.traffic;
+        badge.style.background = TRAFFIC_COLOR[opt.traffic] || '#888';
+
+        hud.classList.add('visible');
+    }
+
+    function renderAgentInsight(opt, optionIndex = 0) {
+        if (!opt) return;
+        const roads = (opt.road_names || []).filter(Boolean);
+        const roadPhrase = roads.length
+            ? ` It follows ${roads.slice(0, 2).join(' and ')}${roads.length > 2 ? ', with other mapped streets along the way' : ''}.`
+            : ' It follows the available mapped road geometry between your selected places.';
+        const recommendation = optionIndex === 0
+            ? `I recommend this ${opt.distance} km route because it offers the best balance of travel time and current road conditions.`
+            : `You are previewing alternative ${optionIndex}. It is a real-road option that may be useful if you prefer a different approach.`;
+        const trafficNote = opt.traffic === 'Heavy'
+            ? ' Heavy traffic may cause meaningful delay, so allow extra time.'
+            : opt.traffic === 'Moderate'
+                ? ' Some traffic delay is included in the estimate.'
+                : ' Traffic conditions are currently favorable for this journey.';
+        document.getElementById('ai-text').textContent = `${recommendation}${roadPhrase}${trafficNote} Estimated arrival time is ${formatDuration(opt.time)}.`;
+
+        const decision = opt.decision || {};
+        const reasons = Array.isArray(decision.reasons) && decision.reasons.length
+            ? decision.reasons.map(reason => reason.replaceAll('_', ' ')).join(', ')
+            : 'lowest combined real-road travel cost';
+        document.getElementById('decision-details-text').textContent =
+            `Road source: OSRM / OpenStreetMap. ETA basis: ${opt.eta_basis || 'road duration adjusted for vehicle and traffic'}. ` +
+            `Decision engine: ${decision.engine || 'symbolic fallback'}. Reasoning: ${reasons}.`;
+    }
+
     async function selectOption(index) {
+        if (simRunning) return;
+        document.getElementById('sim-btn').disabled = true;
         activeOptionIndex = index;
         renderRouteOptions();
 
         const opt = allOptionsData[index];
         const vehicle = document.getElementById('vehicle').value;
 
-        document.getElementById('r-route').innerText = 'Route: ' + opt.route.join(' → ');
+        document.getElementById('r-route').innerText = 'Route: ' + (opt.display_route || opt.route).join(' → ');
         document.getElementById('r-distance').innerText = 'Distance: ' + opt.distance + ' km';
         document.getElementById('r-time').innerText = 'Estimated Time: ' + formatDuration(opt.time);
         document.getElementById('r-traffic').innerText = 'Traffic: ' + opt.traffic;
 
         document.getElementById('status').innerText =
             index === 0
-                ? '✅ Showing best (traffic-avoiding) route'
-                : '👁️ Previewing alternative route';
+                ? '✅ Showing recommended real-world route'
+                : '👁️ Previewing real-world alternative';
 
-        await drawRouteOnMap(opt.route, opt.segment_traffic, vehicle, opt);
+        updateNavHud(opt);
+        renderAgentInsight(opt, index);
+        const applied = await drawRouteOnMap(opt.route, opt.segment_traffic, vehicle);
+        if (applied) document.getElementById('sim-btn').disabled = false;
     }
+
+    // ============================================
+    // Three.js 3D town view (vehicle simulation)
+    // ============================================
 
     let renderer3D, scene3D, camera3D, carGroup3D;
     let townBuilt = false;
@@ -631,9 +1130,9 @@
 
             scene3D = new THREE.Scene();
             scene3D.background = new THREE.Color(0x0d1b2a);
-            scene3D.fog = new THREE.Fog(0x0d1b2a, 60, 300);
+            scene3D.fog = new THREE.Fog(0x0d1b2a, 80, 400);
 
-            camera3D = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight || 1, 0.1, 2000);
+            camera3D = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight || 1, 0.1, 2000);
 
             renderer3D = new THREE.WebGLRenderer({ antialias: true });
             renderer3D.setSize(container.clientWidth || 600, container.clientHeight || 400);
@@ -702,7 +1201,9 @@
             locationPositions3D[name] = projectLatLon(lat, lon);
         }
 
-        GRAPH_EDGES.forEach(([a, b]) => {
+        const buildingPalette = [0x2c3e50, 0x34495e, 0x1c3a56, 0x22405a];
+
+        GRAPH_EDGES.forEach(([a, b], edgeIndex) => {
             const pa = locationPositions3D[a];
             const pb = locationPositions3D[b];
 
@@ -717,6 +1218,53 @@
             road.rotation.z = -angle;
             road.position.set((pa.x + pb.x) / 2, 0, (pa.z + pb.z) / 2);
             scene3D.add(road);
+
+            // Dashed center lane marking
+            const laneMat = new THREE.MeshBasicMaterial({ color: 0x8fa6bd });
+            const dashCount = Math.max(2, Math.floor(length / 4));
+
+            for (let d = 0; d < dashCount; d++) {
+                const t = (d + 0.5) / dashCount;
+                const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 1.5), laneMat);
+                dash.rotation.x = -Math.PI / 2;
+                dash.rotation.z = -angle;
+                dash.position.set(
+                    pa.x + dx * t,
+                    0.02,
+                    pa.z + dz * t
+                );
+                scene3D.add(dash);
+            }
+
+            // A tidy, evenly-spaced row of buildings along each
+            // side of the road - deterministic, not random, so it
+            // stays clean instead of the old cluttered scatter.
+            const perpX = -dz / length;
+            const perpZ = dx / length;
+            const buildingCount = Math.max(2, Math.floor(length / 8));
+
+            for (let i = 0; i < buildingCount; i++) {
+                const t = (i + 0.5) / buildingCount;
+                const baseX = pa.x + dx * t;
+                const baseZ = pa.z + dz * t;
+
+                [1, -1].forEach((side, sideIndex) => {
+                    const offset = 6 + (i % 2) * 2;
+                    const height = 5 + ((i + sideIndex + edgeIndex) % 4) * 3;
+                    const color = buildingPalette[(i + sideIndex + edgeIndex) % buildingPalette.length];
+
+                    const building = new THREE.Mesh(
+                        new THREE.BoxGeometry(3, height, 3),
+                        new THREE.MeshLambertMaterial({ color })
+                    );
+                    building.position.set(
+                        baseX + perpX * offset * side,
+                        height / 2,
+                        baseZ + perpZ * offset * side
+                    );
+                    scene3D.add(building);
+                });
+            }
         });
 
         for (const name in locationPositions3D) {
@@ -732,43 +1280,6 @@
             const label = makeLabelSprite(name);
             label.position.set(p.x, 6, p.z);
             scene3D.add(label);
-        }
-
-        const buildingMats = [0x2c3e50, 0x34495e, 0x1c2833, 0x283747, 0x212f3d].map(
-            c => new THREE.MeshLambertMaterial({ color: c })
-        );
-
-        const positions = Object.values(locationPositions3D);
-        const minX = Math.min(...positions.map(p => p.x)) - 60;
-        const maxX = Math.max(...positions.map(p => p.x)) + 60;
-        const minZ = Math.min(...positions.map(p => p.z)) - 60;
-        const maxZ = Math.max(...positions.map(p => p.z)) + 60;
-
-        let seed = 42;
-        function rand() {
-            seed = (seed * 9301 + 49297) % 233280;
-            return seed / 233280;
-        }
-
-        for (let i = 0; i < 110; i++) {
-            const x = minX + rand() * (maxX - minX);
-            const z = minZ + rand() * (maxZ - minZ);
-
-            const tooClose = positions.some(p => Math.hypot(p.x - x, p.z - z) < 12);
-            if (tooClose) continue;
-
-            const height = 4 + rand() * 20;
-            const mat = buildingMats[Math.floor(rand() * buildingMats.length)];
-            const building = new THREE.Mesh(new THREE.BoxGeometry(4 + rand() * 4, height, 4 + rand() * 4), mat);
-            building.position.set(x, height / 2, z);
-            scene3D.add(building);
-
-            if (rand() > 0.5) {
-                const windowMat = new THREE.MeshBasicMaterial({ color: 0xffd580 });
-                const windowMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), windowMat);
-                windowMesh.position.set(x, height * 0.6, z + 2.01);
-                scene3D.add(windowMesh);
-            }
         }
     }
 
@@ -850,12 +1361,18 @@
         document.getElementById('map').style.display = mapReady ? 'block' : 'none';
         document.getElementById('three-canvas').style.display = 'none';
         document.getElementById('sim-hud').style.display = 'none';
+        document.getElementById('compass-2d').style.display = mapReady ? 'flex' : 'none';
+        if (allOptionsData.length > 0) {
+            document.getElementById('nav-hud-2d').classList.add('visible');
+        }
     }
 
     function show3DView() {
         document.getElementById('map').style.display = 'none';
         document.getElementById('three-canvas').style.display = 'block';
         document.getElementById('sim-hud').style.display = 'block';
+        document.getElementById('compass-2d').style.display = 'none';
+        document.getElementById('nav-hud-2d').classList.remove('visible');
         init3D();
         onResize3D();
     }
@@ -876,17 +1393,25 @@
         simRunning = true;
         document.getElementById('sim-btn').disabled = true;
 
-        const avgFactor = segmentTraffic.reduce((s, t) => s + (TRAFFIC_MULTIPLIER[t] || 1), 0) / segmentTraffic.length;
-        const effectiveSpeed = baseSpeed / avgFactor;
-        const totalDurationMs = 9000 * (40 / effectiveSpeed);
-
         const segLengths = [];
-        let totalLen = 0;
         for (let i = 0; i < waypoints.length - 1; i++) {
-            const d = Math.hypot(waypoints[i + 1].x - waypoints[i].x, waypoints[i + 1].z - waypoints[i].z);
-            segLengths.push(d);
-            totalLen += d;
+            segLengths.push(Math.hypot(
+                waypoints[i + 1].x - waypoints[i].x,
+                waypoints[i + 1].z - waypoints[i].z
+            ));
         }
+
+        // Each leg gets its own duration, based on ITS OWN traffic
+        // level - not a single average for the whole trip. Heavy
+        // legs are visibly slower to cross, light legs faster.
+        const MS_PER_UNIT_LENGTH = 9000 / 40; // reference: 40 speed -> 9000ms per unit-length trip
+
+        const segDurations = segLengths.map((len, i) => {
+            const trafficFactor = TRAFFIC_MULTIPLIER[segmentTraffic[i]] || 1;
+            return MS_PER_UNIT_LENGTH * len * trafficFactor * (40 / baseSpeed);
+        });
+
+        const totalDurationMs = segDurations.reduce((a, b) => a + b, 0);
 
         const startTime = performance.now();
 
@@ -896,147 +1421,410 @@
 
                 if (!simRunning) { resolve(); return; }
 
-                const fraction = Math.min((now - startTime) / totalDurationMs, 1);
-                const distAlong = fraction * totalLen;
+                let elapsed = now - startTime;
 
-                let traveled = 0;
-                let px, pz, heading = 0;
+                if (elapsed >= totalDurationMs) {
+                    const last = waypoints[waypoints.length - 1];
+                    carGroup3D.position.set(last.x, 0, last.z);
+                    renderer3D.render(scene3D, camera3D);
+                    resolve();
+                    return;
+                }
+
+                // Find which segment we're currently in, based on
+                // elapsed time against each segment's own duration
                 let segIndex = 0;
+                let segElapsed = elapsed;
 
-                for (let i = 0; i < segLengths.length; i++) {
-                    if (traveled + segLengths[i] >= distAlong || i === segLengths.length - 1) {
-                        const segFrac = segLengths[i] > 0 ? (distAlong - traveled) / segLengths[i] : 0;
-                        const a = waypoints[i], b = waypoints[i + 1];
-
-                        px = a.x + (b.x - a.x) * segFrac;
-                        pz = a.z + (b.z - a.z) * segFrac;
-                        heading = Math.atan2(b.x - a.x, b.z - a.z);
+                for (let i = 0; i < segDurations.length; i++) {
+                    if (segElapsed < segDurations[i] || i === segDurations.length - 1) {
                         segIndex = i;
                         break;
                     }
-                    traveled += segLengths[i];
+                    segElapsed -= segDurations[i];
                 }
+
+                const segFrac = segDurations[segIndex] > 0
+                    ? Math.min(segElapsed / segDurations[segIndex], 1)
+                    : 1;
+
+                const a = waypoints[segIndex];
+                const b = waypoints[segIndex + 1];
+
+                const px = a.x + (b.x - a.x) * segFrac;
+                const pz = a.z + (b.z - a.z) * segFrac;
+                const heading = Math.atan2(b.x - a.x, b.z - a.z);
 
                 carGroup3D.position.set(px, 0, pz);
                 carGroup3D.rotation.y = heading;
 
-                const camOffset = 6;
-                const camHeight = 2.8;
+                const camOffset = 12;
                 camera3D.position.set(
                     px - Math.sin(heading) * camOffset,
-                    camHeight,
+                    7,
                     pz - Math.cos(heading) * camOffset
                 );
-                camera3D.lookAt(
-                    px + Math.sin(heading) * 15,
-                    1.5,
-                    pz + Math.cos(heading) * 15
-                );
+                camera3D.lookAt(px, 1.5, pz);
 
-                const effSpeed = Math.round(baseSpeed / (TRAFFIC_MULTIPLIER[segmentTraffic[segIndex]] || 1));
+                const overallFraction = elapsed / totalDurationMs;
 
                 document.getElementById('sim-hud').innerText =
-                    `${effSpeed} km/h | Traffic: ${segmentTraffic[segIndex]} | ${Math.round(fraction * 100)}% complete`;
+                    `Traffic: ${segmentTraffic[segIndex]} | ${Math.round(overallFraction * 100)}% complete`;
 
                 renderer3D.render(scene3D, camera3D);
 
-                if (fraction < 1) {
-                    animFrame = requestAnimationFrame(frame);
-                } else {
-                    resolve();
-                }
+                animFrame = requestAnimationFrame(frame);
             }
 
             animFrame = requestAnimationFrame(frame);
         });
     }
 
+    function renderRouteTrustSummary(result, retrievedAt) {
+        const provenance = document.getElementById('route-provenance');
+        const comparison = document.getElementById('route-comparison');
+        const sourceNames = {
+            'osrm-native': 'OSRM / OpenStreetMap',
+            'osrm-via-corridor': 'OSRM / OpenStreetMap',
+            'valhalla': 'Valhalla / OpenStreetMap'
+        };
+        const source = sourceNames[result.route_source] || 'OpenStreetMap road network';
+        provenance.textContent = `${result.__savedRoute ? 'Saved real-road data' : source} · Retrieved ${retrievedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        provenance.hidden = false;
+        comparison.replaceChildren();
+        comparison.hidden = false;
+
+        if (allOptionsData.length < 2) {
+            comparison.className = 'route-comparison single';
+            comparison.textContent = 'No meaningfully different real-road alternative is currently available.';
+            return;
+        }
+
+        comparison.className = 'route-comparison';
+        const best = allOptionsData[0];
+        const alternative = allOptionsData[1];
+        const distanceDifference = alternative.distance - best.distance;
+        const timeDifference = alternative.time - best.time;
+        const heading = document.createElement('strong');
+        heading.textContent = 'Why this route ranks first';
+        const detail = document.createElement('span');
+        const distanceText = `${Math.abs(distanceDifference).toFixed(2)} km ${distanceDifference >= 0 ? 'shorter' : 'longer'}`;
+        const timeText = `${formatDuration(Math.abs(timeDifference))} ${timeDifference >= 0 ? 'faster' : 'slower'}`;
+        detail.textContent = `Compared with Alternative 1: ${distanceText} and ${timeText}. Traffic: ${best.traffic}.`;
+        comparison.append(heading, detail);
+    }
+
+    // Active 3D runs use the lifecycle-safe controller in simulation3d.js.
+    let simulation3D = null;
+
+    function ensureModernSimulation() {
+        if (simulation3D) return simulation3D;
+        if (typeof YangonSimulation3D === 'undefined') {
+            throw new Error('The 3D simulation module could not be loaded');
+        }
+        simulation3D = new YangonSimulation3D(
+            document.getElementById('three-canvas'),
+            document.getElementById('sim-hud'),
+            document.getElementById('sim-controls')
+        );
+        simulation3D.onExit = () => {
+            simRunning = false;
+            document.getElementById('sim-btn').disabled = false;
+            document.getElementById('status').innerText = 'Ready';
+            showMapView();
+            YangonAppState.set({ phase: YangonAppState.phases.READY });
+        };
+        return simulation3D;
+    }
+
+    show3DView = function () {
+        document.getElementById('map').style.display = 'none';
+        document.getElementById('three-canvas').style.display = 'block';
+        document.getElementById('compass-2d').style.display = 'none';
+        document.getElementById('nav-hud-2d').classList.remove('visible');
+        ensureModernSimulation();
+        requestAnimationFrame(() => simulation3D.resize());
+    };
+
+    showMapView = function () {
+        document.getElementById('map').style.display = mapReady ? 'block' : 'none';
+        document.getElementById('three-canvas').style.display = 'none';
+        document.getElementById('compass-2d').style.display = mapReady ? 'flex' : 'none';
+        if (allOptionsData.length > 0) document.getElementById('nav-hud-2d').classList.add('visible');
+        if (mapReady && map) setTimeout(() => map.invalidateSize(), 0);
+    };
+
+    // ============================================
+    // App logic
+    // ============================================
+
     async function populateDropdowns() {
         try {
-            const graphData = await pywebview.api.get_graph_data();
-            LOCATION_COORDS = graphData.coords;
-            GRAPH_EDGES = graphData.edges;
+            const [locations, vehicles, graphData] = await Promise.all([
+                YangonApi.locations(), YangonApi.vehicles(), YangonApi.graph()
+            ]);
 
-            const locations = await pywebview.api.get_locations();
-            const vehicles = await pywebview.api.get_vehicles();
+            if (graphData && graphData.coords) {
+                LOCATION_COORDS = graphData.coords;
+            }
+            if (graphData && graphData.edges) {
+                GRAPH_EDGES = graphData.edges;
+            }
 
             const startSel = document.getElementById('start');
             const destSel = document.getElementById('destination');
             const vehicleSel = document.getElementById('vehicle');
 
             locations.forEach(loc => {
-                startSel.innerHTML += `<option value="${loc}">${loc}</option>`;
-                destSel.innerHTML += `<option value="${loc}">${loc}</option>`;
+                const startOption = document.createElement('option'); startOption.value = loc; startOption.textContent = loc;
+                const destinationOption = startOption.cloneNode(true);
+                startSel.appendChild(startOption); destSel.appendChild(destinationOption);
             });
 
             vehicles.forEach(v => {
                 const icon = VEHICLE_ICONS[v] || "";
-                vehicleSel.innerHTML += `<option value="${v}">${icon} ${v}</option>`;
+                const option = document.createElement('option'); option.value = v; option.textContent = `${icon} ${v}`;
+                vehicleSel.appendChild(option);
             });
+
+            if (mapReady) {
+                drawStaticNetwork();
+            }
 
             document.getElementById('status').innerText = 'Ready';
 
         } catch (e) {
             console.error('populateDropdowns failed:', e);
             document.getElementById('status').innerText = '⚠️ Failed to load locations: ' + e.message;
+            YangonAppState.set({ phase: YangonAppState.phases.ERROR });
         }
     }
 
     async function findRoute() {
+        YangonAppState.set({ phase: YangonAppState.phases.LOADING });
+        const searchRequestId = ++routeSearchRequestId;
         const vehicle = document.getElementById('vehicle').value;
         const start = document.getElementById('start').value;
         const destination = document.getElementById('destination').value;
+        const conditions = getJourneyConditions();
+
+        if (document.getElementById('scenario-mode').value === 'closure' && !conditions.closed_road) {
+            document.getElementById('status').innerText = 'Enter the English name of the road that is closed.';
+            document.getElementById('closed-road').focus();
+            YangonAppState.set({ phase: YangonAppState.phases.ERROR });
+            return;
+        }
 
         if (start === destination) {
             document.getElementById('status').innerText = '⚠️ Start and destination must differ';
+            YangonAppState.set({ phase: YangonAppState.phases.ERROR });
+            return;
+        }
+
+        await ensureMapInitialized();
+        if (!mapReady) {
+            clearFailedRoute('The map could not be initialized. Please return Home and open Route Planner again.');
+            YangonAppState.set({ phase: YangonAppState.phases.ERROR });
             return;
         }
 
         showMapView();
-        document.getElementById('status').innerText = '🔍 Comparing possible routes...';
+        document.getElementById('status').innerText = '🔍 Finding real roads and alternatives…';
+        const slowSearchNotice = setTimeout(() => {
+            if (searchRequestId === routeSearchRequestId) {
+                document.getElementById('status').innerText = '🛣️ Checking nearby real-road alternatives…';
+            }
+        }, 2200);
 
-        const result = await pywebview.api.find_route(vehicle, start, destination);
+        let result;
+        const searchStartedAt = performance.now();
+
+        try {
+            result = await YangonApi.findRoute({ vehicle, start, destination, conditions });
+        } catch (e) {
+            clearTimeout(slowSearchNotice);
+            console.error('find_route call failed:', e);
+            clearFailedRoute('The routing service could not be reached. Check your connection and try again.');
+            YangonAppState.set({ phase: YangonAppState.phases.ERROR });
+            return;
+        }
+
+        clearTimeout(slowSearchNotice);
+
+        if (searchRequestId !== routeSearchRequestId) return;
 
         if (result.error) {
-            document.getElementById('status').innerText = '❌ ' + result.error;
-            document.getElementById('ai-text').innerText = result.error;
-            document.getElementById('sim-btn').disabled = true;
-            return;
+            const cached = readSavedRealRoute(vehicle, start, destination, conditions);
+            if (cached) {
+                result = cached;
+                result.__savedRoute = true;
+            } else {
+                clearFailedRoute(result.error_details?.message || result.error || 'No route is currently available.');
+                if (result.evaluation) renderEvaluationDashboard(result, Math.round(performance.now() - searchStartedAt));
+                YangonAppState.set({ phase: YangonAppState.phases.ERROR });
+                return;
+            }
         }
 
         const bestRouteData = {
             route: result.route,
+            display_route: result.display_route,
+            geometry: result.geometry,
+            road_names: result.road_names,
             distance: result.distance,
             time: result.time,
             traffic: result.traffic,
-            segment_traffic: result.segment_traffic
+            segment_traffic: result.segment_traffic,
+            eta_basis: result.eta_basis,
+            route_source: result.route_source,
+            decision: result.decision
         };
 
         allOptionsData = [bestRouteData, ...(result.alternatives || [])];
+        saveRealRoute(vehicle, start, destination, conditions, result);
         activeOptionIndex = 0;
 
         renderRouteOptions();
+        renderRouteTrustSummary(result, new Date());
 
-        document.getElementById('r-route').innerText = 'Route: ' + result.route.join(' → ');
+        document.getElementById('r-route').innerText = 'Route: ' + (result.display_route || result.route).join(' → ');
         document.getElementById('r-distance').innerText = 'Distance: ' + result.distance + ' km';
         document.getElementById('r-time').innerText = 'Estimated Time: ' + formatDuration(result.time);
         document.getElementById('r-traffic').innerText = 'Traffic: ' + result.traffic;
-        document.getElementById('ai-text').innerText = result.ai_message || 'No recommendation';
-        document.getElementById('status').innerText = '✅ Best route selected - avoids traffic among ' + allOptionsData.length + ' options';
+        renderAgentInsight(bestRouteData, 0);
+        renderEvaluationDashboard(result, Math.round(performance.now() - searchStartedAt));
+        document.getElementById('status').innerText = result.__savedRoute
+            ? 'ℹ️ Showing a saved real-road route while live routing reconnects'
+            : '✅ Ranked ' + allOptionsData.length + ' real-world road route(s)';
 
-        await drawRouteOnMap(result.route, result.segment_traffic, vehicle, bestRouteData);
+        updateNavHud(bestRouteData);
+        const applied = await drawRouteOnMap(result.route, result.segment_traffic, vehicle);
+        document.getElementById('sim-btn').disabled = !applied;
+        YangonAppState.set({ phase: applied ? YangonAppState.phases.READY : YangonAppState.phases.ERROR });
+    }
 
-        document.getElementById('sim-btn').disabled = false;
+    function getJourneyConditions() {
+        const conditions = {};
+        const timeBand = document.getElementById('departure-band').value;
+        const incident = document.getElementById('incident-level').value;
+        const closedRoad = document.getElementById('closed-road').value.trim();
+        if (timeBand) conditions.time_band = timeBand;
+        if (incident) conditions.incident = incident;
+        if (closedRoad) conditions.closed_road = closedRoad;
+        return conditions;
+    }
+
+    function routeCacheKey(vehicle, start, destination, conditions = {}) {
+        const context = [conditions.time_band || 'current', conditions.incident || 'none',
+            (conditions.closed_road || 'open').trim().toLowerCase()].join(':');
+        // v2 invalidates older saved responses that could contain visually
+        // duplicate alternatives from the previous diversity rules.
+        return `yangon-real-route:v2:${vehicle}:${start}:${destination}:${context}`;
+    }
+
+    function saveRealRoute(vehicle, start, destination, conditions, result) {
+        try {
+            localStorage.setItem(routeCacheKey(vehicle, start, destination, conditions), JSON.stringify({
+                savedAt: Date.now(), result
+            }));
+        } catch (error) {
+            console.warn('Unable to save route cache:', error);
+        }
+    }
+
+    function readSavedRealRoute(vehicle, start, destination, conditions) {
+        try {
+            const value = JSON.parse(localStorage.getItem(routeCacheKey(vehicle, start, destination, conditions)) || 'null');
+            if (!value || !value.result || !Array.isArray(value.result.geometry) || value.result.geometry.length < 2) return null;
+            const maxAge = 7 * 24 * 60 * 60 * 1000;
+            return Date.now() - Number(value.savedAt) <= maxAge ? value.result : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function renderEvaluationDashboard(result, responseTimeMs) {
+        const dashboard = document.getElementById('evaluation-dashboard');
+        const toggle = document.getElementById('evaluation-toggle');
+        const evaluation = result.evaluation;
+        dashboard.replaceChildren();
+        if (!evaluation) {
+            toggle.disabled = true;
+            dashboard.hidden = true;
+            return;
+        }
+        const summary = document.createElement('div');
+        summary.className = 'evaluation-summary';
+        [['Candidates', evaluation.candidates_received], ['Eligible', evaluation.eligible_candidates],
+          ['Engine', evaluation.engine || result.decision_engine || 'fallback'], ['Response', `${responseTimeMs} ms`]].forEach(([label, value]) => {
+            const item = document.createElement('div');
+            const strong = document.createElement('strong'); strong.textContent = String(value ?? '-');
+            const small = document.createElement('small'); small.textContent = label;
+            item.append(strong, small); summary.appendChild(item);
+        });
+        const formula = document.createElement('p');
+        formula.className = 'evaluation-formula';
+        formula.textContent = `Ranking formula: ${evaluation.formula}`;
+        dashboard.append(summary, formula);
+        if (evaluation.closure?.requested) {
+            const closure = document.createElement('p');
+            closure.className = evaluation.closure.matched_routes ? 'evaluation-notice success' : 'evaluation-notice';
+            closure.textContent = evaluation.closure.matched_routes
+                ? `${evaluation.closure.matched_routes} candidate route(s) excluded because they use ${evaluation.closure.matched_road_names.join(', ')}.`
+                : `No returned road name matched “${evaluation.closure.requested}”; no closure reroute was claimed.`;
+            dashboard.appendChild(closure);
+        }
+        const list = document.createElement('div'); list.className = 'evaluation-options';
+        (evaluation.options || []).forEach(option => {
+            const card = document.createElement('article');
+            const title = document.createElement('h4'); title.textContent = `#${option.rank} ${(option.route || []).join(' → ')}`;
+            const decision = option.decision || {};
+            const detail = document.createElement('p');
+            detail.textContent = `Score ${Number(decision.total_score || 0).toFixed(2)} · Distance ${decision.distance_cost ?? '-'} · ETA ${decision.estimated_time_cost ?? '-'} · Rules ${decision.rule_penalty ?? '-'} · ${option.traffic}`;
+            card.append(title, detail); list.appendChild(card);
+        });
+        dashboard.appendChild(list);
+        toggle.disabled = false;
+    }
+
+    function clearFailedRoute(message) {
+        if (simulation3D) simulation3D.reset();
+        clearMap();
+        currentRouteCoords = null; currentRouteLegs = null;
+        currentRouteNames = null; currentSegmentTraffic = null;
+        allOptionsData = []; activeOptionIndex = 0;
+        document.getElementById('route-options').replaceChildren();
+        document.getElementById('r-route').innerText = 'Route: -';
+        document.getElementById('r-distance').innerText = 'Distance: -';
+        document.getElementById('r-time').innerText = 'Estimated Time: -';
+        document.getElementById('r-traffic').innerText = 'Traffic: -';
+        document.getElementById('route-provenance').hidden = true;
+        document.getElementById('route-provenance').textContent = '';
+        document.getElementById('route-comparison').hidden = true;
+        document.getElementById('route-comparison').replaceChildren();
+        document.getElementById('nav-hud-2d').classList.remove('visible');
+        document.getElementById('sim-btn').disabled = true;
+        document.getElementById('status').innerText = '❌ ' + message;
+        document.getElementById('ai-text').innerText = message;
+        document.getElementById('decision-details-text').innerText = 'No decision evidence is available for this request.';
+        document.getElementById('evaluation-toggle').disabled = true;
+        document.getElementById('evaluation-toggle').setAttribute('aria-expanded', 'false');
+        document.getElementById('evaluation-dashboard').hidden = true;
+        document.getElementById('evaluation-dashboard').replaceChildren();
     }
 
     function resetAll() {
+        if (simulation3D) simulation3D.reset();
+        simRunning = false;
         clearMap();
         clearRouteHighlight();
         showMapView();
         currentRouteCoords = null;
+        currentRouteLegs = null;
+        routeGeometryRequestId++;
+        routeSearchRequestId++;
         currentRouteNames = null;
         currentSegmentTraffic = null;
-        currentRoadCoords = null;
         allOptionsData = [];
         activeOptionIndex = 0;
 
@@ -1045,44 +1833,184 @@
         document.getElementById('r-distance').innerText = 'Distance: -';
         document.getElementById('r-time').innerText = 'Estimated Time: -';
         document.getElementById('r-traffic').innerText = 'Traffic: -';
-        document.getElementById('ai-text').innerText = 'Waiting for route analysis...';
+        document.getElementById('route-provenance').hidden = true;
+        document.getElementById('route-provenance').textContent = '';
+        document.getElementById('route-comparison').hidden = true;
+        document.getElementById('route-comparison').replaceChildren();
+        document.getElementById('ai-text').innerText = 'Tell me where you want to go, and I’ll explain the route I recommend.';
+        document.getElementById('decision-details-text').innerText = 'Route evidence will appear after a search.';
+        document.getElementById('evaluation-toggle').disabled = true;
+        document.getElementById('evaluation-toggle').setAttribute('aria-expanded', 'false');
+        document.getElementById('evaluation-dashboard').hidden = true;
+        document.getElementById('evaluation-dashboard').replaceChildren();
         document.getElementById('status').innerText = 'Ready';
         document.getElementById('sim-btn').disabled = true;
+        document.getElementById('nav-hud-2d').classList.remove('visible');
+        YangonAppState.set({ phase: YangonAppState.phases.IDLE });
+    }
+
+    const MAP_SIMULATION_TIME_SCALE = 20;
+
+    function mapDistanceKm(a, b) {
+        const toRad = value => value * Math.PI / 180;
+        const lat1 = toRad(a[0]); const lat2 = toRad(b[0]);
+        const dLat = lat2 - lat1; const dLon = toRad(b[1] - a[1]);
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+        return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+    }
+
+    function pointAlongMapRoute(targetKm, cumulative) {
+        let index = 1;
+        while (index < cumulative.length && cumulative[index] < targetKm) index++;
+        if (index >= cumulative.length) return currentRouteCoords[currentRouteCoords.length - 1];
+        const startDistance = cumulative[index - 1];
+        const length = Math.max(0.000001, cumulative[index] - startDistance);
+        const fraction = Math.max(0, Math.min(1, (targetKm - startDistance) / length));
+        const a = currentRouteCoords[index - 1]; const b = currentRouteCoords[index];
+        return [a[0] + (b[0] - a[0]) * fraction, a[1] + (b[1] - a[1]) * fraction];
+    }
+
+    function trafficAtMapProgress(progress) {
+        if (!currentSegmentTraffic || currentSegmentTraffic.length === 0) return 'Light';
+        const index = Math.min(currentSegmentTraffic.length - 1, Math.floor(progress * currentSegmentTraffic.length));
+        return currentSegmentTraffic[index] || 'Light';
+    }
+
+    function updateMapSimulationHud(progress, speed, traffic, remainingKm, remainingMinutes, state) {
+        document.getElementById('map-sim-speed').innerText = `${Math.round(speed)} km/h`;
+        document.getElementById('map-sim-traffic').innerText = traffic;
+        document.getElementById('map-sim-progress').innerText = `${Math.round(progress * 100)}%`;
+        document.getElementById('map-sim-eta').innerText = formatDuration(Math.max(0, remainingMinutes));
+        document.getElementById('map-sim-distance').innerText = `${remainingKm.toFixed(2)} km`;
+        document.getElementById('map-sim-state').innerText = state;
+    }
+
+    function mapSimulationFrame(now) {
+        const simulation = mapSimulation;
+        if (!simulation || !simulation.running) return;
+        const deltaSeconds = Math.min(0.1, Math.max(0, (now - simulation.lastFrame) / 1000));
+        simulation.lastFrame = now;
+
+        if (!simulation.paused) {
+            const progressBefore = simulation.travelledKm / simulation.totalKm;
+            const traffic = trafficAtMapProgress(progressBefore);
+            const trafficFactor = TRAFFIC_MULTIPLIER[traffic] || 1;
+            const speed = Math.max(3, Math.min(VEHICLE_SPEED[simulation.vehicle] || 40, simulation.baseSpeed / trafficFactor));
+            simulation.travelledKm = Math.min(
+                simulation.totalKm,
+                simulation.travelledKm + speed * deltaSeconds * MAP_SIMULATION_TIME_SCALE / 3600
+            );
+            const progress = Math.min(1, simulation.travelledKm / simulation.totalKm);
+            const position = pointAlongMapRoute(simulation.travelledKm, simulation.cumulative);
+            carMarker.setLatLng(position);
+
+            if (now - simulation.lastPan > 180) {
+                map.panTo(position, { animate: true, duration: 0.18, noMoveStart: true });
+                simulation.lastPan = now;
+            }
+
+            const remainingKm = Math.max(0, simulation.totalKm - simulation.travelledKm);
+            const remainingMinutes = speed > 0 ? remainingKm / speed * 60 : 0;
+            updateMapSimulationHud(progress, speed, traffic, remainingKm, remainingMinutes, progress >= 1 ? 'Arrived' : 'Driving');
+
+            if (progress >= 1) {
+                simulation.running = false;
+                simRunning = false;
+                document.getElementById('map-sim-pause').disabled = true;
+                document.getElementById('status').innerText = `✅ Arrived at ${currentRouteNames[currentRouteNames.length - 1]}`;
+                document.getElementById('sim-btn').disabled = false;
+                YangonAppState.set({ phase: YangonAppState.phases.ARRIVED });
+                return;
+            }
+        }
+
+        animFrame = requestAnimationFrame(mapSimulationFrame);
+    }
+
+    function restartMapSimulation() {
+        if (!mapSimulation) return;
+        if (animFrame) cancelAnimationFrame(animFrame);
+        mapSimulation.travelledKm = 0;
+        mapSimulation.paused = false;
+        mapSimulation.running = true;
+        mapSimulation.lastFrame = performance.now();
+        mapSimulation.lastPan = 0;
+        carMarker.setLatLng(currentRouteCoords[0]);
+        map.setView(currentRouteCoords[0], Math.max(map.getZoom(), 16), { animate: true });
+        document.getElementById('map-sim-pause').disabled = false;
+        document.getElementById('map-sim-pause').innerText = 'Pause';
+        updateMapSimulationHud(0, 0, currentSegmentTraffic[0] || 'Light', mapSimulation.totalKm, mapSimulation.estimatedMinutes, 'Driving');
+        document.getElementById('status').innerText = `🚗 Navigating real Yangon roads as ${mapSimulation.vehicle}`;
+        YangonAppState.set({ phase: YangonAppState.phases.SIMULATING });
+        animFrame = requestAnimationFrame(mapSimulationFrame);
+    }
+
+    function toggleMapSimulationPause() {
+        if (!mapSimulation || !mapSimulation.running) return;
+        mapSimulation.paused = !mapSimulation.paused;
+        document.getElementById('map-sim-pause').innerText = mapSimulation.paused ? 'Resume' : 'Pause';
+        document.getElementById('map-sim-state').innerText = mapSimulation.paused ? 'Paused' : 'Driving';
+        document.getElementById('status').innerText = mapSimulation.paused ? '⏸ Navigation paused' : '🚗 Navigation resumed';
+        YangonAppState.set({ phase: mapSimulation.paused ? YangonAppState.phases.PAUSED : YangonAppState.phases.SIMULATING });
+    }
+
+    function exitMapSimulation(silent = false) {
+        if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+        if (mapSimulation) mapSimulation.running = false;
+        mapSimulation = null;
+        simRunning = false;
+        document.getElementById('map-sim-panel').classList.remove('visible');
+        document.getElementById('map-sim-controls').classList.remove('visible');
+        document.getElementById('nav-hud-2d').classList.toggle('visible', allOptionsData.length > 0);
+        document.getElementById('sim-btn').disabled = allOptionsData.length === 0;
+        if (!silent) document.getElementById('status').innerText = '✅ Route ready';
+        if (allOptionsData.length > 0) YangonAppState.set({ phase: YangonAppState.phases.READY });
     }
 
     async function openSimulation() {
-
-        if (!currentRouteNames || !currentSegmentTraffic) {
+        if (!currentRouteCoords || currentRouteCoords.length < 2 || !currentSegmentTraffic) {
             document.getElementById('status').innerText = '⚠️ Find a route first';
             return;
         }
 
-        const vehicle = document.getElementById('vehicle').value;
-        const baseSpeed = VEHICLE_SPEED[vehicle] || 40;
-
-        document.getElementById('status').innerText = `🚗 Driving as ${vehicle}... (3D view)`;
-
-        show3DView();
-        setCarColor(VEHICLE_COLOR_3D[vehicle] || 0x2E86DE);
-
-        await animate3DDrive(currentRouteNames, currentSegmentTraffic, baseSpeed);
-
-        if (simRunning) {
-            document.getElementById('status').innerText = '✅ Arrived - back to map';
-            document.getElementById('ai-text').innerText = '✅ Arrived at destination.';
+        exitMapSimulation(true);
+        const selected = allOptionsData[activeOptionIndex] || {};
+        const cumulative = [0];
+        for (let i = 1; i < currentRouteCoords.length; i++) {
+            cumulative.push(cumulative[i - 1] + mapDistanceKm(currentRouteCoords[i - 1], currentRouteCoords[i]));
         }
+        const geometryDistance = cumulative[cumulative.length - 1];
+        const totalKm = Math.max(0.001, Number(selected.distance) || geometryDistance);
+        const estimatedMinutes = Math.max(0.5, Number(selected.time) || 1);
+        const averageEtaSpeed = totalKm / (estimatedMinutes / 60);
+        const initialTraffic = currentSegmentTraffic[0] || selected.traffic || 'Light';
+        const baseSpeed = averageEtaSpeed * (TRAFFIC_MULTIPLIER[initialTraffic] || 1);
 
-        simRunning = false;
-        document.getElementById('sim-btn').disabled = false;
-
-        setTimeout(showMapView, 1500);
+        // Scale geometry distances to the provider distance so marker progress
+        // and the displayed remaining distance reach the destination together.
+        const geometryScale = totalKm / Math.max(0.001, geometryDistance);
+        const scaledCumulative = cumulative.map(value => value * geometryScale);
+        mapSimulation = {
+            running: true, paused: false, travelledKm: 0, totalKm,
+            cumulative: scaledCumulative, estimatedMinutes, baseSpeed,
+            vehicle: document.getElementById('vehicle').value,
+            lastFrame: performance.now(), lastPan: 0
+        };
+        simRunning = true;
+        showMapView();
+        document.getElementById('nav-hud-2d').classList.remove('visible');
+        document.getElementById('map-sim-panel').classList.add('visible');
+        document.getElementById('map-sim-controls').classList.add('visible');
+        document.getElementById('sim-btn').disabled = true;
+        restartMapSimulation();
     }
 
     window.addEventListener('pywebviewready', () => {
-        initMap();
         populateDropdowns();
     });
+
 </script>
+<script src="./app.js"></script>
 
 </body>
 </html>

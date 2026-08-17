@@ -10,6 +10,35 @@ VEHICLE_SPEED = {
     "Walking": 5
 }
 
+# Multipliers apply to OSRM's normal-car baseline duration. Fixed and per-km
+# allowances model boarding, dispatch, manoeuvring, or slower operating modes.
+REAL_ROUTE_TIME_PROFILE = {
+    "Car": (1.00, 0.0, 0.00),
+    "Taxi": (1.04, 0.5, 0.03),
+    "Bus": (1.55, 2.0, 0.18),
+    "Ambulance": (0.78, 0.3, 0.00),
+    "Fire Truck": (0.90, 0.8, 0.04),
+    "Police": (0.84, 0.3, 0.00),
+    "Motorcycle": (0.92, 0.0, 0.00),
+    "Bicycle": (2.80, 0.0, 0.10),
+    "Walking": (7.00, 0.0, 0.25),
+}
+
+TRAFFIC_TIME_MULTIPLIER = {
+    "Light": 1.00,
+    "Moderate": 1.18,
+    "Heavy": 1.45,
+}
+
+
+def calculate_real_route_time(osrm_minutes, distance_km, vehicle, traffic_level="Light"):
+    """Estimate ETA from OSRM road time, vehicle behaviour, and traffic."""
+    factor, fixed_minutes, per_km = REAL_ROUTE_TIME_PROFILE.get(vehicle, REAL_ROUTE_TIME_PROFILE["Car"])
+    traffic_factor = TRAFFIC_TIME_MULTIPLIER.get(traffic_level, TRAFFIC_TIME_MULTIPLIER["Light"])
+    vehicle_adjusted = float(osrm_minutes) * factor + fixed_minutes + float(distance_km) * per_km
+    free_flow_floor = float(distance_km) / VEHICLE_SPEED.get(vehicle, VEHICLE_SPEED["Car"]) * 60
+    return round(max(0.5, free_flow_floor, vehicle_adjusted) * traffic_factor, 1)
+
 
 def calculate_time(distance, vehicle, traffic_multiplier=1.0):
 
