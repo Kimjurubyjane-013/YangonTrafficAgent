@@ -3,16 +3,20 @@
     function bind() {
         const homeView = document.getElementById('home-view');
         const plannerView = document.getElementById('planner-view');
+        const analysisView = document.getElementById('analysis-view');
         const homeNav = document.getElementById('nav-home');
         const plannerNav = document.getElementById('nav-planner');
         const themeToggle = document.getElementById('theme-toggle');
 
         function showView(name) {
             const plannerVisible = name === 'planner';
-            homeView.hidden = plannerVisible;
+            const analysisVisible = name === 'analysis';
+            const homeVisible = name === 'home';
+            homeView.hidden = !homeVisible;
             plannerView.hidden = !plannerVisible;
-            homeNav.classList.toggle('active', !plannerVisible);
-            plannerNav.classList.toggle('active', plannerVisible);
+            analysisView.hidden = !analysisVisible;
+            homeNav.classList.toggle('active', homeVisible);
+            plannerNav.classList.toggle('active', plannerVisible || analysisVisible);
             window.scrollTo({ top: 0, behavior: 'smooth' });
             if (plannerVisible) {
                 window.ensureMapInitialized().finally(() => {
@@ -45,6 +49,8 @@
         document.getElementById('find-btn').addEventListener('click', window.findRoute);
         document.getElementById('reset-btn').addEventListener('click', window.resetAll);
         document.getElementById('sim-btn').addEventListener('click', window.openSimulation);
+        document.getElementById('analysis-btn').addEventListener('click', () => showView('analysis'));
+        document.getElementById('analysis-back').addEventListener('click', () => showView('planner'));
         document.getElementById('map-sim-pause').addEventListener('click', window.toggleMapSimulationPause);
         document.getElementById('map-sim-restart').addEventListener('click', window.restartMapSimulation);
         document.getElementById('map-sim-exit').addEventListener('click', () => window.exitMapSimulation());
@@ -66,13 +72,6 @@
             document.getElementById('departure-band').value = ['peak','incident','emergency'].includes(mode) ? 'peak' : '';
             document.getElementById('incident-level').value = ['incident','closure','emergency'].includes(mode) ? 'major' : 'none';
             if (mode === 'emergency') document.getElementById('vehicle').value = 'Ambulance';
-        });
-        const evaluationToggle = document.getElementById('evaluation-toggle');
-        evaluationToggle.addEventListener('click', () => {
-            const dashboard = document.getElementById('evaluation-dashboard');
-            dashboard.hidden = !dashboard.hidden;
-            evaluationToggle.setAttribute('aria-expanded', String(!dashboard.hidden));
-            evaluationToggle.textContent = dashboard.hidden ? 'View decision evaluation' : 'Hide decision evaluation';
         });
         YangonAppState.subscribe(({ phase }) => {
             const busy = phase === YangonAppState.phases.LOADING || phase === YangonAppState.phases.SIMULATING || phase === YangonAppState.phases.PAUSED;

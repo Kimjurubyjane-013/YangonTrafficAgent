@@ -57,9 +57,12 @@ class ArchitectureTests(unittest.TestCase):
         html=(root/"web"/"app.html").read_text(encoding="utf-8")
         css=(root/"web"/"styles.css").read_text(encoding="utf-8")
         for element_id in ("home-view","planner-view","home-plan-route","theme-toggle","ai-text","decision-details-text",
-            "scenario-mode","departure-band","incident-level","closed-road","evaluation-toggle","evaluation-dashboard",
-            "route-provenance","route-comparison"):
+            "scenario-mode","departure-band","incident-level","closed-road","analysis-view","analysis-btn",
+            "analysis-back","route-provenance","route-comparison"):
             self.assertIn(f'id="{element_id}"',html)
+        self.assertNotIn('id="evaluation-toggle"',html)
+        self.assertNotIn('id="evaluation-dashboard"',html)
+        self.assertNotIn("No meaningfully different real-road alternative",html)
         self.assertIn("body[data-theme=dark]",css)
         self.assertNotIn("OpenStreetMap routing</div>",html)
         self.assertIn("function ensureMapInitialized()",html)

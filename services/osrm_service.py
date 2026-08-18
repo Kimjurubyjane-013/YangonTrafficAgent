@@ -21,7 +21,7 @@ MAX_GEOMETRY_OVERLAP = 0.92
 NEAR_POINT_KM = 0.025
 TARGET_ROUTE_COUNT = 3
 CACHE_TTL_SECONDS = 600
-DEFAULT_SEARCH_BUDGET_SECONDS = 4.8
+DEFAULT_SEARCH_BUDGET_SECONDS = 6.5
 _CACHE, _CACHE_LOCK = {}, RLock()
 
 
@@ -208,9 +208,12 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
     primary=accepted[0]
     if len(accepted)<TARGET_ROUTE_COUNT:
         remaining = max(0.7, deadline - time.monotonic())
-        corridors = _corridor_points(start_coord,destination_coord)
+        # One corridor on each side is more reliable with public services than
+        # four simultaneous requests, which commonly trigger throttling.
+        all_corridors = _corridor_points(start_coord,destination_coord)
+        corridors = [all_corridors[0], all_corridors[2]]
         distance_ratio, duration_ratio = _detour_limits(primary["distance"])
-        with ThreadPoolExecutor(max_workers=4) as pool:
+        with ThreadPoolExecutor(max_workers=2) as pool:
             futures={pool.submit(_request,[start_coord,via,destination_coord],False,remaining):(label,via)
                 for via,label in corridors}
             for future in as_completed(futures):

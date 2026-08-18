@@ -49,6 +49,8 @@ class RealWorldPipelineTests(unittest.TestCase):
         self.assertTrue(result["geometry"])
         self.assertTrue(result["alternatives"][0]["geometry"])
         self.assertIn("Pyay Road",result["display_route"]+result["alternatives"][0]["display_route"])
+        self.assertEqual(result["traffic"], "Unavailable")
+        self.assertFalse(result["traffic_data_available"])
 
     def test_internal_provider_labels_are_not_displayed_as_roads(self):
         result=run_real_world_agent("Hledan Centre","Myanmar Plaza","Car",route_provider=fake_provider,decision_engine=RouteDecisionEngine(False))
@@ -91,6 +93,26 @@ class RealWorldPipelineTests(unittest.TestCase):
             decision_engine=RouteDecisionEngine(False))
         self.assertIn("0.35",result["evaluation"]["formula"])
         self.assertEqual(len(result["evaluation"]["options"]),2)
+
+    def test_longer_route_wins_when_real_traffic_eta_is_lower(self):
+        def traffic_provider(*args, **kwargs):
+            return [
+                {"provider_id":0,"distance":5.0,"duration":15.0,"base_duration":5.0,
+                    "traffic_delay":10.0,"traffic_level":"Heavy","segment_traffic":["Heavy"],
+                    "traffic_data_available":True,"traffic_source":"HERE live and historical traffic",
+                    "retrieved_at":"2026-08-18T10:00:00+00:00","source":"here-traffic",
+                    "geometry":[[16.81,96.13],[16.82,96.14]],"road_names":["Congested Road"]},
+                {"provider_id":1,"distance":7.0,"duration":8.0,"base_duration":7.0,
+                    "traffic_delay":1.0,"traffic_level":"Light","segment_traffic":["Light"],
+                    "traffic_data_available":True,"traffic_source":"HERE live and historical traffic",
+                    "retrieved_at":"2026-08-18T10:00:00+00:00","source":"here-traffic",
+                    "geometry":[[16.81,96.13],[16.815,96.16],[16.82,96.14]],"road_names":["Clear Bypass"]},
+            ]
+        result=run_real_world_agent("Hledan Centre","Myanmar Plaza","Car",
+            route_provider=traffic_provider,decision_engine=RouteDecisionEngine(False))
+        self.assertEqual(result["road_names"],["Clear Bypass"])
+        self.assertEqual(result["traffic_source"],"HERE live and historical traffic")
+        self.assertTrue(result["traffic_data_available"])
 
 
 if __name__ == "__main__": unittest.main()

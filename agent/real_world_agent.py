@@ -1,9 +1,10 @@
-"""Real-road-only route pipeline: OSRM candidates + symbolic ranking."""
+"""Real-road route pipeline: HERE traffic candidates + symbolic ranking."""
 from datetime import datetime
 import re
 
 from algorithms.graph import LOCATION_COORDS
 from algorithms.vehicle import VEHICLE_SPEED, calculate_real_route_time
+from services.here_traffic_service import fetch_traffic_aware_routes
 from services.osrm_service import fetch_real_routes
 from services.route_decision_engine import RouteDecisionEngine
 
@@ -34,6 +35,18 @@ def _engine():
     return _ENGINE
 
 
+def _real_route_provider(start_coord, destination_coord, alternatives=3):
+    """Prefer HERE traffic, then retain honest real-road routing via OSRM."""
+    try:
+        return fetch_traffic_aware_routes(
+            start_coord, destination_coord, alternatives=alternatives
+        )
+    except Exception:
+        return fetch_real_routes(
+            start_coord, destination_coord, alternatives=alternatives
+        )
+
+
 def _time_band(conditions):
     if conditions.get("time_band") in {"peak", "off_peak"}:
         return conditions["time_band"]
@@ -41,7 +54,7 @@ def _time_band(conditions):
     return "peak" if hour in {7,8,9,16,17,18,19} else "off_peak"
 
 
-def run_real_world_agent(start, destination, vehicle, conditions=None, route_provider=fetch_real_routes, decision_engine=None):
+def run_real_world_agent(start, destination, vehicle, conditions=None, route_provider=None, decision_engine=None):
     conditions = dict(conditions or {})
     if not all(isinstance(value, str) for value in (start, destination, vehicle)):
         return {"error": "Start, destination, and vehicle must be text values."}
@@ -52,14 +65,14 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
     if vehicle not in VEHICLE_SPEED:
         return {"error": "Unknown vehicle type."}
     try:
-        routes = route_provider(LOCATION_COORDS[start], LOCATION_COORDS[destination], alternatives=3)
+        provider = route_provider or _real_route_provider
+        routes = provider(LOCATION_COORDS[start], LOCATION_COORDS[destination], alternatives=3)
     except Exception as exc:
         return {"error": str(exc), "routing_mode": "real-world-only"}
 
     conditions["time_band"] = _time_band(conditions)
     conditions.setdefault("weather", "clear")
     conditions.setdefault("incident", "none")
-    level = "Heavy" if conditions["incident"] == "major" else ("Moderate" if conditions["time_band"] == "peak" else "Light")
     candidates = []
     closure_rejections = []
     closed_road = conditions.get("closed_road", "").strip()
@@ -72,20 +85,38 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
                 "reason": f"Route uses closed road: {matched_names[0]}",
             })
             continue
-        road_label = route["road_names"][0] if route["road_names"] else "OSRM road route"
+        road_label = route["road_names"][0] if route["road_names"] else "Mapped road route"
         road_summary = route["road_names"]
+        has_real_traffic = bool(route.get("traffic_data_available"))
+        # A real-road provider without traffic telemetry must not be presented
+        # as if it supplied live congestion data.
+        level = route.get("traffic_level") if has_real_traffic else "Unavailable"
+        eta_basis = (
+            "HERE traffic-aware duration adjusted for the selected vehicle"
+            if has_real_traffic else
+            "Provider road duration adjusted for vehicle type and selected traffic scenario"
+        )
         candidates.append({
             "candidate_id": route["provider_id"], "route": [start, destination],
             # Provider/corridor labels are internal metadata, not road names.
             "display_route": [start, *road_summary, destination],
             "distance": route["distance"],
-            "time": calculate_real_route_time(route["duration"], route["distance"], vehicle, level),
-            "traffic": level, "segment_traffic": [level], "geometry": route["geometry"],
+            # HERE duration already includes traffic. Passing Light here avoids
+            # applying a second synthetic congestion multiplier; vehicle
+            # characteristics remain part of the existing domain model.
+            "time": calculate_real_route_time(route["duration"], route["distance"], vehicle, "Light"),
+            "traffic": level, "segment_traffic": route.get("segment_traffic", [level]), "geometry": route["geometry"],
             "road_names": route["road_names"],
-            "eta_basis": "OSRM road duration adjusted for vehicle type and current traffic band",
-            "route_source": route.get("source","osrm-native"),
+            "eta_basis": eta_basis,
+            "route_source": route.get("source", "unknown-real-road-provider"),
+            "base_duration": route.get("base_duration"),
+            "traffic_delay": route.get("traffic_delay"),
+            "traffic_source": route.get("traffic_source"),
+            "traffic_data_available": has_real_traffic,
+            "retrieved_at": route.get("retrieved_at"),
             "segments": [{"index":0,"name":road_label,"road_class":"arterial",
-                "traffic":level.lower(),"preferred":False,"one_way_ok":True}],
+                "traffic":level.lower() if has_real_traffic else "light",
+                "preferred":False,"one_way_ok":True}],
         })
     if not candidates:
         if closure_rejections:
@@ -128,11 +159,15 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
     return {"route":best["route"],"display_route":best["display_route"],"geometry":best["geometry"],
         "road_names":best["road_names"],"distance":best["distance"],"time":best["time"],
         "traffic":best["traffic"],"segment_traffic":best["segment_traffic"],"alternatives":alternatives,
-        "eta_basis":best["eta_basis"],
+        "eta_basis":best["eta_basis"],"route_source":best["route_source"],
+        "base_duration":best.get("base_duration"),"traffic_delay":best.get("traffic_delay"),
+        "traffic_source":best.get("traffic_source"),
+        "traffic_data_available":best.get("traffic_data_available",False),
+        "retrieved_at":best.get("retrieved_at"),
         "decision":best["decision"],"decision_engine":engine.engine_name,"diagnostic":engine.diagnostic,
         "evaluation": evaluation,
         "routing_mode":"real-world-only","ai_message":
         f"Real-world Route Decision\n\nSelected roads: {' → '.join(best['display_route'])}\n"
         f"Distance: {best['distance']} km\nEstimated time: {best['time']} min\n"
-        f"ETA basis: OSRM road time adjusted for {vehicle} and {level.lower()} traffic; it is an estimate, not a live guarantee.\nReason: {reason}.\n"
-        f"Engine: {engine.engine_name}\nProvider: OSRM/OpenStreetMap road network."}
+        f"ETA basis: {best['eta_basis']}; it remains an estimate, not a guarantee.\nReason: {reason}.\n"
+        f"Engine: {engine.engine_name}\nProvider: {best.get('traffic_source') or best.get('route_source')}."}

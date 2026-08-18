@@ -21,6 +21,7 @@ cd "C:\Users\Lenovo\Documents\Codex\YangonTrafficAgent"
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements-desktop.txt
+$env:HERE_API_KEY = "your-here-api-key"
 python main.py
 ```
 
@@ -35,6 +36,7 @@ cd "C:\Users\Lenovo\Documents\Codex\YangonTrafficAgent"
 python -m venv .venv-web
 .\.venv-web\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
+$env:HERE_API_KEY = "your-here-api-key"
 python -m uvicorn web_api:app --reload
 ```
 
@@ -56,7 +58,9 @@ HTTP endpoints:
 3. Use the repository root as the Root Directory.
 4. Leave Framework Preset as **Other**.
 5. Do not set a custom Build Command or Output Directory.
-6. Deploy. `vercel.json` directs API and static browser requests to the
+6. In **Project Settings → Environment Variables**, add `HERE_API_KEY` for
+   Production, Preview, and Development. Never put this key in frontend code.
+7. Deploy. `vercel.json` directs API and static browser requests to the
    top-level FastAPI `app` exported by `web_api.py`; desktop `main.py` is not
    treated as the web entry point.
 
@@ -69,9 +73,10 @@ implementation of the same scoring contract. Nothing is mocked. Deploy the
 backend to a container/VPS with SWI-Prolog installed if Prolog execution is a
 hard production requirement.
 
-Public OSRM/Valhalla and OpenStreetMap services remain external dependencies.
-Vercel serverless memory and the in-process route cache are not persistent
-between instances.
+HERE Routing supplies current and historical traffic when configured. Without
+`HERE_API_KEY`, or when HERE is unavailable, the app falls back to real
+OSRM/OpenStreetMap road geometry and explicitly reports traffic as unavailable;
+it never presents fabricated congestion as live data.
 
 For the complete HTTP test suite, install `requirements-dev.txt` and run:
 
@@ -93,15 +98,15 @@ deterministic ranking formula is:
 
 `distance_km + (0.35 × estimated_minutes) + rule_penalty`
 
-The live road geometry and alternatives still depend on the configured public
-OSRM/Valhalla services. Condition-specific saved routes can be used when the
-same request is temporarily offline; a normal cached route is never reused for
-a road-closure scenario.
+Live traffic durations depend on HERE Routing. A HERE duration already includes
+traffic, so the application does not apply a second synthetic congestion
+multiplier. Base duration and traffic delay are preserved in the response. The
+OSRM fallback preserves real-road routing but intentionally has no live traffic.
 
 The active desktop entry point is `main.py`; window configuration lives in
 `app/config.py`, startup in `app/startup.py`, validation and serialization in
 `app/`, route orchestration in `services/route_service.py`, and real-road
-routing in `services/osrm_service.py`. Browser responsibilities are separated
+routing in `services/here_traffic_service.py`. Browser responsibilities are separated
 between `web/state.js`, `web/api.js`, `web/app.js`, `web/simulation3d.js`, and
 the compatibility map controller still hosted in `web/app.html`.
 
@@ -118,24 +123,20 @@ node --check web\simulation3d.js
 ## Hybrid route-decision engine
 
 The active application uses a **real-world-only** route pipeline. Saved Yangon
-places supply start/end coordinates, while OSRM generates alternative routes
-from the OpenStreetMap road network. The local graph is retained for legacy
-algorithm exercises/tests but is not used to invent UI route alternatives.
-Every OSRM candidate includes its exact geometry, distance, duration, and road
-names; that same geometry drives Leaflet and the Three.js simulation.
+places supply start/end coordinates, while HERE returns traffic-aware road
+alternatives. Every candidate carries its exact mapped geometry, distance,
+traffic-inclusive duration, base duration, measured delay, English road names,
+source, and retrieval timestamp. The same geometry drives Leaflet and map
+navigation. The local graph and OSRM module remain only for legacy exercises
+and regression tests; they do not generate production UI routes.
 
-Native alternatives are de-duplicated by geometry. If OSRM supplies only one
-meaningfully different route, the provider requests bounded north/south/east/
-west via-corridor routes that OSRM snaps to mapped roads. Candidates exceeding
-1.75× distance, 1.85× duration, or 90% geometry overlap are rejected. The app
-does not fabricate an alternative when the road network has no safe, distinct
-option.
+The provider may legitimately return only one route when no sufficiently
+distinct road alternative exists. The app does not fabricate an alternative.
+Internet access is required; `HERE_API_KEY` is optional but required for live
+traffic-aware ranking.
 
-An internet connection to `router.project-osrm.org` is required. The app reports
-a routing-service error instead of silently substituting artificial graph paths.
-
-Python generates at most 24 loop-free candidate paths (maximum depth 8), then
-calculates distance and traffic-adjusted travel time. SWI-Prolog evaluates
+Python normalizes the bounded provider alternatives and calculates the selected
+vehicle's ETA from HERE's traffic-inclusive car duration. SWI-Prolog evaluates
 one-way rules, prohibited vehicle/road combinations, congestion, peak time,
 weather, incidents, heavy-vehicle suitability, and preferred roads.
 
@@ -154,6 +155,11 @@ total_score = 1.00 * distance_km
 
 Lower scores win. Ties are resolved by distance, estimated time, then the
 lexicographic route node sequence. Invalid candidates are excluded.
+
+This means the shortest-distance route does not automatically win. A longer
+alternative can rank first when its real traffic ETA and rule penalties produce
+a lower total score. Provider traffic is not claimed to be a guarantee: it is a
+time-stamped estimate and depends on HERE coverage and freshness.
 
 ### SWI-Prolog setup
 
