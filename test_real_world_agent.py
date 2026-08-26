@@ -14,6 +14,27 @@ def fake_provider(start, destination, alternatives=3):
 
 
 class RealWorldPipelineTests(unittest.TestCase):
+    def test_requested_route_matrix_keeps_complete_trust_contract(self):
+        journeys = [
+            ("Hledan Centre", "Junction Square"),
+            ("Myanmar Plaza", "Yangon General Hospital"),
+            ("Yangon Airport", "Sule Pagoda"),
+            ("Yangon Airport", "Junction City"),
+        ]
+        for start, destination in journeys:
+            with self.subTest(start=start, destination=destination):
+                result = run_real_world_agent(
+                    start, destination, "Car", route_provider=fake_provider,
+                    decision_engine=RouteDecisionEngine(False),
+                )
+                self.assertNotIn("error", result)
+                self.assertEqual(result["route"], [start, destination])
+                self.assertTrue(result["geometry"])
+                self.assertTrue(result["alternatives"])
+                self.assertIn(result["traffic"], {"Light", "Moderate", "Heavy"})
+                self.assertEqual(result["traffic_source"], "Academic Simulation")
+                self.assertTrue(result["recommendation_reason"]["explanation"])
+
     def test_english_names_are_clean_and_deduplicated(self):
         route={"legs":[{"steps":[
             {"name":"နတ်မောက်လမ်း - Nar Nat Taw Road"},
@@ -53,6 +74,8 @@ class RealWorldPipelineTests(unittest.TestCase):
         self.assertFalse(result["traffic_data_available"])
         self.assertTrue(result["traffic_model_available"])
         self.assertTrue(result["traffic_snapshot_id"])
+        self.assertEqual(result["traffic_source"], "Academic Simulation")
+        self.assertIn("provider unavailable", result["provider_notice"].lower())
 
     def test_internal_provider_labels_are_not_displayed_as_roads(self):
         result=run_real_world_agent("Hledan Centre","Myanmar Plaza","Car",route_provider=fake_provider,decision_engine=RouteDecisionEngine(False))
@@ -113,8 +136,12 @@ class RealWorldPipelineTests(unittest.TestCase):
         result=run_real_world_agent("Hledan Centre","Myanmar Plaza","Car",
             route_provider=traffic_provider,decision_engine=RouteDecisionEngine(False))
         self.assertEqual(result["road_names"],["Clear Bypass"])
-        self.assertEqual(result["traffic_source"],"HERE live and historical traffic")
+        self.assertEqual(result["traffic_source"],"HERE Traffic")
         self.assertTrue(result["traffic_data_available"])
+        self.assertEqual(result["base_duration"], 7.0)
+        self.assertEqual(result["traffic_time"], 8.0)
+        self.assertEqual(result["traffic_delay"], 1.0)
+        self.assertIsNone(result["provider_notice"])
 
 
 if __name__ == "__main__": unittest.main()

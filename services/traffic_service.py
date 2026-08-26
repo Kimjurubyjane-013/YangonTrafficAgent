@@ -55,6 +55,26 @@ def classify_traffic(score: float) -> str:
     return "Heavy"
 
 
+def classify_route_traffic(states, repository) -> tuple[float, str]:
+    """Classify a route from distance-weighted segment exposure.
+
+    A short severe segment cannot label an otherwise clear journey Heavy. A
+    critical override applies only when critical roads cover at least a quarter
+    of route distance or create at least five minutes of measured/modelled delay.
+    """
+    if not states:
+        return 50.0, "Moderate"
+    distances = [max(0.001, repository.by_id[state.road_id].distance_km) for state in states]
+    total_distance = sum(distances)
+    weighted_score = sum(state.traffic_score * distance for state, distance in zip(states, distances)) / total_distance
+    critical_distance = sum(distance for state, distance in zip(states, distances) if state.critical_congestion)
+    critical_delay = sum(state.estimated_delay_minutes for state in states if state.critical_congestion)
+    level = classify_traffic(weighted_score)
+    if level != "Heavy" and (critical_distance / total_distance >= 0.25 or critical_delay >= 5.0):
+        level = "Heavy"
+    return round(weighted_score, 1), level
+
+
 def traffic_health_label(score: float) -> str:
     score = clamp(score)
     return next(label for threshold, label in HEALTH_LABELS if score >= threshold)
@@ -137,7 +157,7 @@ class TrafficEngine:
         density = clamp(road.base_congestion + time_demand + context_demand + capacity_density + variation)
         pressure = min(MAX_CONGESTION_PRESSURE, density / road.capacity)
         pressure_percent = clamp(pressure / MAX_CONGESTION_PRESSURE * 100.0)
-        context_score = (context_demand * 0.22) + defaults.score_effect
+        context_score = (context_demand * 0.10) + defaults.score_effect
         score = clamp(
             road.base_congestion * BASE_CONGESTION_WEIGHT
             + density * VEHICLE_DENSITY_WEIGHT
@@ -271,11 +291,11 @@ class TrafficEngine:
                 "critical_segments":0,"cumulative_traffic_impact":0.0,
                 "average_congestion_pressure":0.0,"snapshot_id":snapshot.snapshot_id,
                 "source":"academic_simulation"}
-        worst = max(states, key=lambda state: state.traffic_score).traffic_level
+        route_score, route_level = classify_route_traffic(states, self.repository)
         return {
-            "traffic_level": worst, "segment_traffic": [state.traffic_level for state in states],
+            "traffic_level": route_level, "segment_traffic": [state.traffic_level for state in states],
             "road_ids": [state.road_id for state in states],
-            "average_score": round(sum(state.traffic_score for state in states) / len(states), 1),
+            "average_score": route_score,
             "estimated_delay_minutes": round(sum(state.estimated_delay_minutes for state in states), 2),
             "heavy_segments": sum(state.traffic_level == "Heavy" for state in states),
             "critical_segments": sum(state.critical_congestion for state in states),

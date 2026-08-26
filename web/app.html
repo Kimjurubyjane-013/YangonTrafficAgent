@@ -344,15 +344,14 @@
         <div><strong>Yangon Traffic Intelligence</strong><span>Explainable traffic analysis and smart route recommendations</span></div>
     </div>
     <nav class="app-nav" aria-label="Primary navigation">
-        <button type="button" id="nav-home" class="nav-link active">Dashboard</button>
-        <button type="button" id="nav-traffic" class="nav-link">Traffic Map</button>
+        <button type="button" id="nav-home" class="nav-link active">Home</button>
+        <button type="button" id="nav-dashboard" class="nav-link">Dashboard</button>
         <button type="button" id="nav-planner" class="nav-link">Route Planner</button>
-        <button type="button" id="nav-simulation" class="nav-link">Simulation</button>
         <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark mode">☾</button>
     </nav>
 </header>
 
-<main class="traffic-dashboard" id="home-view">
+<main class="traffic-dashboard" id="dashboard-view" hidden>
     <section class="dashboard-head">
         <div><div class="panel-kicker">Citywide Traffic Monitoring</div><h1>Yangon Traffic Intelligence Dashboard</h1><p>Current modeled road conditions, congestion pressure, and explainable traffic trends.</p></div>
         <button type="button" id="refresh-traffic" class="dashboard-refresh">Refresh Traffic</button>
@@ -371,18 +370,6 @@
         <article class="traffic-stat light"><span>Light Roads</span><strong id="light-count">—</strong><small>Free flowing</small></article>
         <article class="traffic-stat neutral"><span>Average Traffic Score</span><strong id="average-score">—</strong><small>Across modeled roads</small></article>
     </section>
-    <section class="dashboard-main-grid">
-        <article class="dashboard-card dashboard-map-card">
-            <div class="dashboard-card-head"><div><span>Network Conditions</span><h2>Current Yangon Traffic Map</h2></div><div class="traffic-legend"><i class="light"></i>Light<i class="moderate"></i>Moderate<i class="heavy"></i>Heavy</div></div>
-            <div id="dashboard-map" class="traffic-map" aria-label="Yangon traffic map"></div>
-            <div id="dashboard-map-fallback" class="map-fallback" hidden>Map imagery is unavailable. Road traffic data remains available in the panels.</div>
-        </article>
-        <aside class="dashboard-card road-detail-card" id="road-detail-card">
-            <div class="dashboard-card-head"><div><span>Road Inspection</span><h2>Road Conditions</h2></div></div>
-            <div id="road-detail-empty" class="road-detail-empty">Select a colored road on the map to inspect its current traffic state.</div>
-            <div id="road-detail" hidden></div>
-        </aside>
-    </section>
     <section class="dashboard-lists">
         <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Priority Monitoring</span><h2>Congestion Hotspots</h2></div></div><div id="hotspot-list" class="ranked-road-list"></div></article>
         <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Network Performance</span><h2>Best Flowing Roads</h2></div></div><div id="best-flow-list" class="ranked-road-list"></div></article>
@@ -390,15 +377,15 @@
     </section>
 </main>
 
-<main class="legacy-home-view" id="legacy-home-view" hidden>
+<main class="home-view" id="home-view">
     <section class="home-hero">
         <div class="hero-copy">
-            <div class="eyebrow"><span></span>Your Yangon travel companion</div>
-            <h1>A Route Recommendation You Can Understand.</h1>
-            <p>Choose where you are going. Your route agent checks real streets, traffic conditions, vehicle needs, and practical alternatives—then explains why a route fits.</p>
+            <div class="eyebrow"><span></span>Yangon Traffic Intelligence</div>
+            <h1>Understand Traffic.<br>Choose Better Routes.</h1>
+            <p>Analyze Yangon traffic conditions, identify congestion, and receive intelligent, explainable route recommendations.</p>
             <div class="hero-actions">
-                <button type="button" class="primary-action" id="home-plan-route">Plan My Route <span>→</span></button>
-                <button type="button" class="text-action" id="home-learn">How The Agent Thinks</button>
+                <button type="button" class="primary-action" id="home-plan-route">Plan A Route <span>→</span></button>
+                <button type="button" class="text-action" id="home-dashboard">View Traffic Dashboard</button>
             </div>
             <div class="trust-row" aria-label="Route agent capabilities">
                 <span>Real road geometry</span><span>Traffic-aware ETA</span><span>Explainable decisions</span>
@@ -416,34 +403,11 @@
         </div>
     </section>
     <section class="home-features" id="agent-method">
-        <article><div class="feature-icon">01</div><h2>Grounded In Real Streets</h2><p>Routes follow mapped Yangon roads instead of straight landmark-to-landmark lines.</p></article>
-        <article><div class="feature-icon">02</div><h2>Adjusted To Your Journey</h2><p>Vehicle type and traffic conditions shape estimated time and route ranking.</p></article>
-        <article><div class="feature-icon">03</div><h2>Reasoning You Can Inspect</h2><p>Python optimization and symbolic rules provide a recommendation with a clear explanation.</p></article>
-    </section>
-    <section class="quick-start">
-        <div><div class="eyebrow">Quick Start</div><h2>Where Would You Like To Go?</h2></div>
-        <div class="quick-destinations">
-            <button type="button" data-quick-destination="Junction City">Junction City <span>→</span></button>
-            <button type="button" data-quick-destination="Myanmar Plaza">Myanmar Plaza <span>→</span></button>
-            <button type="button" data-quick-destination="Yangon Airport">Yangon Airport <span>→</span></button>
-        </div>
+        <article><div class="feature-icon">01</div><h2>Traffic Analysis</h2><p>Understand current traffic conditions and where congestion is building.</p></article>
+        <article><div class="feature-icon">02</div><h2>Smart Route Recommendation</h2><p>Compare real-road routes using traffic conditions, ETA, and explainable rules.</p></article>
+        <article><div class="feature-icon">03</div><h2>Traffic Simulation</h2><p>Visualize a selected journey after finding a route in the Route Planner.</p></article>
     </section>
 </main>
-
-<section class="traffic-map-view" id="traffic-map-view" hidden>
-    <div class="traffic-map-page-head"><div><div class="panel-kicker">Road Network Monitor</div><h1>Yangon Traffic Map</h1><p>Filter and inspect all modeled road segments from the current shared snapshot.</p></div><button type="button" id="traffic-map-refresh">Refresh Traffic</button></div>
-    <div class="traffic-map-toolbar" role="group" aria-label="Traffic level filter">
-        <button type="button" class="traffic-filter active" data-traffic-filter="All">All</button>
-        <button type="button" class="traffic-filter" data-traffic-filter="Light">Light</button>
-        <button type="button" class="traffic-filter" data-traffic-filter="Moderate">Moderate</button>
-        <button type="button" class="traffic-filter" data-traffic-filter="Heavy">Heavy</button>
-        <span id="traffic-map-context">Waiting for traffic data…</span>
-    </div>
-    <div class="traffic-map-layout">
-        <div id="traffic-map" class="traffic-map traffic-map-full" aria-label="Filtered Yangon traffic map"></div>
-        <aside class="dashboard-card"><div class="dashboard-card-head"><div><span>Selected Segment</span><h2>Road Detail</h2></div></div><div id="traffic-map-detail" class="road-detail-empty">Choose a road segment to view its traffic evidence.</div></aside>
-    </div>
-</section>
 
 <div class="planner-view" id="planner-view" hidden>
 <div class="main">
@@ -590,6 +554,8 @@
         <p id="r-distance">Distance: -</p>
         <p id="r-time">Estimated Time: -</p>
         <p id="r-traffic">Traffic: -</p>
+        <p id="r-traffic-source">Traffic Source: -</p>
+        <div class="route-why" id="route-why" hidden><strong>Why This Route?</strong><span></span></div>
         <div class="route-provenance" id="route-provenance" hidden></div>
 
         <h3>Route Options <span class="muted">Best First</span></h3>
@@ -1137,6 +1103,18 @@
         return 'Traffic Basis: Standard Road Speeds';
     }
 
+    function trafficSourceSummary(opt) {
+        return opt.traffic_data_available ? 'HERE Traffic' : 'Academic Simulation';
+    }
+
+    function updateRouteResultDetails(opt) {
+        document.getElementById('r-traffic-source').textContent = `Traffic Source: ${trafficSourceSummary(opt)}`;
+        const why = document.getElementById('route-why');
+        const reason = opt.recommendation_reason?.explanation;
+        why.hidden = !reason;
+        why.querySelector('span').textContent = reason || '';
+    }
+
     function renderRouteOptions() {
         const container = document.getElementById('route-options');
         container.innerHTML = '';
@@ -1214,7 +1192,7 @@
             ? decision.reasons.map(reason => reason.replaceAll('_', ' ')).join(', ')
             : 'lowest combined real-road travel cost';
         document.getElementById('decision-details-text').textContent =
-            `Road source: ${opt.traffic_source || routeSourceLabel(opt.route_source)}. ETA basis: ${opt.eta_basis || 'road duration adjusted for vehicle and traffic'}. ` +
+            `Route geometry: ${routeSourceLabel(opt.route_source)}. Traffic data: ${trafficSourceSummary(opt)}. ETA basis: ${opt.eta_basis || 'road duration adjusted for vehicle and traffic'}. ` +
             `Decision engine: ${decision.engine || 'symbolic fallback'}. Reasoning: ${reasons}.`;
         renderRouteAnalysis(opt, optionIndex);
     }
@@ -1227,7 +1205,7 @@
         document.getElementById('analysis-route').textContent = route.join(' → ') || 'Selected Route';
         document.getElementById('analysis-distance').textContent = `${opt.distance} km`;
         document.getElementById('analysis-time').textContent = formatDuration(opt.time);
-        document.getElementById('analysis-source').textContent = routeSourceLabel(opt.route_source);
+        document.getElementById('analysis-source').textContent = `Route Geometry: ${routeSourceLabel(opt.route_source)} · Traffic Data: ${trafficSourceSummary(opt)}`;
         document.getElementById('analysis-traffic').textContent = opt.traffic_model_available && !opt.traffic_data_available
             ? `${opt.traffic} Simulated Traffic`
             : trafficAvailable ? `${opt.traffic} Traffic` : 'Standard Road Speeds';
@@ -1270,6 +1248,7 @@
         document.getElementById('r-distance').innerText = 'Distance: ' + opt.distance + ' km';
         document.getElementById('r-time').innerText = 'Estimated Time: ' + formatDuration(opt.time);
         document.getElementById('r-traffic').innerText = trafficSummary(opt);
+        updateRouteResultDetails(opt);
 
         document.getElementById('status').innerText =
             index === 0
@@ -1685,10 +1664,8 @@
         const comparison = document.getElementById('route-comparison');
         const source = routeSourceLabel(result.route_source);
         const providerTime = result.retrieved_at ? new Date(result.retrieved_at) : retrievedAt;
-        const trafficNote = result.traffic_data_available
-            ? ' · Live/historical traffic'
-            : result.traffic_model_available ? ' · Academic traffic simulation' : '';
-        provenance.textContent = `${source}${trafficNote} · Retrieved ${providerTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        const trafficSource = result.traffic_data_available ? 'HERE Traffic' : 'Academic Simulation';
+        provenance.textContent = `Route Geometry: ${source} · Traffic Data: ${trafficSource} · Retrieved ${providerTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         provenance.hidden = false;
         comparison.replaceChildren();
 
@@ -1890,13 +1867,16 @@
             route_source: result.route_source,
             base_duration: result.base_duration,
             traffic_delay: result.traffic_delay,
+            traffic_time: result.traffic_time,
             traffic_source: result.traffic_source,
+            provider_notice: result.provider_notice,
             traffic_data_available: result.traffic_data_available,
             traffic_model_available: result.traffic_model_available,
             traffic_snapshot_id: result.traffic_snapshot_id,
             traffic_score: result.traffic_score,
             retrieved_at: result.retrieved_at,
-            decision: result.decision
+            decision: result.decision,
+            recommendation_reason: result.recommendation_reason
         };
 
         allOptionsData = [bestRouteData, ...(result.alternatives || [])];
@@ -1909,6 +1889,7 @@
         document.getElementById('r-distance').innerText = 'Distance: ' + result.distance + ' km';
         document.getElementById('r-time').innerText = 'Estimated Time: ' + formatDuration(result.time);
         document.getElementById('r-traffic').innerText = trafficSummary(bestRouteData);
+        updateRouteResultDetails(bestRouteData);
         renderAgentInsight(bestRouteData, 0);
         document.getElementById('analysis-btn').disabled = false;
         document.getElementById('status').innerText = '✅ Ranked ' + allOptionsData.length + ' real-world road route(s)';
@@ -1941,6 +1922,8 @@
         document.getElementById('r-distance').innerText = 'Distance: -';
         document.getElementById('r-time').innerText = 'Estimated Time: -';
         document.getElementById('r-traffic').innerText = 'Traffic: -';
+        document.getElementById('r-traffic-source').innerText = 'Traffic Source: -';
+        document.getElementById('route-why').hidden = true;
         document.getElementById('route-provenance').hidden = true;
         document.getElementById('route-provenance').textContent = '';
         document.getElementById('route-comparison').hidden = true;
@@ -1973,6 +1956,8 @@
         document.getElementById('r-distance').innerText = 'Distance: -';
         document.getElementById('r-time').innerText = 'Estimated Time: -';
         document.getElementById('r-traffic').innerText = 'Traffic: -';
+        document.getElementById('r-traffic-source').innerText = 'Traffic Source: -';
+        document.getElementById('route-why').hidden = true;
         document.getElementById('route-provenance').hidden = true;
         document.getElementById('route-provenance').textContent = '';
         document.getElementById('route-comparison').hidden = true;

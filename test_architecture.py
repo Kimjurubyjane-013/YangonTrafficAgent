@@ -59,10 +59,14 @@ class ArchitectureTests(unittest.TestCase):
         css=(root/"web"/"styles.css").read_text(encoding="utf-8")
         for element_id in ("home-view","planner-view","home-plan-route","theme-toggle","ai-text","decision-details-text",
             "scenario-mode","departure-band","incident-level","closed-road","analysis-view","analysis-btn",
-            "analysis-back","route-provenance","route-comparison","nav-traffic","nav-simulation",
-            "traffic-map-view","dashboard-map","health-score","hotspot-list","best-flow-list",
+            "analysis-back","route-provenance","route-comparison","nav-dashboard","dashboard-view",
+            "health-score","hotspot-list","best-flow-list","r-traffic-source","route-why",
             "trend-summary","refresh-traffic"):
             self.assertIn(f'id="{element_id}"',html)
+        for removed_id in ("nav-traffic","nav-simulation","traffic-map-view","dashboard-map","legacy-home-view"):
+            self.assertNotIn(f'id="{removed_id}"',html)
+        self.assertIn('<main class="home-view" id="home-view">', html)
+        self.assertIn('<main class="traffic-dashboard" id="dashboard-view" hidden>', html)
         self.assertNotIn('id="evaluation-toggle"',html)
         self.assertNotIn('id="evaluation-dashboard"',html)
         self.assertNotIn("No meaningfully different real-road alternative",html)
@@ -79,8 +83,10 @@ class ArchitectureTests(unittest.TestCase):
         root=Path(__file__).parent
         dashboard=(root/"web"/"dashboard.js").read_text(encoding="utf-8")
         self.assertIn("YangonApi.trafficOverview()",dashboard)
-        self.assertIn("overview.roads",dashboard)
+        self.assertIn("data.roads",dashboard)
         self.assertNotIn("Math.random",dashboard)
+        self.assertNotIn("L.map",dashboard)
+        self.assertNotIn("traffic-map",dashboard)
 
     def test_browser_transport_and_vercel_entrypoint_are_present(self):
         root=Path(__file__).parent

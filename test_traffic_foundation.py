@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 from agent.traffic_agent import run_traffic_agent
 from algorithms.graph import GRAPH
@@ -10,7 +11,7 @@ from api import Api
 from services.road_repository import ROAD_REPOSITORY, RoadDataError, RoadRepository
 from services.route_decision_engine import RouteDecisionEngine
 from services.traffic_service import (
-    TrafficEngine, classify_traffic, get_time_period, is_rush_hour,
+    TrafficEngine, classify_route_traffic, classify_traffic, get_time_period, is_rush_hour,
     traffic_health_label,
 )
 
@@ -48,6 +49,38 @@ class TrafficFoundationTests(unittest.TestCase):
             self.assertGreaterEqual(state.estimated_delay_minutes, 0)
             self.assertTrue(state.reasons)
             self.assertEqual(classify_traffic(state.traffic_score), state.traffic_level)
+
+    def test_academic_model_has_believable_time_period_variation(self):
+        snapshots = {
+            "early": self.engine.get_snapshot(datetime(2026, 8, 26, 6, 0), force=True),
+            "morning_rush": self.engine.get_snapshot(datetime(2026, 8, 26, 8, 0), force=True),
+            "daytime": self.engine.get_snapshot(datetime(2026, 8, 26, 12, 0), force=True),
+            "evening_rush": self.engine.get_snapshot(datetime(2026, 8, 26, 17, 0), force=True),
+            "night": self.engine.get_snapshot(datetime(2026, 8, 26, 22, 0), force=True),
+        }
+        levels = {name: {state.traffic_level for state in snapshot.roads.values()} for name, snapshot in snapshots.items()}
+        all_levels = set().union(*levels.values())
+        self.assertEqual(all_levels, {"Light", "Moderate", "Heavy"})
+        for snapshot in snapshots.values():
+            scores = [state.traffic_score for state in snapshot.roads.values()]
+            self.assertTrue(all(0 <= score <= 100 for score in scores))
+            self.assertLess(sum(state.traffic_level == "Heavy" for state in snapshot.roads.values()), len(snapshot.roads))
+        average = lambda snapshot: sum(state.traffic_score for state in snapshot.roads.values()) / len(snapshot.roads)
+        self.assertGreater(average(snapshots["morning_rush"]), average(snapshots["early"]))
+        self.assertGreater(average(snapshots["evening_rush"]), average(snapshots["night"]))
+
+    def test_route_classification_is_distance_weighted(self):
+        repository = SimpleNamespace(by_id={
+            "clear": SimpleNamespace(distance_km=8.0),
+            "slow": SimpleNamespace(distance_km=0.5),
+        })
+        states = [
+            SimpleNamespace(road_id="clear", traffic_score=25.0, critical_congestion=False, estimated_delay_minutes=0.2),
+            SimpleNamespace(road_id="slow", traffic_score=85.0, critical_congestion=False, estimated_delay_minutes=0.8),
+        ]
+        score, level = classify_route_traffic(states, repository)
+        self.assertAlmostEqual(score, 28.5, places=1)
+        self.assertEqual(level, "Light")
 
     def test_snapshot_is_repeatable_and_internally_consistent(self):
         first = self.engine.get_snapshot(self.daytime)

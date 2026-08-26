@@ -126,7 +126,7 @@ def _route_record(route: dict, provider_id: int, retrieved_at: str) -> dict:
         "traffic_level": level,
         "segment_traffic": section_levels or [level],
         "traffic_data_available": True,
-        "traffic_source": "HERE live and historical traffic",
+        "traffic_source": "HERE Traffic",
         "retrieved_at": retrieved_at,
         "geometry": geometry,
         "road_names": _english_road_names(route),

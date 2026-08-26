@@ -2,36 +2,31 @@
     'use strict';
     function bind() {
         const homeView = document.getElementById('home-view');
-        const trafficMapView = document.getElementById('traffic-map-view');
+        const dashboardView = document.getElementById('dashboard-view');
         const plannerView = document.getElementById('planner-view');
         const analysisView = document.getElementById('analysis-view');
         const homeNav = document.getElementById('nav-home');
-        const trafficNav = document.getElementById('nav-traffic');
+        const dashboardNav = document.getElementById('nav-dashboard');
         const plannerNav = document.getElementById('nav-planner');
-        const simulationNav = document.getElementById('nav-simulation');
         const themeToggle = document.getElementById('theme-toggle');
 
         function showView(name) {
             const plannerVisible = name === 'planner';
             const analysisVisible = name === 'analysis';
             const homeVisible = name === 'home';
-            const trafficVisible = name === 'traffic';
+            const dashboardVisible = name === 'dashboard';
             homeView.hidden = !homeVisible;
-            trafficMapView.hidden = !trafficVisible;
+            dashboardView.hidden = !dashboardVisible;
             plannerView.hidden = !plannerVisible;
             analysisView.hidden = !analysisVisible;
             homeNav.classList.toggle('active', homeVisible);
-            trafficNav.classList.toggle('active', trafficVisible);
+            dashboardNav.classList.toggle('active', dashboardVisible);
             plannerNav.classList.toggle('active', plannerVisible || analysisVisible);
-            simulationNav.classList.remove('active');
             window.scrollTo({ top: 0, behavior: 'smooth' });
             if (plannerVisible) {
                 window.ensureMapInitialized().finally(() => {
                     setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
                 });
-            }
-            if (homeVisible || trafficVisible) {
-                window.YangonDashboard?.resizeMaps();
             }
         }
 
@@ -44,20 +39,10 @@
 
         applyTheme(localStorage.getItem('yangon-route-theme') || 'light');
         homeNav.addEventListener('click', () => showView('home'));
-        trafficNav.addEventListener('click', () => showView('traffic'));
+        dashboardNav.addEventListener('click', () => showView('dashboard'));
         plannerNav.addEventListener('click', () => showView('planner'));
-        simulationNav.addEventListener('click', () => {
-            showView('planner');
-            if (!document.getElementById('sim-btn').disabled) {
-                simulationNav.classList.add('active');
-                window.openSimulation();
-                return;
-            }
-            document.getElementById('status').textContent = 'Find A Route Before Starting Simulation.';
-            document.getElementById('find-btn').focus();
-        });
         document.getElementById('home-plan-route').addEventListener('click', () => showView('planner'));
-        document.getElementById('home-learn').addEventListener('click', () => document.getElementById('agent-method').scrollIntoView({ behavior: 'smooth' }));
+        document.getElementById('home-dashboard').addEventListener('click', () => showView('dashboard'));
         themeToggle.addEventListener('click', () => applyTheme(document.body.dataset.theme === 'dark' ? 'light' : 'dark'));
         document.querySelectorAll('[data-quick-destination]').forEach(button => button.addEventListener('click', () => {
             showView('planner');
