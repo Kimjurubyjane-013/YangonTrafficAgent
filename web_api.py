@@ -56,6 +56,18 @@ def traffic_overview():
     return result
 
 
+@app.get("/api/traffic/hotspots")
+def traffic_hotspots(limit: int = 8):
+    result = application_api.get_congestion_hotspots(limit)
+    return JSONResponse(status_code=503, content=result) if result.get("error") else result
+
+
+@app.get("/api/traffic/best-flowing")
+def best_flowing_roads(limit: int = 8):
+    result = application_api.get_best_flowing_roads(limit)
+    return JSONResponse(status_code=503, content=result) if result.get("error") else result
+
+
 @app.get("/api/traffic/{road_id}")
 def road_traffic(road_id: str):
     result = application_api.get_road_traffic(road_id)

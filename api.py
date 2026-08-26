@@ -36,9 +36,53 @@ class Api:
         roads = [{
             "id": road.id, "road_name": road.road_name, "from": road.start, "to": road.end,
             "road_type": road.road_type, "distance_km": road.distance_km,
+            "bidirectional": road.bidirectional,
+            "context": {
+                "commercial_activity": road.commercial_activity,
+                "junction_complexity": road.junction_complexity,
+                "rush_hour_sensitivity": road.rush_hour_sensitivity,
+                "downtown_factor": road.downtown_factor,
+                "school_university_factor": road.school_university_factor,
+                "airport_corridor_factor": road.airport_corridor_factor,
+            },
             "coordinates": [list(LOCATION_COORDS[road.start]), list(LOCATION_COORDS[road.end])],
         } for road in ROAD_REPOSITORY.roads]
         return {"coords": {name: list(coord) for name, coord in LOCATION_COORDS.items()}, "edges": edges, "roads": roads}
+
+    @staticmethod
+    def _validated_limit(limit, default=8, maximum=25):
+        try:
+            return max(1, min(maximum, int(limit)))
+        except (TypeError, ValueError):
+            return default
+
+    def get_congestion_hotspots(self, limit=8):
+        try:
+            snapshot = self._traffic_engine.get_snapshot()
+            return {
+                "snapshot_id": snapshot.snapshot_id,
+                "source": "academic_simulation",
+                "hotspots": self._traffic_engine.congestion_hotspots(
+                    snapshot, self._validated_limit(limit)
+                ),
+            }
+        except Exception:
+            LOGGER.exception("Traffic hotspot analysis failed")
+            return {"error": "Traffic hotspot analysis is temporarily unavailable.", "error_details": {"code": "traffic_analysis_error", "message": "Traffic hotspot analysis is temporarily unavailable."}}
+
+    def get_best_flowing_roads(self, limit=8):
+        try:
+            snapshot = self._traffic_engine.get_snapshot()
+            return {
+                "snapshot_id": snapshot.snapshot_id,
+                "source": "academic_simulation",
+                "roads": self._traffic_engine.best_flowing_roads(
+                    snapshot, self._validated_limit(limit)
+                ),
+            }
+        except Exception:
+            LOGGER.exception("Best-flow analysis failed")
+            return {"error": "Best-flow analysis is temporarily unavailable.", "error_details": {"code": "traffic_analysis_error", "message": "Best-flow analysis is temporarily unavailable."}}
 
     def get_traffic_overview(self):
         try:

@@ -9,7 +9,10 @@ from algorithms.graph import GRAPH
 from api import Api
 from services.road_repository import ROAD_REPOSITORY, RoadDataError, RoadRepository
 from services.route_decision_engine import RouteDecisionEngine
-from services.traffic_service import TrafficEngine, classify_traffic, get_time_period, is_rush_hour
+from services.traffic_service import (
+    TrafficEngine, classify_traffic, get_time_period, is_rush_hour,
+    traffic_health_label,
+)
 
 
 class TrafficFoundationTests(unittest.TestCase):
@@ -61,6 +64,48 @@ class TrafficFoundationTests(unittest.TestCase):
         self.assertEqual(overview["model_type"], "academic_simulation")
         self.assertTrue(overview["most_congested"])
         self.assertTrue(overview["best_flowing"])
+        self.assertGreaterEqual(overview["traffic_health_score"], 0)
+        self.assertLessEqual(overview["traffic_health_score"], 100)
+        self.assertEqual(overview["source"], "academic_simulation")
+        self.assertIn(overview["traffic_health_label"], {"Excellent", "Good", "Moderate", "Poor", "Severe"})
+
+    def test_phase_two_network_size_context_and_connectivity(self):
+        self.assertGreaterEqual(len(ROAD_REPOSITORY.locations), 25)
+        self.assertLessEqual(len(ROAD_REPOSITORY.locations), 35)
+        self.assertGreaterEqual(len(ROAD_REPOSITORY.roads), 30)
+        self.assertLessEqual(len(ROAD_REPOSITORY.roads), 45)
+        self.assertNotIn("Hledan Junction", ROAD_REPOSITORY.locations)
+        self.assertEqual(len(ROAD_REPOSITORY.by_id), len(ROAD_REPOSITORY.roads))
+        for road in ROAD_REPOSITORY.roads:
+            self.assertGreaterEqual(road.commercial_activity, 0)
+            self.assertLessEqual(road.commercial_activity, 1)
+            self.assertGreaterEqual(road.rush_hour_sensitivity, 0.5)
+
+    def test_hotspot_and_best_flow_rankings_are_deterministic(self):
+        snapshot = self.engine.get_snapshot(self.daytime)
+        first_hotspots = self.engine.congestion_hotspots(snapshot, 6)
+        second_hotspots = self.engine.congestion_hotspots(snapshot, 6)
+        self.assertEqual(first_hotspots, second_hotspots)
+        self.assertEqual(
+            [item["hotspot_rank_score"] for item in first_hotspots],
+            sorted((item["hotspot_rank_score"] for item in first_hotspots), reverse=True),
+        )
+        best = self.engine.best_flowing_roads(snapshot, 6)
+        self.assertEqual(
+            [item["flow_rank_score"] for item in best],
+            sorted(item["flow_rank_score"] for item in best),
+        )
+
+    def test_trend_and_pressure_are_bounded_and_explained(self):
+        snapshot = self.engine.get_snapshot(self.daytime)
+        for state in snapshot.roads.values():
+            self.assertGreaterEqual(state.congestion_pressure, 0)
+            self.assertLessEqual(state.congestion_pressure, 1.5)
+            self.assertIn(state.trend, {"worsening", "improving", "stable"})
+            self.assertTrue(state.summary_reason)
+            self.assertEqual(state.source, "academic_simulation")
+        for score, label in ((90, "Excellent"), (75, "Good"), (55, "Moderate"), (35, "Poor"), (10, "Severe")):
+            self.assertEqual(traffic_health_label(score), label)
 
     def test_api_road_lookup_is_safe(self):
         api = Api(traffic_engine=self.engine)
@@ -100,7 +145,7 @@ class TrafficFoundationTests(unittest.TestCase):
             locations = root / "locations.json"
             roads = root / "roads.json"
             locations.write_text(json.dumps([
-                {"name":"A","lat":1,"lon":2}, {"name":"B","lat":1.1,"lon":2.1}
+                {"name":"A","lat":1,"lon":2}, {"name":"B","lat":1.001,"lon":2.001}
             ]), encoding="utf-8")
             valid = {"id":"valid","from":"A","to":"B","road_name":"Main Road","road_type":"main","distance_km":1,"base_congestion":40}
             roads.write_text(json.dumps([valid, {"id":"bad","from":"A"}]), encoding="utf-8")
@@ -110,6 +155,47 @@ class TrafficFoundationTests(unittest.TestCase):
             roads.write_text(json.dumps([{"id":"x","from":"A","to":"B","road_name":"Bad","road_type":"unknown","distance_km":1,"base_congestion":10}]), encoding="utf-8")
             with self.assertRaises(RoadDataError):
                 RoadRepository(roads, locations)
+
+    def test_repository_rejects_disconnected_network_and_bad_flags(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            locations = root / "locations.json"
+            roads = root / "roads.json"
+            locations.write_text(json.dumps([
+                {"name":"A","lat":1,"lon":2}, {"name":"B","lat":1.001,"lon":2.001},
+                {"name":"C","lat":1.002,"lon":2.002},
+            ]), encoding="utf-8")
+            roads.write_text(json.dumps([
+                {"id":"ab","from":"A","to":"B","road_name":"Main Road","road_type":"main","distance_km":1,"base_congestion":40}
+            ]), encoding="utf-8")
+            with self.assertRaisesRegex(RoadDataError, "disconnected"):
+                RoadRepository(roads, locations)
+            locations.write_text(json.dumps([
+                {"name":"A","lat":1,"lon":2}, {"name":"B","lat":1.001,"lon":2.001},
+            ]), encoding="utf-8")
+            roads.write_text(json.dumps([
+                {"id":"ab","from":"A","to":"B","road_name":"Main Road","road_type":"main","distance_km":1,"base_congestion":40,"bidirectional":"false"}
+            ]), encoding="utf-8")
+            with self.assertRaises(RoadDataError):
+                RoadRepository(roads, locations)
+
+    def test_lower_capacity_increases_congestion_pressure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            locations = root / "locations.json"
+            roads = root / "roads.json"
+            locations.write_text(json.dumps([
+                {"name":"A","lat":1,"lon":2}, {"name":"B","lat":1.001,"lon":2.001},
+                {"name":"C","lat":1.002,"lon":2.002},
+            ]), encoding="utf-8")
+            common = {"road_name":"Test Road","road_type":"main","distance_km":1,"base_speed_kmh":40,"base_congestion":55}
+            roads.write_text(json.dumps([
+                {**common,"id":"low","from":"A","to":"B","capacity":35},
+                {**common,"id":"high","from":"B","to":"C","capacity":90},
+            ]), encoding="utf-8")
+            snapshot = TrafficEngine(RoadRepository(roads, locations)).get_snapshot(self.daytime)
+            self.assertGreater(snapshot.roads["low"].congestion_pressure, snapshot.roads["high"].congestion_pressure)
+            self.assertGreater(snapshot.roads["low"].traffic_score, snapshot.roads["high"].traffic_score)
 
     def test_graph_is_derived_from_road_repository(self):
         for road in ROAD_REPOSITORY.roads:

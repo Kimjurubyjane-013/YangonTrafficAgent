@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from typing import Any
 
@@ -57,19 +58,43 @@ class RoadRepository:
             locations[name] = (lat, lon)
         if not locations:
             raise RoadDataError("No valid locations are available.")
-        roads, ids = [], set()
+        roads, ids, directed_edges = [], set(), set()
         for index, item in enumerate(raw_roads):
             try:
                 road = self._road(item, locations)
                 if road.id in ids:
                     raise RoadDataError(f"Duplicate road id: {road.id}")
+                edge_keys = {(road.start, road.end)}
+                if road.bidirectional:
+                    edge_keys.add((road.end, road.start))
+                if directed_edges.intersection(edge_keys):
+                    raise RoadDataError(f"Duplicate road connection: {road.start} -> {road.end}")
             except RoadDataError as exc:
                 self._record_error(f"road[{index}]: {exc}")
                 continue
-            ids.add(road.id); roads.append(road)
+            ids.add(road.id); directed_edges.update(edge_keys); roads.append(road)
         if not roads:
             raise RoadDataError("No valid road segments are available.")
+        self._validate_connected(locations, roads)
         return locations, tuple(roads)
+
+    @staticmethod
+    def _validate_connected(locations, roads):
+        adjacency = {name: set() for name in locations}
+        for road in roads:
+            adjacency[road.start].add(road.end)
+            adjacency[road.end].add(road.start)
+        pending = [next(iter(locations))]
+        visited = set()
+        while pending:
+            node = pending.pop()
+            if node in visited:
+                continue
+            visited.add(node)
+            pending.extend(adjacency[node] - visited)
+        missing = sorted(set(locations) - visited)
+        if missing:
+            raise RoadDataError(f"Road network is disconnected: {', '.join(missing)}")
 
     def _record_error(self, message):
         self.errors.append(message)
@@ -85,6 +110,10 @@ class RoadRepository:
         defaults = ROAD_TYPES[road_type]
         try:
             start, end = str(item["from"]).strip(), str(item["to"]).strip()
+            raw_bidirectional = item.get("bidirectional", True)
+            raw_preferred = item.get("preferred", False)
+            if not isinstance(raw_bidirectional, bool) or not isinstance(raw_preferred, bool):
+                raise RoadDataError("Road direction and preference flags must be boolean values.")
             road = RoadSegment(
                 id=str(item["id"]).strip(), start=start, end=end,
                 road_name=str(item["road_name"]).strip(), road_type=road_type,
@@ -92,8 +121,14 @@ class RoadRepository:
                 base_speed_kmh=float(item.get("base_speed_kmh", defaults.typical_speed_kmh)),
                 base_congestion=float(item["base_congestion"]),
                 capacity=int(item.get("capacity", defaults.capacity)),
-                bidirectional=bool(item.get("bidirectional", True)),
-                preferred=bool(item.get("preferred", False)),
+                bidirectional=raw_bidirectional,
+                preferred=raw_preferred,
+                commercial_activity=float(item.get("commercial_activity", 0.0)),
+                junction_complexity=float(item.get("junction_complexity", 0.0)),
+                rush_hour_sensitivity=float(item.get("rush_hour_sensitivity", 1.0)),
+                downtown_factor=float(item.get("downtown_factor", 0.0)),
+                school_university_factor=float(item.get("school_university_factor", 0.0)),
+                airport_corridor_factor=float(item.get("airport_corridor_factor", 0.0)),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise RoadDataError("Malformed road segment data.") from exc
@@ -101,7 +136,26 @@ class RoadRepository:
             raise RoadDataError(f"Road {road.id or '<missing>'} has invalid endpoints or names.")
         if road.distance_km <= 0 or road.base_speed_kmh <= 0 or not 0 <= road.base_congestion <= 100 or road.capacity <= 0:
             raise RoadDataError(f"Road {road.id} contains out-of-range numeric data.")
+        straight_line_km = RoadRepository._distance_km(locations[start], locations[end])
+        if road.distance_km < straight_line_km * 0.95:
+            raise RoadDataError(f"Road {road.id} is shorter than its geographic endpoints allow.")
+        if road.distance_km > max(2.0, straight_line_km * 6.0):
+            raise RoadDataError(f"Road {road.id} is an implausible direct connection.")
+        context_values = (
+            road.commercial_activity, road.junction_complexity, road.downtown_factor,
+            road.school_university_factor, road.airport_corridor_factor,
+        )
+        if any(not 0 <= value <= 1 for value in context_values) or not 0.5 <= road.rush_hour_sensitivity <= 2:
+            raise RoadDataError(f"Road {road.id} contains invalid context factors.")
         return road
+
+    @staticmethod
+    def _distance_km(start, end):
+        lat1, lon1 = map(radians, start)
+        lat2, lon2 = map(radians, end)
+        delta_lat, delta_lon = lat2 - lat1, lon2 - lon1
+        value = sin(delta_lat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(delta_lon / 2) ** 2
+        return 6371.0 * 2 * asin(sqrt(value))
 
 
 ROAD_REPOSITORY = RoadRepository()

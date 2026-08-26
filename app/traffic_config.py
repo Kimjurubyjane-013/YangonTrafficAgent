@@ -33,7 +33,23 @@ RUSH_HOUR_PERIODS = frozenset({"MORNING_RUSH", "EVENING_RUSH"})
 TIME_DENSITY_EFFECT = {"EARLY_MORNING":-12.0,"MORNING_RUSH":14.0,"DAYTIME":2.0,"EVENING_RUSH":16.0,"NIGHT":-18.0}
 TIME_SCORE_EFFECT = {"EARLY_MORNING":-5.0,"MORNING_RUSH":7.0,"DAYTIME":1.0,"EVENING_RUSH":8.0,"NIGHT":-9.0}
 RUSH_HOUR_SCORE_EFFECT = 3.0
-BASE_CONGESTION_WEIGHT = 0.55
-VEHICLE_DENSITY_WEIGHT = 0.35
+VEHICLE_DENSITY_WEIGHT = 0.28
+BASE_CONGESTION_WEIGHT = 0.42
+CONGESTION_PRESSURE_WEIGHT = 0.18
 CAPACITY_DENSITY_WEIGHT = 0.08
 DETERMINISTIC_VARIATION_LIMIT = 4.0
+CRITICAL_CONGESTION_SCORE = 90.0
+MAX_CONGESTION_PRESSURE = 1.5
+ROAD_IMPORTANCE = {"arterial":1.35,"main":1.10,"secondary":0.85,"local":0.65}
+CONTEXT_DENSITY_EFFECTS = {
+    "EARLY_MORNING": {"commercial":1.0,"downtown":1.0,"university":1.0,"airport":5.0},
+    "MORNING_RUSH": {"commercial":5.0,"downtown":8.0,"university":12.0,"airport":7.0},
+    "DAYTIME": {"commercial":9.0,"downtown":8.0,"university":4.0,"airport":5.0},
+    "EVENING_RUSH": {"commercial":11.0,"downtown":12.0,"university":9.0,"airport":8.0},
+    "NIGHT": {"commercial":2.0,"downtown":2.0,"university":0.0,"airport":6.0},
+}
+JUNCTION_DENSITY_EFFECT = 5.0
+HOTSPOT_WEIGHTS = {"impact":0.55,"score":0.30,"pressure":0.15}
+BEST_FLOW_WEIGHTS = {"score":0.55,"delay":0.30,"speed_loss":0.15}
+TREND_STABLE_THRESHOLD = 2.0
+HEALTH_LABELS = ((85,"Excellent"),(70,"Good"),(50,"Moderate"),(30,"Poor"),(0,"Severe"))

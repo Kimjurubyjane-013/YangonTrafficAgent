@@ -33,6 +33,12 @@ class RoadSegment:
     capacity: int
     bidirectional: bool = True
     preferred: bool = False
+    commercial_activity: float = 0.0
+    junction_complexity: float = 0.0
+    rush_hour_sensitivity: float = 1.0
+    downtown_factor: float = 0.0
+    school_university_factor: float = 0.0
+    airport_corridor_factor: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -47,10 +53,17 @@ class RoadTrafficState:
     traffic_level: str
     average_speed_kmh: float
     vehicle_density: float
+    congestion_pressure: float
     estimated_delay_minutes: float
+    traffic_impact: float
+    critical_congestion: bool
     time_period: str
     rush_hour: bool
+    source: str
+    score_change: float
+    trend: str
     reasons: tuple[str, ...]
+    summary_reason: str
 
     def as_dict(self) -> dict[str, Any]:
         data = dict(self.__dict__)

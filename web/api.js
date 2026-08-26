@@ -26,6 +26,8 @@
         vehicles: () => desktopBackend()?.get_vehicles() || request('vehicles'),
         graph: () => desktopBackend()?.get_graph_data() || request('graph'),
         trafficOverview: () => desktopBackend()?.get_traffic_overview() || request('traffic'),
+        trafficHotspots: (limit = 8) => desktopBackend()?.get_congestion_hotspots(limit) || request(`traffic/hotspots?limit=${encodeURIComponent(limit)}`),
+        bestFlowingRoads: (limit = 8) => desktopBackend()?.get_best_flowing_roads(limit) || request(`traffic/best-flowing?limit=${encodeURIComponent(limit)}`),
         roadTraffic: roadId => desktopBackend()?.get_road_traffic(roadId) || request(`traffic/${encodeURIComponent(roadId)}`),
         findRoute: ({ vehicle, start, destination, conditions }) => {
             const desktop = desktopBackend();

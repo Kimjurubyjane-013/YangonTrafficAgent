@@ -37,6 +37,15 @@ class WebApiTests(unittest.TestCase):
         self.assertEqual(detail.json()["road_id"], road_id)
         self.assertEqual(self.client.get("/api/traffic/not-a-road").status_code, 404)
 
+    def test_phase_two_ranked_traffic_endpoints(self):
+        hotspots = self.client.get("/api/traffic/hotspots?limit=3")
+        self.assertEqual(hotspots.status_code, 200)
+        self.assertEqual(len(hotspots.json()["hotspots"]), 3)
+        self.assertEqual(hotspots.json()["source"], "academic_simulation")
+        best = self.client.get("/api/traffic/best-flowing?limit=4")
+        self.assertEqual(best.status_code, 200)
+        self.assertEqual(len(best.json()["roads"]), 4)
+
     def test_invalid_route_is_structured_http_error(self):
         response = self.client.post("/api/route", json={
             "vehicle": "Jet", "start": "Hledan Centre", "destination": "Inya Lake",
