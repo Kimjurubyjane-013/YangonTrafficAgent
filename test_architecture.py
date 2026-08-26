@@ -109,8 +109,35 @@ class ArchitectureTests(unittest.TestCase):
 
     def test_leaflet_and_three_assets_remain_available(self):
         root=Path(__file__).parent
-        for path in ("web/lib/leaflet.js","web/lib/leaflet.css","web/lib/three.min.js","web/simulation3d.js"):
+        for path in ("web/lib/leaflet.js","web/lib/leaflet.css","web/lib/three.min.js","web/simulation3d.js",
+            "web/traffic-colors.js"):
             self.assertTrue((root/path).is_file(), path)
+
+    def test_traffic_colors_are_shared_by_map_badges_and_simulation(self):
+        root=Path(__file__).parent
+        html=(root/"web"/"app.html").read_text(encoding="utf-8")
+        css=(root/"web"/"styles.css").read_text(encoding="utf-8")
+        simulation=(root/"web"/"simulation3d.js").read_text(encoding="utf-8")
+        palette=(root/"web"/"traffic-colors.js").read_text(encoding="utf-8")
+
+        for level, color in (("Light", "#2F9E68"), ("Moderate", "#D88918"), ("Heavy", "#D94B42")):
+            self.assertIn(f"{level}: Object.freeze({{ css: '{color}'", palette)
+            self.assertIn(f"var(--traffic-{level.lower()})", css)
+
+        self.assertLess(html.index('./traffic-colors.js'), html.index('./simulation3d.js'))
+        self.assertIn("YangonTrafficColors.css(traffic)", html)
+        self.assertIn("segmentTraffic = selected.levels", html)
+        self.assertIn("currentSegmentTraffic = segmentTraffic", html)
+        self.assertIn("YangonTrafficColors.three(traffic[index])", simulation)
+        self.assertNotIn("Light: 0x2ecc71", simulation)
+
+    def test_mixed_route_geometry_is_split_into_traffic_colored_legs(self):
+        html=(Path(__file__).parent/"web"/"app.html").read_text(encoding="utf-8")
+        self.assertIn("function splitPolylineForTraffic(points, requestedParts)", html)
+        self.assertIn("const effective = levels.length ? levels : [overall]", html)
+        self.assertIn("const legs = splitPolylineForTraffic(option.geometry, effective.length)", html)
+        self.assertIn("for (let i = 0; i < legs.length; i++)", html)
+        self.assertIn("routeLayers.forEach(l => map.removeLayer(l))", html)
 
 
 if __name__ == "__main__": unittest.main()

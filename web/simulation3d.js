@@ -372,7 +372,7 @@
         createRoute(routeNames, traffic, routeLegs) {
             if (this.routeGroup) { this.scene.remove(this.routeGroup); disposeObject(this.routeGroup); }
             this.routeGroup = new THREE.Group(); this.scene.add(this.routeGroup);
-            const projectedLegs = Array.isArray(routeLegs) && routeLegs.length === routeNames.length - 1
+            const projectedLegs = Array.isArray(routeLegs) && routeLegs.length > 0
                 ? routeLegs.map(leg => leg.map(([lat, lon]) => this.project(lat, lon)).filter(
                     (point, index, all) => index === 0 || point.distanceTo(all[index - 1]) > 0.025
                 ))
@@ -418,7 +418,7 @@
             this.routeGroup.add(this.createRibbon(points, 5.8, 0.025, asphaltMaterial));
 
             projectedLegs.forEach((leg, index) => {
-                const color = { Light: 0x2ecc71, Moderate: 0xf39c12, Heavy: 0xe74c3c }[traffic[index]] || 0x21c7f3;
+                const color = YangonTrafficColors.three(traffic[index]);
                 this.routeGroup.add(this.createRibbon(
                     leg, 0.34, 0.045,
                     new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
@@ -431,7 +431,7 @@
                 const t = start / Math.max(this.totalLength, 0.001);
                 const marker = new THREE.Mesh(
                     new THREE.SphereGeometry(0.35, 10, 8),
-                    new THREE.MeshBasicMaterial({ color: { Light: 0x2ecc71, Moderate: 0xf39c12, Heavy: 0xe74c3c }[traffic[index]] || 0xffffff })
+                    new THREE.MeshBasicMaterial({ color: YangonTrafficColors.three(traffic[index]) })
                 );
                 marker.position.copy(this.routeCurve.getPointAt(Math.min(1, t))); marker.position.y = 0.35;
                 this.routeGroup.add(marker);

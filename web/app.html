@@ -335,6 +335,7 @@
     .leaflet-tooltip{position:absolute;padding:6px;background-color:#2a2a2a;color:#eee;border:1px solid #444;border-radius:3px;white-space:nowrap;-webkit-user-select:none;user-select:none;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.4)}
 </style>
 <link rel="stylesheet" href="./styles.css" />
+<script src="./traffic-colors.js"></script>
 </head>
 <body>
 
@@ -482,9 +483,9 @@
         <div class="status" id="status">Loading...</div>
 
         <div class="legend">
-            <span style="background:#2ecc71"></span> Light
-            <span style="background:#f39c12"></span> Moderate
-            <span style="background:#e74c3c"></span> Heavy
+            <span class="traffic-light"></span> Light
+            <span class="traffic-moderate"></span> Moderate
+            <span class="traffic-heavy"></span> Heavy
         </div>
     </div>
 
@@ -737,8 +738,8 @@
         "Ambulance": 0xffffff, "Fire Truck": 0xe74c3c, "Police": 0x1a1a2e
     };
 
-    const TRAFFIC_COLOR = { "Light": "#2ecc71", "Moderate": "#f39c12", "Heavy": "#e74c3c" };
-    const TRAFFIC_COLOR_3D = { "Light": 0x2ecc71, "Moderate": 0xf39c12, "Heavy": 0xe74c3c };
+    const TRAFFIC_COLOR = Object.fromEntries(Object.entries(YangonTrafficColors.palette).map(([level, value]) => [level, value.css]));
+    const TRAFFIC_COLOR_3D = Object.fromEntries(Object.entries(YangonTrafficColors.palette).map(([level, value]) => [level, value.three]));
     const TRAFFIC_MULTIPLIER = { "Light": 1.0, "Moderate": 1.4, "Heavy": 1.9 };
 
     function showMapError(message) {
@@ -985,6 +986,31 @@
         ));
     }
 
+    function splitPolylineForTraffic(points, requestedParts) {
+        if (!Array.isArray(points) || points.length < 2) return [];
+        const parts = Math.max(1, Math.min(Number(requestedParts) || 1, points.length - 1));
+        if (parts === 1) return [points];
+        const result = [];
+        for (let part = 0; part < parts; part++) {
+            const start = Math.floor(part * (points.length - 1) / parts);
+            const end = Math.floor((part + 1) * (points.length - 1) / parts);
+            result.push(points.slice(start, Math.max(start + 2, end + 1)));
+        }
+        return result;
+    }
+
+    function trafficGeometry(option) {
+        const levels = (Array.isArray(option.segment_traffic) ? option.segment_traffic : [])
+            .map(level => YangonTrafficColors.normalize(level)).filter(Boolean);
+        const overall = YangonTrafficColors.normalize(option.traffic) || 'Light';
+        if (Array.isArray(option.geometry) && option.geometry.length > 1) {
+            const effective = levels.length ? levels : [overall];
+            const legs = splitPolylineForTraffic(option.geometry, effective.length);
+            return { legs, levels: legs.map((_, index) => effective[Math.min(index, effective.length - 1)] || overall) };
+        }
+        return null;
+    }
+
     async function drawRouteOnMap(routeNames, segmentTraffic, vehicle) {
         if (!mapReady) return false;
 
@@ -992,13 +1018,15 @@
         const options = allOptionsData.length
             ? allOptionsData
             : [{ route: routeNames, segment_traffic: segmentTraffic, traffic: segmentTraffic[0] || 'Light' }];
-        const resolved = await Promise.all(options.map(async option => ({
-            option,
-            // Geometry returned by the backend is the real-world candidate.
-            legs: Array.isArray(option.geometry) && option.geometry.length > 1
-                ? [option.geometry]
-                : await resolveRoadLegs(option.route)
-        })));
+        const resolved = await Promise.all(options.map(async option => {
+            const coloredGeometry = trafficGeometry(option);
+            const legs = coloredGeometry?.legs || await resolveRoadLegs(option.route);
+            const overall = YangonTrafficColors.normalize(option.traffic) || 'Light';
+            const levels = coloredGeometry?.levels || legs.map((_, index) =>
+                YangonTrafficColors.normalize(option.segment_traffic?.[index]) || overall
+            );
+            return { option, legs, levels };
+        }));
         if (requestId !== routeGeometryRequestId) return false;
         clearMap();
 
@@ -1006,7 +1034,7 @@
         const selected = resolved[selectedIndex];
         const legs = selected.legs;
         routeNames = selected.option.route;
-        segmentTraffic = selected.option.segment_traffic;
+        segmentTraffic = selected.levels;
         const coords = routeNames.map(name => LOCATION_COORDS[name]);
         currentRouteLegs = legs;
         currentRouteCoords = legs.flatMap((leg, index) => index === 0 ? leg : leg.slice(1));
@@ -1046,11 +1074,11 @@
             routeLayers.push(m);
         });
 
-        for (let i = 0; i < coords.length - 1; i++) {
+        for (let i = 0; i < legs.length; i++) {
 
             const legCoords = legs[i];
-            const traffic = segmentTraffic[i];
-            const color = TRAFFIC_COLOR[traffic] || '#2E86DE';
+            const traffic = segmentTraffic[i] || selected.option.traffic || 'Light';
+            const color = YangonTrafficColors.css(traffic);
 
             // Outer glow line for a modern nav-app feel
             const glow = L.polyline(legCoords, {
@@ -1064,7 +1092,7 @@
             }).addTo(map);
 
             legLine.bindPopup(
-                `<b>${routeNames[i]} → ${routeNames[i + 1]}</b><br>` +
+                `<b>${routeNames[0]} → ${routeNames[routeNames.length - 1]}</b><br>` +
                 `Traffic: ${traffic}<br>` +
                 `Vehicle: ${vehicle}`
             );
@@ -1109,6 +1137,9 @@
 
     function updateRouteResultDetails(opt) {
         document.getElementById('r-traffic-source').textContent = `Traffic Source: ${trafficSourceSummary(opt)}`;
+        const trafficResult = document.getElementById('r-traffic');
+        trafficResult.dataset.level = YangonTrafficColors.normalize(opt.traffic) || '';
+        trafficResult.style.setProperty('--route-traffic-color', YangonTrafficColors.css(opt.traffic));
         const why = document.getElementById('route-why');
         const reason = opt.recommendation_reason?.explanation;
         why.hidden = !reason;
@@ -1130,7 +1161,7 @@
             });
 
             const label = index === 0 ? '⭐ Recommended real route' : `Real alternative ${index}`;
-            const color = TRAFFIC_COLOR[opt.traffic] || '#888';
+            const color = YangonTrafficColors.css(opt.traffic);
 
             const title = document.createElement('b'); title.textContent = label;
             const routeText = document.createElement('span'); routeText.textContent = (opt.display_route || opt.route).join(' → ');
@@ -1162,7 +1193,7 @@
         const badge = document.getElementById('hud-traffic');
         const trafficAvailable = hasTrafficEvidence(opt);
         badge.innerText = trafficAvailable ? opt.traffic : 'Standard ETA';
-        badge.style.background = trafficAvailable ? (TRAFFIC_COLOR[opt.traffic] || '#888') : '#60717d';
+        badge.style.background = trafficAvailable ? YangonTrafficColors.css(opt.traffic) : '#60717d';
 
         hud.classList.add('visible');
     }
@@ -1922,6 +1953,7 @@
         document.getElementById('r-distance').innerText = 'Distance: -';
         document.getElementById('r-time').innerText = 'Estimated Time: -';
         document.getElementById('r-traffic').innerText = 'Traffic: -';
+        delete document.getElementById('r-traffic').dataset.level;
         document.getElementById('r-traffic-source').innerText = 'Traffic Source: -';
         document.getElementById('route-why').hidden = true;
         document.getElementById('route-provenance').hidden = true;
@@ -1956,6 +1988,7 @@
         document.getElementById('r-distance').innerText = 'Distance: -';
         document.getElementById('r-time').innerText = 'Estimated Time: -';
         document.getElementById('r-traffic').innerText = 'Traffic: -';
+        delete document.getElementById('r-traffic').dataset.level;
         document.getElementById('r-traffic-source').innerText = 'Traffic Source: -';
         document.getElementById('route-why').hidden = true;
         document.getElementById('route-provenance').hidden = true;
@@ -2168,6 +2201,8 @@
     }, { once: true });
 
 </script>
+<script src="./lib/three.min.js"></script>
+<script src="./simulation3d.js"></script>
 <script src="./dashboard.js"></script>
 <script src="./app.js"></script>
 
