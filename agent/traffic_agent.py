@@ -1,11 +1,11 @@
 """Explainable hybrid traffic-agent orchestration."""
-import hashlib
 from datetime import datetime
 from algorithms.graph import GRAPH
 from algorithms.road_metadata import ROAD_METADATA, road_attributes
 from algorithms.route_finder import find_all_simple_paths
 from algorithms.vehicle import VEHICLE_SPEED, calculate_time
 from services.route_decision_engine import RouteDecisionEngine
+from services.traffic_service import TRAFFIC_ENGINE, get_time_period
 
 TRAFFIC_MULTIPLIER = {"Light": 1.0, "Moderate": 1.4, "Heavy": 1.9}
 MAX_CANDIDATES, MAX_ROUTE_OPTIONS = 24, 4
@@ -17,19 +17,20 @@ def _decision_engine():
     return _ENGINE
 
 def _time_band(now=None):
-    return "peak" if (now or datetime.now()).hour in {7,8,9,16,17,18,19} else "off_peak"
+    return "peak" if get_time_period(now or datetime.now()) in {"MORNING_RUSH", "EVENING_RUSH"} else "off_peak"
 
 def _segment_traffic_for_edge(a, b, weight, now=None):
-    key = f"{a}|{b}|{(now or datetime.now()).strftime('%Y-%m-%d-%H')}"
-    roll = int(hashlib.sha256(key.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
-    thresholds = [0.6,0.9] if weight <= 3 else ([0.35,0.75] if weight <= 6 else [0.2,0.55])
-    return "Light" if roll < thresholds[0] else ("Moderate" if roll < thresholds[1] else "Heavy")
+    # Custom/legacy graphs have no canonical road state. Keep their fallback
+    # stable; production graph edges always use the shared TrafficSnapshot.
+    return "Moderate"
 
-def _build_candidate(cid, path, distance, vehicle, conditions, graph, metadata):
+def _build_candidate(cid, path, distance, vehicle, conditions, graph, metadata, traffic_snapshot=None):
     overrides, segments, levels = conditions.get("segment_traffic", {}), [], []
     for index, (start, end) in enumerate(zip(path, path[1:])):
         attrs = road_attributes(start, end, metadata)
-        level = overrides.get((start,end)) or _segment_traffic_for_edge(start,end,graph[start][end],conditions.get("now"))
+        model_state = traffic_snapshot.roads.get(attrs.get("road_id")) if traffic_snapshot else None
+        level = overrides.get((start,end)) or (model_state.traffic_level if model_state else None)
+        level = level or _segment_traffic_for_edge(start,end,graph[start][end],conditions.get("now"))
         level = str(level).title(); level = level if level in TRAFFIC_MULTIPLIER else "Moderate"
         levels.append(level)
         segments.append({"index":index,"name":f"{start} -> {end}","start":start,"end":end,
@@ -47,7 +48,8 @@ def _recommendation(best, alternatives, diagnostic):
         f"estimated time: {best['time']} min; traffic: {best['traffic'].lower()}.\n"
         f"{len(alternatives)} alternative route(s) retained.\n\nDiagnostic: {diagnostic}")
 
-def run_traffic_agent(start, destination, vehicle, conditions=None, graph=None, road_metadata=None, decision_engine=None):
+def run_traffic_agent(start, destination, vehicle, conditions=None, graph=None, road_metadata=None, decision_engine=None,
+                      traffic_engine=None, traffic_snapshot=None):
     graph=graph or GRAPH; metadata=ROAD_METADATA if road_metadata is None else road_metadata
     conditions=dict(conditions or {}); conditions.setdefault("time_band",_time_band(conditions.get("now")))
     conditions.setdefault("weather","clear"); conditions.setdefault("incident","none")
@@ -58,7 +60,10 @@ def run_traffic_agent(start, destination, vehicle, conditions=None, graph=None, 
     if vehicle not in VEHICLE_SPEED: return {"error":"Unknown vehicle type."}
     paths=find_all_simple_paths(graph,start,destination,max_depth=min(8,len(graph)),max_candidates=MAX_CANDIDATES)
     if not paths: return {"error":f"No route found between {start} and {destination}."}
-    candidates=[_build_candidate(i,p,d,vehicle,conditions,graph,metadata) for i,(p,d) in enumerate(paths)]
+    if graph is GRAPH and metadata is ROAD_METADATA:
+        traffic_engine = traffic_engine or TRAFFIC_ENGINE
+        traffic_snapshot = traffic_snapshot or traffic_engine.get_snapshot(conditions.get("now"))
+    candidates=[_build_candidate(i,p,d,vehicle,conditions,graph,metadata,traffic_snapshot) for i,(p,d) in enumerate(paths)]
     engine=decision_engine or _decision_engine(); eligible,evaluated=engine.evaluate(candidates,vehicle,conditions)
     if not eligible: return {"error":"No eligible route satisfies the active restrictions.",
         "decision_engine":engine.engine_name,"diagnostic":engine.diagnostic,

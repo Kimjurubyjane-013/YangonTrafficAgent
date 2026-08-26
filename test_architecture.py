@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from api import Api
 from algorithms.graph import GRAPH, validate_graph
@@ -74,9 +75,23 @@ class ArchitectureTests(unittest.TestCase):
         web_api=(root/"web_api.py").read_text(encoding="utf-8")
         vercel=(root/"vercel.json").read_text(encoding="utf-8")
         self.assertIn("fetch(`/api/${path}`",api_js)
+        self.assertIn("trafficOverview",api_js)
+        self.assertIn("roadTraffic",api_js)
         self.assertIn("app = FastAPI",web_api)
         self.assertIn('"src": "web_api.py"',vercel)
         self.assertNotIn("import webview",web_api)
+
+    def test_desktop_startup_wires_pywebview_without_opening_a_window(self):
+        from app.startup import run
+        with patch("webview.create_window") as create_window, patch("webview.start") as start:
+            run()
+        create_window.assert_called_once()
+        start.assert_called_once()
+
+    def test_leaflet_and_three_assets_remain_available(self):
+        root=Path(__file__).parent
+        for path in ("web/lib/leaflet.js","web/lib/leaflet.css","web/lib/three.min.js","web/simulation3d.js"):
+            self.assertTrue((root/path).is_file(), path)
 
 
 if __name__ == "__main__": unittest.main()

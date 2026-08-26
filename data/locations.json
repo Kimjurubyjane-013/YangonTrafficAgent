@@ -1,34 +1,11 @@
 [
-  {
-    "name": "Hledan Centre",
-    "type": "shopping_center",
-    "traffic": "medium",
-    "lat": 16.8262,
-    "lon": 96.13049
-  },
-
-  {
-    "name": "Junction City",
-    "type": "shopping_center",
-    "traffic": "high",
-    "lat": 16.77896,
-    "lon": 96.15427
-  },
-
-  {
-    "name": "Sule Pagoda",
-    "type": "landmark",
-    "traffic": "high"
-  },
-
-  {
-    "name": "Yangon General Hospital",
-    "type": "hospital",
-    "traffic": "medium"
-  },
-  {
-    "name": "Sule Pagoda",
-    "lat": 16.774,
-    "lon": 96.158
-  }
+  {"name": "Hledan Centre", "type": "shopping_center", "lat": 16.8262, "lon": 96.13049},
+  {"name": "Junction Square", "type": "shopping_center", "lat": 16.8172, "lon": 96.1314},
+  {"name": "Inya Lake", "type": "landmark", "lat": 16.8368, "lon": 96.1452},
+  {"name": "Myanmar Plaza", "type": "shopping_center", "lat": 16.8282, "lon": 96.1550},
+  {"name": "Yangon General Hospital", "type": "hospital", "lat": 16.7789, "lon": 96.1481},
+  {"name": "Yangon Central Station", "type": "railway_station", "lat": 16.7817, "lon": 96.1613},
+  {"name": "Sule Pagoda", "type": "landmark", "lat": 16.7744, "lon": 96.1588},
+  {"name": "Yangon Airport", "type": "airport", "lat": 16.9072, "lon": 96.1331},
+  {"name": "Junction City", "type": "shopping_center", "lat": 16.77896, "lon": 96.15427}
 ]

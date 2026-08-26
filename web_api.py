@@ -48,6 +48,23 @@ def graph() -> dict[str, Any]:
     return application_api.get_graph_data()
 
 
+@app.get("/api/traffic")
+def traffic_overview():
+    result = application_api.get_traffic_overview()
+    if result.get("error"):
+        return JSONResponse(status_code=503, content=result)
+    return result
+
+
+@app.get("/api/traffic/{road_id}")
+def road_traffic(road_id: str):
+    result = application_api.get_road_traffic(road_id)
+    if not result.get("error"):
+        return result
+    code = result.get("error_details", {}).get("code")
+    return JSONResponse(status_code=404 if code == "unknown_road" else 400, content=result)
+
+
 @app.post("/api/route")
 def route(payload: RoutePayload):
     result = application_api.find_route(

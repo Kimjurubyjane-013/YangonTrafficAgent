@@ -1072,6 +1072,16 @@
         return true;
     }
 
+    function hasTrafficEvidence(opt) {
+        return opt.traffic !== 'Unavailable' && (opt.traffic_data_available !== false || opt.traffic_model_available === true);
+    }
+
+    function trafficSummary(opt) {
+        if (opt.traffic_data_available) return `Traffic: ${opt.traffic}`;
+        if (opt.traffic_model_available) return `Simulated Traffic: ${opt.traffic}`;
+        return 'Traffic Basis: Standard Road Speeds';
+    }
+
     function renderRouteOptions() {
         const container = document.getElementById('route-options');
         container.innerHTML = '';
@@ -1096,12 +1106,14 @@
             if (opt.traffic_data_available && delay > 0) {
                 metrics.textContent += ` · ${formatDuration(delay)} traffic delay`;
             }
-            const trafficAvailable = opt.traffic_data_available !== false && opt.traffic !== 'Unavailable';
+            const trafficAvailable = hasTrafficEvidence(opt);
             const badge = document.createElement('span');
             badge.className = 'badge';
             badge.style.background = trafficAvailable ? color : '#60717d';
             badge.textContent = trafficAvailable ? opt.traffic : 'Standard ETA';
-            badge.title = trafficAvailable ? `${opt.traffic} Traffic` : 'Estimate Based On Standard Mapped-Road Speeds';
+            badge.title = opt.traffic_data_available
+                ? `${opt.traffic} Provider Traffic`
+                : opt.traffic_model_available ? `${opt.traffic} Simulated Traffic` : 'Estimate Based On Standard Mapped-Road Speeds';
             div.append(title, document.createElement('br'), routeText, document.createElement('br'), metrics, badge);
 
             container.appendChild(div);
@@ -1115,7 +1127,7 @@
         document.getElementById('hud-distance').innerText = opt.distance + ' km';
 
         const badge = document.getElementById('hud-traffic');
-        const trafficAvailable = opt.traffic_data_available !== false && opt.traffic !== 'Unavailable';
+        const trafficAvailable = hasTrafficEvidence(opt);
         badge.innerText = trafficAvailable ? opt.traffic : 'Standard ETA';
         badge.style.background = trafficAvailable ? (TRAFFIC_COLOR[opt.traffic] || '#888') : '#60717d';
 
@@ -1129,17 +1141,17 @@
             ? ` It follows ${roads.slice(0, 2).join(' and ')}${roads.length > 2 ? ', with other mapped streets along the way' : ''}.`
             : ' It follows the available mapped road geometry between your selected places.';
         const recommendation = optionIndex === 0
-            ? (opt.traffic === 'Unavailable' || opt.traffic_data_available === false
-                ? `I recommend this ${opt.distance} km mapped-road route because it has the best standard road-speed estimate.`
-                : `I recommend this ${opt.distance} km route because it offers the best balance of travel time and current road conditions.`)
+            ? (hasTrafficEvidence(opt)
+                ? `I recommend this ${opt.distance} km route because it offers the best balance of travel time and traffic conditions.`
+                : `I recommend this ${opt.distance} km mapped-road route because it has the best standard road-speed estimate.`)
             : `You are previewing alternative ${optionIndex}. It is a real-road option that may be useful if you prefer a different approach.`;
-        const trafficNote = opt.traffic === 'Unavailable' || opt.traffic_data_available === false
+        const trafficNote = !hasTrafficEvidence(opt)
             ? ' This estimate is based on standard mapped-road speeds.'
-            : opt.traffic === 'Heavy'
+            : (opt.traffic_model_available && !opt.traffic_data_available ? ' This uses the current academic traffic simulation.' : '') + (opt.traffic === 'Heavy'
             ? ' Heavy traffic may cause meaningful delay, so allow extra time.'
             : opt.traffic === 'Moderate'
                 ? ' Some traffic delay is included in the estimate.'
-                : ' Traffic conditions are currently favorable for this journey.';
+                : ' Traffic conditions are currently favorable for this journey.');
         document.getElementById('ai-text').textContent = `${recommendation}${roadPhrase}${trafficNote} Estimated arrival time is ${formatDuration(opt.time)}.`;
 
         const decision = opt.decision || {};
@@ -1156,12 +1168,14 @@
         if (!opt) return;
         const route = opt.display_route || opt.route || [];
         const roads = [...new Set((opt.road_names || route.slice(1, -1)).filter(Boolean))];
-        const trafficAvailable = opt.traffic_data_available !== false && opt.traffic !== 'Unavailable';
+        const trafficAvailable = hasTrafficEvidence(opt);
         document.getElementById('analysis-route').textContent = route.join(' → ') || 'Selected Route';
         document.getElementById('analysis-distance').textContent = `${opt.distance} km`;
         document.getElementById('analysis-time').textContent = formatDuration(opt.time);
         document.getElementById('analysis-source').textContent = routeSourceLabel(opt.route_source);
-        document.getElementById('analysis-traffic').textContent = trafficAvailable ? `${opt.traffic} Traffic` : 'Standard Road Speeds';
+        document.getElementById('analysis-traffic').textContent = opt.traffic_model_available && !opt.traffic_data_available
+            ? `${opt.traffic} Simulated Traffic`
+            : trafficAvailable ? `${opt.traffic} Traffic` : 'Standard Road Speeds';
         document.getElementById('analysis-roads').textContent = roads.length
             ? roads.join(' → ')
             : 'The route follows mapped streets between the selected locations.';
@@ -1200,9 +1214,7 @@
         document.getElementById('r-route').innerText = 'Route: ' + (opt.display_route || opt.route).join(' → ');
         document.getElementById('r-distance').innerText = 'Distance: ' + opt.distance + ' km';
         document.getElementById('r-time').innerText = 'Estimated Time: ' + formatDuration(opt.time);
-        document.getElementById('r-traffic').innerText = opt.traffic === 'Unavailable'
-            ? 'Traffic Basis: Standard Road Speeds'
-            : 'Traffic: ' + opt.traffic;
+        document.getElementById('r-traffic').innerText = trafficSummary(opt);
 
         document.getElementById('status').innerText =
             index === 0
@@ -1618,7 +1630,9 @@
         const comparison = document.getElementById('route-comparison');
         const source = routeSourceLabel(result.route_source);
         const providerTime = result.retrieved_at ? new Date(result.retrieved_at) : retrievedAt;
-        const trafficNote = result.traffic_data_available ? ' · Live/historical traffic' : '';
+        const trafficNote = result.traffic_data_available
+            ? ' · Live/historical traffic'
+            : result.traffic_model_available ? ' · Academic traffic simulation' : '';
         provenance.textContent = `${source}${trafficNote} · Retrieved ${providerTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         provenance.hidden = false;
         comparison.replaceChildren();
@@ -1822,6 +1836,9 @@
             traffic_delay: result.traffic_delay,
             traffic_source: result.traffic_source,
             traffic_data_available: result.traffic_data_available,
+            traffic_model_available: result.traffic_model_available,
+            traffic_snapshot_id: result.traffic_snapshot_id,
+            traffic_score: result.traffic_score,
             retrieved_at: result.retrieved_at,
             decision: result.decision
         };
@@ -1835,9 +1852,7 @@
         document.getElementById('r-route').innerText = 'Route: ' + (result.display_route || result.route).join(' → ');
         document.getElementById('r-distance').innerText = 'Distance: ' + result.distance + ' km';
         document.getElementById('r-time').innerText = 'Estimated Time: ' + formatDuration(result.time);
-        document.getElementById('r-traffic').innerText = result.traffic === 'Unavailable'
-            ? 'Traffic Basis: Standard Road Speeds'
-            : 'Traffic: ' + result.traffic;
+        document.getElementById('r-traffic').innerText = trafficSummary(bestRouteData);
         renderAgentInsight(bestRouteData, 0);
         document.getElementById('analysis-btn').disabled = false;
         document.getElementById('status').innerText = '✅ Ranked ' + allOptionsData.length + ' real-world road route(s)';

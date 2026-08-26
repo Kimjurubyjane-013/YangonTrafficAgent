@@ -49,8 +49,10 @@ class RealWorldPipelineTests(unittest.TestCase):
         self.assertTrue(result["geometry"])
         self.assertTrue(result["alternatives"][0]["geometry"])
         self.assertIn("Pyay Road",result["display_route"]+result["alternatives"][0]["display_route"])
-        self.assertEqual(result["traffic"], "Unavailable")
+        self.assertIn(result["traffic"], {"Light", "Moderate", "Heavy"})
         self.assertFalse(result["traffic_data_available"])
+        self.assertTrue(result["traffic_model_available"])
+        self.assertTrue(result["traffic_snapshot_id"])
 
     def test_internal_provider_labels_are_not_displayed_as_roads(self):
         result=run_real_world_agent("Hledan Centre","Myanmar Plaza","Car",route_provider=fake_provider,decision_engine=RouteDecisionEngine(False))

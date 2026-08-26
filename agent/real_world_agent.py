@@ -7,6 +7,7 @@ from algorithms.vehicle import VEHICLE_SPEED, calculate_real_route_time
 from services.here_traffic_service import fetch_traffic_aware_routes
 from services.osrm_service import fetch_real_routes
 from services.route_decision_engine import RouteDecisionEngine
+from services.traffic_service import TRAFFIC_ENGINE
 
 _ENGINE = None
 _GENERIC_ROAD_WORDS = {"road", "street", "avenue", "lane", "highway", "route"}
@@ -54,7 +55,8 @@ def _time_band(conditions):
     return "peak" if hour in {7,8,9,16,17,18,19} else "off_peak"
 
 
-def run_real_world_agent(start, destination, vehicle, conditions=None, route_provider=None, decision_engine=None):
+def run_real_world_agent(start, destination, vehicle, conditions=None, route_provider=None, decision_engine=None,
+                         traffic_engine=None, traffic_snapshot=None):
     conditions = dict(conditions or {})
     if not all(isinstance(value, str) for value in (start, destination, vehicle)):
         return {"error": "Start, destination, and vehicle must be text values."}
@@ -73,6 +75,8 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
     conditions["time_band"] = _time_band(conditions)
     conditions.setdefault("weather", "clear")
     conditions.setdefault("incident", "none")
+    traffic_engine = traffic_engine or TRAFFIC_ENGINE
+    traffic_snapshot = traffic_snapshot or traffic_engine.get_snapshot()
     candidates = []
     closure_rejections = []
     closed_road = conditions.get("closed_road", "").strip()
@@ -88,14 +92,34 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         road_label = route["road_names"][0] if route["road_names"] else "Mapped road route"
         road_summary = route["road_names"]
         has_real_traffic = bool(route.get("traffic_data_available"))
-        # A real-road provider without traffic telemetry must not be presented
-        # as if it supplied live congestion data.
-        level = route.get("traffic_level") if has_real_traffic else "Unavailable"
+        model_state = traffic_engine.route_state(
+            start, destination, route.get("road_names", ()), traffic_snapshot
+        )
+        # Provider telemetry remains authoritative when genuinely available;
+        # otherwise every route consumes the shared academic traffic snapshot.
+        level = route.get("traffic_level") if has_real_traffic else model_state["traffic_level"]
+        segment_traffic = route.get("segment_traffic") if has_real_traffic else model_state["segment_traffic"]
         eta_basis = (
             "HERE traffic-aware duration adjusted for the selected vehicle"
             if has_real_traffic else
-            "Provider road duration adjusted for vehicle type and selected traffic scenario"
+            "Provider road duration adjusted by the shared academic traffic snapshot and vehicle type"
         )
+        model_segments = []
+        if has_real_traffic:
+            model_segments.append({"index":0,"name":road_label,"road_class":"arterial",
+                "traffic":str(level).lower(),"preferred":False,"one_way_ok":True})
+        else:
+            for index, road_id in enumerate(model_state["road_ids"]):
+                road = traffic_engine.repository.by_id[road_id]
+                state = traffic_snapshot.roads[road_id]
+                model_segments.append({
+                    "index": index, "name": road.road_name, "road_class": road.road_type,
+                    "traffic": state.traffic_level.lower(), "preferred": road.preferred,
+                    "one_way_ok": road.bidirectional,
+                })
+        if not model_segments:
+            model_segments = [{"index":0,"name":road_label,"road_class":"arterial",
+                "traffic":str(level).lower(),"preferred":False,"one_way_ok":True}]
         candidates.append({
             "candidate_id": route["provider_id"], "route": [start, destination],
             # Provider/corridor labels are internal metadata, not road names.
@@ -104,19 +128,20 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             # HERE duration already includes traffic. Passing Light here avoids
             # applying a second synthetic congestion multiplier; vehicle
             # characteristics remain part of the existing domain model.
-            "time": calculate_real_route_time(route["duration"], route["distance"], vehicle, "Light"),
-            "traffic": level, "segment_traffic": route.get("segment_traffic", [level]), "geometry": route["geometry"],
+            "time": calculate_real_route_time(route["duration"], route["distance"], vehicle, "Light" if has_real_traffic else level),
+            "traffic": level, "segment_traffic": segment_traffic or [level], "geometry": route["geometry"],
             "road_names": route["road_names"],
             "eta_basis": eta_basis,
             "route_source": route.get("source", "unknown-real-road-provider"),
             "base_duration": route.get("base_duration"),
-            "traffic_delay": route.get("traffic_delay"),
-            "traffic_source": route.get("traffic_source"),
+            "traffic_delay": route.get("traffic_delay") if has_real_traffic else model_state["estimated_delay_minutes"],
+            "traffic_source": route.get("traffic_source") if has_real_traffic else "Academic simulated traffic snapshot",
             "traffic_data_available": has_real_traffic,
+            "traffic_model_available": True,
+            "traffic_snapshot_id": traffic_snapshot.snapshot_id,
+            "traffic_score": model_state["average_score"],
             "retrieved_at": route.get("retrieved_at"),
-            "segments": [{"index":0,"name":road_label,"road_class":"arterial",
-                "traffic":level.lower() if has_real_traffic else "light",
-                "preferred":False,"one_way_ok":True}],
+            "segments": model_segments,
         })
     if not candidates:
         if closure_rejections:
@@ -163,6 +188,9 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         "base_duration":best.get("base_duration"),"traffic_delay":best.get("traffic_delay"),
         "traffic_source":best.get("traffic_source"),
         "traffic_data_available":best.get("traffic_data_available",False),
+        "traffic_model_available":best.get("traffic_model_available",True),
+        "traffic_snapshot_id":best.get("traffic_snapshot_id"),
+        "traffic_score":best.get("traffic_score"),
         "retrieved_at":best.get("retrieved_at"),
         "decision":best["decision"],"decision_engine":engine.engine_name,"diagnostic":engine.diagnostic,
         "evaluation": evaluation,

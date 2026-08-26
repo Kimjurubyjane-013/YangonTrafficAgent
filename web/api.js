@@ -25,6 +25,8 @@
         locations: () => desktopBackend()?.get_locations() || request('locations'),
         vehicles: () => desktopBackend()?.get_vehicles() || request('vehicles'),
         graph: () => desktopBackend()?.get_graph_data() || request('graph'),
+        trafficOverview: () => desktopBackend()?.get_traffic_overview() || request('traffic'),
+        roadTraffic: roadId => desktopBackend()?.get_road_traffic(roadId) || request(`traffic/${encodeURIComponent(roadId)}`),
         findRoute: ({ vehicle, start, destination, conditions }) => {
             const desktop = desktopBackend();
             if (desktop) return desktop.find_route(vehicle, start, destination, conditions || {});

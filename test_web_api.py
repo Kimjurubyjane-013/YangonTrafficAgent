@@ -24,6 +24,18 @@ class WebApiTests(unittest.TestCase):
         graph = self.client.get("/api/graph").json()
         self.assertIn("coords", graph)
         self.assertIn("edges", graph)
+        self.assertIn("roads", graph)
+
+    def test_traffic_overview_and_road_detail(self):
+        overview = self.client.get("/api/traffic")
+        self.assertEqual(overview.status_code, 200)
+        payload = overview.json()
+        self.assertGreater(payload["total_roads"], 0)
+        road_id = payload["roads"][0]["road_id"]
+        detail = self.client.get(f"/api/traffic/{road_id}")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["road_id"], road_id)
+        self.assertEqual(self.client.get("/api/traffic/not-a-road").status_code, 404)
 
     def test_invalid_route_is_structured_http_error(self):
         response = self.client.post("/api/route", json={
