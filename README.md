@@ -100,7 +100,23 @@ After a route search, **View decision evaluation** shows candidate counts, the
 decision engine, response time, closure evidence, and each option's score. The
 deterministic ranking formula is:
 
-`distance_km + (0.35 × estimated_minutes) + rule_penalty`
+```text
+route_cost = traffic_adjusted_eta_minutes
+           + 0.12 * heavy_segments
+           + 0.35 * critical_segments
+           + 0.08 * congestion_delay_minutes
+           + 0.002 * cumulative_traffic_impact
+           + 0.20 * vehicle_suitability_penalty
+           + 0.02 * distance_km
+           + 0.03 * preferred_road_adjustment
+```
+
+Emergency vehicles use reduced Heavy and critical exposure weights (`0.05`
+and `0.15`) so ETA remains even more dominant. ETA already contains HERE
+traffic or the shared academic adjustment; congestion is not fully charged a
+second time. Delay and impact exposure each have a `0.5`-minute-equivalent cap,
+and preferred-road benefit is capped at `0.1`. A dominance guard prevents a route that is both slower and longer
+from ranking first unless it has a documented severe-traffic advantage.
 
 Live traffic durations depend on HERE Routing. A HERE duration already includes
 traffic, so the application does not apply a second synthetic congestion
@@ -233,19 +249,11 @@ weather, incidents, heavy-vehicle suitability, and preferred roads.
 
 The deterministic ranking formula is:
 
-```text
-total_score = 1.00 * distance_km
-            + 0.35 * estimated_minutes
-            + congestion_penalty
-            + vehicle_restriction_penalty
-            + time_penalty
-            + weather_penalty
-            + incident_penalty
-            + preferred_road_adjustment
-```
-
-Lower scores win. Ties are resolved by distance, estimated time, then the
-lexicographic route node sequence. Invalid candidates are excluded.
+Lower route costs win. Prolog still rejects prohibited and one-way routes and
+provides explainable policy signals. Python applies the centralized cost and
+dominance invariant consistently to Prolog and fallback results. Ties resolve
+deterministically by ETA, severe exposure, distance, route, and candidate ID.
+Invalid candidates are excluded.
 
 This means the shortest-distance route does not automatically win. A longer
 alternative can rank first when its real traffic ETA and rule penalties produce

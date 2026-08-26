@@ -67,6 +67,8 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("body[data-theme=dark]",css)
         self.assertNotIn("OpenStreetMap routing</div>",html)
         self.assertIn("function ensureMapInitialized()",html)
+        self.assertIn("result.recommendation_reason?.explanation",html)
+        self.assertNotIn("Compared with Alternative 1:",html)
         self.assertNotIn("pywebviewready', () => {\n        initMap();",html)
 
     def test_browser_transport_and_vercel_entrypoint_are_present(self):

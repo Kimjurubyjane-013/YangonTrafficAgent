@@ -13,6 +13,60 @@ _ENGINE = None
 _GENERIC_ROAD_WORDS = {"road", "street", "avenue", "lane", "highway", "route"}
 
 
+def _format_minutes(value):
+    seconds = round(abs(float(value)) * 60)
+    minutes, seconds = divmod(seconds, 60)
+    return f"{minutes} min {seconds} sec" if seconds else f"{minutes} min"
+
+
+def _recommendation_reason(best, alternatives):
+    best_id = str(best.get("candidate_id"))
+    dominated = [
+        str(item.get("candidate_id")) for item in alternatives
+        if best_id in item.get("decision", {}).get("dominated_by", ())
+    ]
+    if not alternatives:
+        return {
+            "recommended_route_id": best_id, "primary_reason": "only_eligible_route",
+            "eta_advantage_minutes": None, "distance_difference_km": None,
+            "heavy_segment_difference": None, "delay_advantage_minutes": None,
+            "dominated_alternatives": dominated,
+            "explanation": "This is the only eligible real-road route returned for the journey.",
+        }
+    alternative = alternatives[0]
+    eta_advantage = round(float(alternative["time"]) - float(best["time"]), 2)
+    distance_difference = round(float(best["distance"]) - float(alternative["distance"]), 2)
+    best_heavy = int(best.get("heavy_segments", best.get("segment_traffic", []).count("Heavy")))
+    alt_heavy = int(alternative.get("heavy_segments", alternative.get("segment_traffic", []).count("Heavy")))
+    heavy_difference = best_heavy - alt_heavy
+    delay_advantage = round(float(alternative.get("traffic_delay") or 0) - float(best.get("traffic_delay") or 0), 2)
+    if eta_advantage > 0:
+        primary = "lowest_traffic_adjusted_eta"
+    elif heavy_difference < 0:
+        primary = "lower_severe_congestion"
+    else:
+        primary = "lower_route_cost"
+    comparisons = []
+    if abs(eta_advantage) > 0.01:
+        comparisons.append(f"{_format_minutes(eta_advantage)} {'faster' if eta_advantage > 0 else 'slower'}")
+    if abs(distance_difference) > 0.01:
+        comparisons.append(f"{abs(distance_difference):.2f} km {'shorter' if distance_difference < 0 else 'longer'}")
+    if comparisons:
+        explanation = f"The recommended route is {' and '.join(comparisons)} than Alternative 1."
+    else:
+        explanation = "The recommended route has the lowest traffic-aware route cost among equivalent options."
+    if heavy_difference < 0:
+        explanation += f" It also contains {abs(heavy_difference)} fewer Heavy traffic segment(s)."
+    return {
+        "recommended_route_id": best_id, "primary_reason": primary,
+        "eta_advantage_minutes": eta_advantage,
+        "distance_difference_km": distance_difference,
+        "heavy_segment_difference": heavy_difference,
+        "delay_advantage_minutes": delay_advantage,
+        "dominated_alternatives": dominated, "explanation": explanation,
+    }
+
+
 def _road_key(value):
     text = str(value or "").casefold()
     text = re.sub(r"\brd\b", "road", text)
@@ -139,7 +193,14 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "traffic_data_available": has_real_traffic,
             "traffic_model_available": True,
             "traffic_snapshot_id": traffic_snapshot.snapshot_id,
-            "traffic_score": model_state["average_score"],
+            "traffic_score": route.get("traffic_score", model_state["average_score"]),
+            "heavy_segments": (
+                sum(str(item).lower() == "heavy" for item in (segment_traffic or [level]))
+                if has_real_traffic else model_state["heavy_segments"]
+            ),
+            "critical_segments": route.get("critical_segments", model_state["critical_segments"] if not has_real_traffic else 0),
+            "cumulative_traffic_impact": route.get("cumulative_traffic_impact", model_state["cumulative_traffic_impact"]),
+            "average_congestion_pressure": route.get("average_congestion_pressure", model_state["average_congestion_pressure"]),
             "retrieved_at": route.get("retrieved_at"),
             "segments": model_segments,
         })
@@ -149,7 +210,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
                 "error": f"All available real-road routes use the closed road '{closed_road}'. Remove the closure or try another destination.",
                 "routing_mode": "real-world-only",
                 "evaluation": {
-                    "formula": "distance_km + 0.35 x estimated_minutes + rule_penalty",
+                    "formula": "traffic_adjusted_eta + small safety/reliability exposure costs; lower is better",
                     "candidates_received": len(routes), "candidates_evaluated": 0,
                     "eligible_candidates": 0, "rejected_candidates": len(closure_rejections),
                     "closure": {"requested": closed_road, "matched_routes": len(closure_rejections),
@@ -164,12 +225,13 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         return {"error":"No real-world route satisfies the active vehicle restrictions.",
             "rejected_candidates":[item["decision"] for item in evaluated],"routing_mode":"real-world-only"}
     options = eligible[:4]
+    recommendation_reason = _recommendation_reason(options[0], options[1:])
     for item in options:
         item.pop("segments", None); item.pop("candidate_id", None)
     best, alternatives = options[0], options[1:]
     reason = ", ".join(best["decision"]["reasons"]) or "lowest real-road travel cost"
     evaluation = {
-        "formula": "distance_km + 0.35 x estimated_minutes + rule_penalty",
+        "formula": "traffic_adjusted_eta + severe_congestion_exposure + delay_exposure + traffic_impact + vehicle_suitability + distance_tiebreak; lower is better",
         "candidates_received": len(routes), "candidates_evaluated": len(evaluated),
         "eligible_candidates": len(eligible),
         "rejected_candidates": len(evaluated) - len(eligible) + len(closure_rejections),
@@ -193,7 +255,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         "traffic_score":best.get("traffic_score"),
         "retrieved_at":best.get("retrieved_at"),
         "decision":best["decision"],"decision_engine":engine.engine_name,"diagnostic":engine.diagnostic,
-        "evaluation": evaluation,
+        "evaluation": evaluation,"recommendation_reason":recommendation_reason,
         "routing_mode":"real-world-only","ai_message":
         f"Real-world Route Decision\n\nSelected roads: {' → '.join(best['display_route'])}\n"
         f"Distance: {best['distance']} km\nEstimated time: {best['time']} min\n"

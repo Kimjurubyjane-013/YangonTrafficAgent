@@ -93,7 +93,7 @@ class RealWorldPipelineTests(unittest.TestCase):
     def test_evaluation_exposes_formula_and_ranked_options(self):
         result=run_real_world_agent("Hledan Centre","Myanmar Plaza","Car",route_provider=fake_provider,
             decision_engine=RouteDecisionEngine(False))
-        self.assertIn("0.35",result["evaluation"]["formula"])
+        self.assertIn("traffic_adjusted_eta",result["evaluation"]["formula"])
         self.assertEqual(len(result["evaluation"]["options"]),2)
 
     def test_longer_route_wins_when_real_traffic_eta_is_lower(self):

@@ -1656,7 +1656,8 @@
         const trafficComparison = best.traffic === 'Unavailable'
             ? 'ETA Basis: Standard Mapped-Road Speeds.'
             : `Traffic: ${best.traffic}.`;
-        detail.textContent = `Compared with Alternative 1: ${distanceText} and ${timeText}. ${trafficComparison}`;
+        detail.textContent = result.recommendation_reason?.explanation
+            || `The recommended route is ${distanceText} and ${timeText} than Alternative 1. ${trafficComparison}`;
         comparison.append(heading, detail);
     }
 

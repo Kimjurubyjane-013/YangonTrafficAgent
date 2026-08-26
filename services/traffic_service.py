@@ -266,13 +266,21 @@ class TrafficEngine:
         named = [state for state in snapshot.roads.values() if _road_name_key(state.road_name) in requested_names]
         if named: states = named
         if not states:
-            return {"traffic_level":"Moderate","segment_traffic":["Moderate"],"road_ids":[],"average_score":50.0,"estimated_delay_minutes":0.0,"snapshot_id":snapshot.snapshot_id,"source":"academic_simulation"}
+            return {"traffic_level":"Moderate","segment_traffic":["Moderate"],"road_ids":[],
+                "average_score":50.0,"estimated_delay_minutes":0.0,"heavy_segments":0,
+                "critical_segments":0,"cumulative_traffic_impact":0.0,
+                "average_congestion_pressure":0.0,"snapshot_id":snapshot.snapshot_id,
+                "source":"academic_simulation"}
         worst = max(states, key=lambda state: state.traffic_score).traffic_level
         return {
             "traffic_level": worst, "segment_traffic": [state.traffic_level for state in states],
             "road_ids": [state.road_id for state in states],
             "average_score": round(sum(state.traffic_score for state in states) / len(states), 1),
             "estimated_delay_minutes": round(sum(state.estimated_delay_minutes for state in states), 2),
+            "heavy_segments": sum(state.traffic_level == "Heavy" for state in states),
+            "critical_segments": sum(state.critical_congestion for state in states),
+            "cumulative_traffic_impact": round(sum(state.traffic_impact for state in states), 1),
+            "average_congestion_pressure": round(sum(state.congestion_pressure for state in states) / len(states), 3),
             "snapshot_id": snapshot.snapshot_id, "source":"academic_simulation",
         }
 

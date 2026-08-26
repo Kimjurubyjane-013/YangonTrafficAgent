@@ -1,19 +1,21 @@
 """Hybrid numeric + symbolic route decision engine.
 
-Formula: total_score = distance_km + 0.35 * estimated_minutes + rule_penalty.
-Lower is better. Python owns graph/numeric work; Prolog or the deterministic
-fallback owns eligibility and explainable policy penalties.
+ETA is the primary lower-is-better objective. Python owns numeric ranking and
+dominance; Prolog or the deterministic fallback owns eligibility and
+explainable policy signals.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
 from pathlib import Path
 from threading import RLock
 
+from services.route_ranking import domination_map, is_route_dominated, route_cost
 
-DISTANCE_WEIGHT = 1.0
-TIME_WEIGHT = 0.35
+LOGGER = logging.getLogger(__name__)
+
+
 VALID_VEHICLES = {"car", "bus", "taxi", "ambulance", "fire_truck", "police", "motorcycle", "bicycle", "walking"}
 VALID_TRAFFIC = {"light", "moderate", "heavy"}
 VALID_ROADS = {"local", "secondary", "main", "arterial", "highway", "restricted"}
@@ -87,14 +89,14 @@ class RouteDecisionEngine:
         evaluated = []
         for candidate in candidates:
             penalties, rejection, reasons = self._evaluate_rules(candidate, vehicle_atom, normalized)
-            distance_cost = candidate["distance"] * DISTANCE_WEIGHT
-            time_cost = candidate["time"] * TIME_WEIGHT
             rule_penalty = round(sum(penalties.values()), 3)
-            total = round(distance_cost + time_cost + rule_penalty, 3)
+            total, components = route_cost(candidate, penalties, vehicle_atom)
             item = dict(candidate)
             item["decision"] = {
-                "total_score": total, "distance_cost": round(distance_cost, 3),
-                "estimated_time_cost": round(time_cost, 3), "rule_penalty": rule_penalty,
+                "total_score": total, "route_cost": total,
+                "distance_cost": components["distance_tiebreak_cost"],
+                "estimated_time_cost": components["eta_cost"], "rule_penalty": rule_penalty,
+                "cost_components": components,
                 "congestion_penalty": penalties["congestion"],
                 "vehicle_restriction_penalty": penalties["vehicle_restriction"],
                 "other_rule_penalties": {k: v for k, v in penalties.items() if k not in {"congestion", "vehicle_restriction"}},
@@ -103,7 +105,18 @@ class RouteDecisionEngine:
             }
             evaluated.append(item)
         eligible = [item for item in evaluated if item["decision"]["eligible"]]
-        eligible.sort(key=lambda item: (item["decision"]["total_score"], item["distance"], item["time"], tuple(item["route"])))
+        dominated_by = domination_map(eligible)
+        for item in eligible:
+            dominators = dominated_by[str(item.get("candidate_id"))]
+            item["decision"]["dominated"] = bool(dominators)
+            item["decision"]["dominated_by"] = dominators
+        eligible.sort(key=lambda item: (
+            item["decision"]["dominated"], item["decision"]["route_cost"],
+            item["time"], item["decision"]["cost_components"]["severe_congestion_cost"],
+            item["distance"], tuple(item["route"]), str(item.get("candidate_id")),
+        ))
+        if eligible and any(is_route_dominated(eligible[0], other) for other in eligible[1:]):
+            LOGGER.warning("Route-ranking invariant violated: selected route is dominated")
         return eligible, evaluated
 
     def _evaluate_rules(self, candidate, vehicle, conditions):
