@@ -59,7 +59,9 @@ class ArchitectureTests(unittest.TestCase):
         css=(root/"web"/"styles.css").read_text(encoding="utf-8")
         for element_id in ("home-view","planner-view","home-plan-route","theme-toggle","ai-text","decision-details-text",
             "scenario-mode","departure-band","incident-level","closed-road","analysis-view","analysis-btn",
-            "analysis-back","route-provenance","route-comparison"):
+            "analysis-back","route-provenance","route-comparison","nav-traffic","nav-simulation",
+            "traffic-map-view","dashboard-map","health-score","hotspot-list","best-flow-list",
+            "trend-summary","refresh-traffic"):
             self.assertIn(f'id="{element_id}"',html)
         self.assertNotIn('id="evaluation-toggle"',html)
         self.assertNotIn('id="evaluation-dashboard"',html)
@@ -70,6 +72,15 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("result.recommendation_reason?.explanation",html)
         self.assertNotIn("Compared with Alternative 1:",html)
         self.assertNotIn("pywebviewready', () => {\n        initMap();",html)
+        self.assertIn("Yangon Traffic Intelligence",html)
+        self.assertIn('<script src="./dashboard.js"></script>',html)
+
+    def test_dashboard_uses_the_shared_backend_snapshot(self):
+        root=Path(__file__).parent
+        dashboard=(root/"web"/"dashboard.js").read_text(encoding="utf-8")
+        self.assertIn("YangonApi.trafficOverview()",dashboard)
+        self.assertIn("overview.roads",dashboard)
+        self.assertNotIn("Math.random",dashboard)
 
     def test_browser_transport_and_vercel_entrypoint_are_present(self):
         root=Path(__file__).parent

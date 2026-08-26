@@ -341,16 +341,56 @@
 <header class="app-header">
     <div class="brand-lockup">
         <div class="brand-mark agent-face-mini" aria-hidden="true"><i></i><i></i></div>
-        <div><strong>Yangon Route Agent</strong><span>Traffic-aware guidance that explains itself</span></div>
+        <div><strong>Yangon Traffic Intelligence</strong><span>Explainable traffic analysis and smart route recommendations</span></div>
     </div>
     <nav class="app-nav" aria-label="Primary navigation">
-        <button type="button" id="nav-home" class="nav-link active">Home</button>
+        <button type="button" id="nav-home" class="nav-link active">Dashboard</button>
+        <button type="button" id="nav-traffic" class="nav-link">Traffic Map</button>
         <button type="button" id="nav-planner" class="nav-link">Route Planner</button>
+        <button type="button" id="nav-simulation" class="nav-link">Simulation</button>
         <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark mode">☾</button>
     </nav>
 </header>
 
-<main class="home-view" id="home-view">
+<main class="traffic-dashboard" id="home-view">
+    <section class="dashboard-head">
+        <div><div class="panel-kicker">Citywide Traffic Monitoring</div><h1>Yangon Traffic Intelligence Dashboard</h1><p>Current modeled road conditions, congestion pressure, and explainable traffic trends.</p></div>
+        <button type="button" id="refresh-traffic" class="dashboard-refresh">Refresh Traffic</button>
+    </section>
+    <div class="traffic-context" id="traffic-context" aria-live="polite">
+        <span><small>Current Period</small><strong id="context-period">—</strong></span>
+        <span><small>Traffic Source</small><strong id="context-source">—</strong></span>
+        <span><small>Snapshot</small><strong id="context-snapshot">—</strong></span>
+        <span><small>Rush Hour</small><strong id="context-rush">—</strong></span>
+    </div>
+    <div class="dashboard-state" id="dashboard-state" role="status">Loading current traffic intelligence…</div>
+    <section class="traffic-summary-grid" aria-label="Traffic summary">
+        <article class="health-card"><div><span>Traffic Health</span><strong><b id="health-score">—</b> / 100</strong><em id="health-label">Loading</em></div><div class="health-meter" aria-hidden="true"><i id="health-meter-fill"></i></div><small id="health-period">Current Traffic Model</small></article>
+        <article class="traffic-stat heavy"><span>Heavy Roads</span><strong id="heavy-count">—</strong><small>High congestion</small></article>
+        <article class="traffic-stat moderate"><span>Moderate Roads</span><strong id="moderate-count">—</strong><small>Slower movement</small></article>
+        <article class="traffic-stat light"><span>Light Roads</span><strong id="light-count">—</strong><small>Free flowing</small></article>
+        <article class="traffic-stat neutral"><span>Average Traffic Score</span><strong id="average-score">—</strong><small>Across modeled roads</small></article>
+    </section>
+    <section class="dashboard-main-grid">
+        <article class="dashboard-card dashboard-map-card">
+            <div class="dashboard-card-head"><div><span>Network Conditions</span><h2>Current Yangon Traffic Map</h2></div><div class="traffic-legend"><i class="light"></i>Light<i class="moderate"></i>Moderate<i class="heavy"></i>Heavy</div></div>
+            <div id="dashboard-map" class="traffic-map" aria-label="Yangon traffic map"></div>
+            <div id="dashboard-map-fallback" class="map-fallback" hidden>Map imagery is unavailable. Road traffic data remains available in the panels.</div>
+        </article>
+        <aside class="dashboard-card road-detail-card" id="road-detail-card">
+            <div class="dashboard-card-head"><div><span>Road Inspection</span><h2>Road Conditions</h2></div></div>
+            <div id="road-detail-empty" class="road-detail-empty">Select a colored road on the map to inspect its current traffic state.</div>
+            <div id="road-detail" hidden></div>
+        </aside>
+    </section>
+    <section class="dashboard-lists">
+        <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Priority Monitoring</span><h2>Congestion Hotspots</h2></div></div><div id="hotspot-list" class="ranked-road-list"></div></article>
+        <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Network Performance</span><h2>Best Flowing Roads</h2></div></div><div id="best-flow-list" class="ranked-road-list"></div></article>
+        <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Simulated Adjacent Window</span><h2>Traffic Trends</h2></div></div><div id="trend-summary" class="trend-summary"></div><small class="model-note">Trends compare deterministic traffic-model windows; they are not stored live history.</small></article>
+    </section>
+</main>
+
+<main class="legacy-home-view" id="legacy-home-view" hidden>
     <section class="home-hero">
         <div class="hero-copy">
             <div class="eyebrow"><span></span>Your Yangon travel companion</div>
@@ -389,6 +429,21 @@
         </div>
     </section>
 </main>
+
+<section class="traffic-map-view" id="traffic-map-view" hidden>
+    <div class="traffic-map-page-head"><div><div class="panel-kicker">Road Network Monitor</div><h1>Yangon Traffic Map</h1><p>Filter and inspect all modeled road segments from the current shared snapshot.</p></div><button type="button" id="traffic-map-refresh">Refresh Traffic</button></div>
+    <div class="traffic-map-toolbar" role="group" aria-label="Traffic level filter">
+        <button type="button" class="traffic-filter active" data-traffic-filter="All">All</button>
+        <button type="button" class="traffic-filter" data-traffic-filter="Light">Light</button>
+        <button type="button" class="traffic-filter" data-traffic-filter="Moderate">Moderate</button>
+        <button type="button" class="traffic-filter" data-traffic-filter="Heavy">Heavy</button>
+        <span id="traffic-map-context">Waiting for traffic data…</span>
+    </div>
+    <div class="traffic-map-layout">
+        <div id="traffic-map" class="traffic-map traffic-map-full" aria-label="Filtered Yangon traffic map"></div>
+        <aside class="dashboard-card"><div class="dashboard-card-head"><div><span>Selected Segment</span><h2>Road Detail</h2></div></div><div id="traffic-map-detail" class="road-detail-empty">Choose a road segment to view its traffic evidence.</div></aside>
+    </div>
+</section>
 
 <div class="planner-view" id="planner-view" hidden>
 <div class="main">
@@ -2128,6 +2183,7 @@
     }, { once: true });
 
 </script>
+<script src="./dashboard.js"></script>
 <script src="./app.js"></script>
 
 </body>
