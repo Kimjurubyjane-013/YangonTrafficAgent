@@ -107,8 +107,14 @@ def _route_record(route, provider_id, variant_label, source):
     geometry = route.get("geometry", {}).get("coordinates", [])
     if len(geometry) < 2:
         return None
+    duration_seconds = float(route["duration"])
     return {"provider_id": provider_id, "distance": round(float(route["distance"])/1000, 2),
-        "duration": round(float(route["duration"])/60, 2),
+        "duration": round(duration_seconds/60, 2), "base_duration": round(duration_seconds/60, 2),
+        "route_duration_seconds": round(duration_seconds), "base_duration_seconds": round(duration_seconds),
+        "traffic_delay_seconds": None, "traffic_delay": None,
+        "traffic_level": "Unavailable", "segment_traffic": ["Unavailable"],
+        "traffic_data_available": False, "traffic_source": "Real-time provider unavailable",
+        "provider": "OSRM/OpenStreetMap", "provider_timestamp": None,
         "geometry": [[lat,lon] for lon,lat in geometry], "road_names": _english_road_names(route),
         "variant_label": variant_label, "source": source}
 

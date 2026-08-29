@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from threading import RLock
 
 from app.models import RoadTrafficState, TrafficSnapshot
+from app.runtime_config import yangon_now
 from app.traffic_config import (
     BASE_CONGESTION_WEIGHT, BEST_FLOW_WEIGHTS, CAPACITY_DENSITY_WEIGHT,
     CONGESTION_PRESSURE_WEIGHT, CONTEXT_DENSITY_EFFECTS,
@@ -33,7 +34,7 @@ def clamp(value: float, minimum: float = 0.0, maximum: float = 100.0) -> float:
 
 
 def get_time_period(value: datetime | None = None) -> str:
-    current = (value or datetime.now()).time()
+    current = yangon_now(value).time()
     for name, start, end in TIME_PERIODS:
         if start < end and start <= current < end:
             return name
@@ -101,7 +102,7 @@ class TrafficEngine:
         return at.replace(minute=minute, second=0, microsecond=0).isoformat(timespec="minutes")
 
     def get_snapshot(self, at: datetime | None = None, force: bool = False) -> TrafficSnapshot:
-        at = at or datetime.now()
+        at = yangon_now(at)
         key = self._snapshot_key(at)
         with self._lock:
             if not force and key in self._snapshots:
@@ -251,8 +252,8 @@ class TrafficEngine:
         records.sort(key=lambda item: (item["flow_rank_score"], -item["average_speed_kmh"], item["road_id"]))
         return records[:max(0, int(limit))]
 
-    def overview(self, at: datetime | None = None) -> dict:
-        snapshot = self.get_snapshot(at)
+    def overview(self, at: datetime | None = None, force: bool = False) -> dict:
+        snapshot = self.get_snapshot(at, force=force)
         roads = [state.as_dict() for state in snapshot.roads.values()]
         counts = {level: sum(state.traffic_level == level for state in snapshot.roads.values()) for level in ("Light", "Moderate", "Heavy")}
         weighted_total = sum(state.traffic_score * ROAD_IMPORTANCE[state.road_type] for state in snapshot.roads.values())

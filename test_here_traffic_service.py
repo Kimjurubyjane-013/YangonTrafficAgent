@@ -42,5 +42,26 @@ class HereTrafficServiceTests(unittest.TestCase):
         self.assertEqual(record["traffic_level"],"Heavy")
         self.assertEqual(record["road_names"],["Pyay Road"])
 
+    def test_route_traffic_aggregates_provider_section_durations(self):
+        route = {"sections": [
+            {"polyline": "a", "summary": {"length": 1000, "duration": 300, "baseDuration": 290}},
+            {"polyline": "b", "summary": {"length": 1000, "duration": 360, "baseDuration": 300}},
+            {"polyline": "c", "summary": {"length": 1000, "duration": 500, "baseDuration": 300}},
+        ]}
+        shapes = [
+            [[16.80, 96.10], [16.81, 96.11]],
+            [[16.81, 96.11], [16.82, 96.12]],
+            [[16.82, 96.12], [16.83, 96.13]],
+        ]
+        with patch("services.here_traffic_service.decode_flexible_polyline", side_effect=shapes):
+            record = _route_record(route, 0, "2026-08-29T07:00:00Z")
+        self.assertEqual(record["segment_traffic"], ["Light", "Moderate", "Heavy"])
+        self.assertEqual(record["traffic_level"], "Moderate")
+        self.assertEqual(record["route_duration_seconds"], 1160)
+        self.assertEqual(record["base_duration_seconds"], 890)
+        self.assertEqual(record["traffic_delay_seconds"], 270)
+        self.assertEqual(len(record["traffic_geometry"]), 3)
+        self.assertEqual(record["traffic_geometry"][1][0], [16.81, 96.11])
+
 
 if __name__ == "__main__": unittest.main()

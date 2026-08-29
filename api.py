@@ -9,15 +9,17 @@ from app.validation import validate_route_request
 from services.route_service import RouteService
 from services.road_repository import ROAD_REPOSITORY
 from services.traffic_service import TRAFFIC_ENGINE
+from services.traffic_backend import TRAFFIC_BACKEND
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Api:
-    def __init__(self, route_service=None, traffic_engine=None):
+    def __init__(self, route_service=None, traffic_engine=None, traffic_backend=None):
         self._last_result = None
         self._lock = RLock()
         self._traffic_engine = traffic_engine or TRAFFIC_ENGINE
+        self._traffic_backend = traffic_backend or (None if traffic_engine is not None else TRAFFIC_BACKEND)
         self._route_service = route_service or RouteService(self._traffic_engine)
 
     def get_locations(self):
@@ -58,6 +60,8 @@ class Api:
 
     def get_congestion_hotspots(self, limit=8):
         try:
+            if self._traffic_backend is not None:
+                return self._traffic_backend.hotspots(self._validated_limit(limit))
             snapshot = self._traffic_engine.get_snapshot()
             return {
                 "snapshot_id": snapshot.snapshot_id,
@@ -72,6 +76,8 @@ class Api:
 
     def get_best_flowing_roads(self, limit=8):
         try:
+            if self._traffic_backend is not None:
+                return self._traffic_backend.best_flowing(self._validated_limit(limit))
             snapshot = self._traffic_engine.get_snapshot()
             return {
                 "snapshot_id": snapshot.snapshot_id,
@@ -84,9 +90,11 @@ class Api:
             LOGGER.exception("Best-flow analysis failed")
             return {"error": "Best-flow analysis is temporarily unavailable.", "error_details": {"code": "traffic_analysis_error", "message": "Best-flow analysis is temporarily unavailable."}}
 
-    def get_traffic_overview(self):
+    def get_traffic_overview(self, force=False):
         try:
-            return self._traffic_engine.overview()
+            if self._traffic_backend is not None:
+                return self._traffic_backend.overview(force=bool(force))
+            return self._traffic_engine.overview(force=bool(force))
         except Exception:
             LOGGER.exception("Traffic overview failed")
             return {"error": "Traffic analysis is temporarily unavailable.", "error_details": {"code": "traffic_analysis_error", "message": "Traffic analysis is temporarily unavailable."}}
@@ -95,6 +103,8 @@ class Api:
         if not isinstance(road_id, str) or not road_id.strip():
             return {"error": "Road ID must be a non-empty text value.", "error_details": {"code": "invalid_road_id", "message": "Road ID must be a non-empty text value."}}
         try:
+            if self._traffic_backend is not None:
+                return self._traffic_backend.road(road_id.strip())
             snapshot = self._traffic_engine.get_snapshot()
             state = snapshot.road(road_id.strip())
             if state is None:

@@ -354,13 +354,14 @@
 
 <main class="traffic-dashboard" id="dashboard-view" hidden>
     <section class="dashboard-head">
-        <div><div class="panel-kicker">Citywide Traffic Monitoring</div><h1>Yangon Traffic Intelligence Dashboard</h1><p>Current modeled road conditions, congestion pressure, and explainable traffic trends.</p></div>
+        <div><div class="panel-kicker">Citywide Traffic Monitoring</div><h1>Yangon Traffic Intelligence Dashboard</h1><p>Current provider-backed road conditions, congestion pressure, and transparent traffic availability.</p></div>
         <button type="button" id="refresh-traffic" class="dashboard-refresh">Refresh Traffic</button>
     </section>
     <div class="traffic-context" id="traffic-context" aria-live="polite">
         <span><small>Current Period</small><strong id="context-period">—</strong></span>
         <span><small>Traffic Source</small><strong id="context-source">—</strong></span>
-        <span><small>Snapshot</small><strong id="context-snapshot">—</strong></span>
+        <span><small>Yangon Time</small><strong id="context-snapshot">—</strong></span>
+        <span><small>Traffic Updated</small><strong id="context-provider-updated">—</strong></span>
         <span><small>Rush Hour</small><strong id="context-rush">—</strong></span>
     </div>
     <div class="dashboard-state" id="dashboard-state" role="status">Loading current traffic intelligence…</div>
@@ -374,7 +375,7 @@
     <section class="dashboard-lists">
         <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Priority Monitoring</span><h2>Congestion Hotspots</h2></div></div><div id="hotspot-list" class="ranked-road-list"></div></article>
         <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Network Performance</span><h2>Best Flowing Roads</h2></div></div><div id="best-flow-list" class="ranked-road-list"></div></article>
-        <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Simulated Adjacent Window</span><h2>Traffic Trends</h2></div></div><div id="trend-summary" class="trend-summary"></div><small class="model-note">Trends compare deterministic traffic-model windows; they are not stored live history.</small></article>
+        <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Traffic Evidence</span><h2>Traffic Trends</h2></div></div><div id="trend-summary" class="trend-summary"></div><small class="model-note">Provider-backed traffic evidence refreshes with the current snapshot.</small></article>
     </section>
 </main>
 
@@ -1001,8 +1002,14 @@
 
     function trafficGeometry(option) {
         const levels = (Array.isArray(option.segment_traffic) ? option.segment_traffic : [])
-            .map(level => YangonTrafficColors.normalize(level)).filter(Boolean);
-        const overall = YangonTrafficColors.normalize(option.traffic) || 'Light';
+            .map(level => YangonTrafficColors.normalize(level) || 'Unavailable');
+        const overall = YangonTrafficColors.normalize(option.traffic) || 'Unavailable';
+        if (Array.isArray(option.traffic_geometry) && option.traffic_geometry.length) {
+            const legs = option.traffic_geometry.filter(leg => Array.isArray(leg) && leg.length > 1);
+            if (legs.length) {
+                return { legs, levels: legs.map((_, index) => levels[index] || overall) };
+            }
+        }
         if (Array.isArray(option.geometry) && option.geometry.length > 1) {
             const effective = levels.length ? levels : [overall];
             const legs = splitPolylineForTraffic(option.geometry, effective.length);
@@ -1017,11 +1024,11 @@
         const requestId = ++routeGeometryRequestId;
         const options = allOptionsData.length
             ? allOptionsData
-            : [{ route: routeNames, segment_traffic: segmentTraffic, traffic: segmentTraffic[0] || 'Light' }];
+            : [{ route: routeNames, segment_traffic: segmentTraffic, traffic: segmentTraffic[0] || 'Unavailable' }];
         const resolved = await Promise.all(options.map(async option => {
             const coloredGeometry = trafficGeometry(option);
             const legs = coloredGeometry?.legs || await resolveRoadLegs(option.route);
-            const overall = YangonTrafficColors.normalize(option.traffic) || 'Light';
+            const overall = YangonTrafficColors.normalize(option.traffic) || 'Unavailable';
             const levels = coloredGeometry?.levels || legs.map((_, index) =>
                 YangonTrafficColors.normalize(option.segment_traffic?.[index]) || overall
             );
@@ -1077,7 +1084,7 @@
         for (let i = 0; i < legs.length; i++) {
 
             const legCoords = legs[i];
-            const traffic = segmentTraffic[i] || selected.option.traffic || 'Light';
+            const traffic = segmentTraffic[i] || selected.option.traffic || 'Unavailable';
             const color = YangonTrafficColors.css(traffic);
 
             // Outer glow line for a modern nav-app feel
@@ -1128,11 +1135,13 @@
     function trafficSummary(opt) {
         if (opt.traffic_data_available) return `Traffic: ${opt.traffic}`;
         if (opt.traffic_model_available) return `Simulated Traffic: ${opt.traffic}`;
-        return 'Traffic Basis: Standard Road Speeds';
+        return 'Traffic: Real-Time Data Unavailable';
     }
 
     function trafficSourceSummary(opt) {
-        return opt.traffic_data_available ? 'HERE Traffic' : 'Academic Simulation';
+        if (opt.traffic_data_available) return 'HERE Real-Time Traffic';
+        if (opt.traffic_model_available) return 'Academic Simulation';
+        return 'Real-Time Traffic Unavailable';
     }
 
     function updateRouteResultDetails(opt) {
@@ -1207,10 +1216,10 @@
         const recommendation = optionIndex === 0
             ? (hasTrafficEvidence(opt)
                 ? `I recommend this ${opt.distance} km route because it offers the best balance of travel time and traffic conditions.`
-                : `I recommend this ${opt.distance} km mapped-road route because it has the best standard road-speed estimate.`)
+                : `I recommend this ${opt.distance} km mapped-road route using the best available base road-time estimate.`)
             : `You are previewing alternative ${optionIndex}. It is a real-road option that may be useful if you prefer a different approach.`;
         const trafficNote = !hasTrafficEvidence(opt)
-            ? ' This estimate is based on standard mapped-road speeds.'
+            ? ' Real-time traffic was unavailable, so this ETA uses mapped-road travel time without claiming live congestion.'
             : (opt.traffic_model_available && !opt.traffic_data_available ? ' This uses the current academic traffic simulation.' : '') + (opt.traffic === 'Heavy'
             ? ' Heavy traffic may cause meaningful delay, so allow extra time.'
             : opt.traffic === 'Moderate'
@@ -1239,7 +1248,7 @@
         document.getElementById('analysis-source').textContent = `Route Geometry: ${routeSourceLabel(opt.route_source)} · Traffic Data: ${trafficSourceSummary(opt)}`;
         document.getElementById('analysis-traffic').textContent = opt.traffic_model_available && !opt.traffic_data_available
             ? `${opt.traffic} Simulated Traffic`
-            : trafficAvailable ? `${opt.traffic} Traffic` : 'Standard Road Speeds';
+            : trafficAvailable ? `${opt.traffic} Traffic` : 'Real-Time Traffic Unavailable';
         document.getElementById('analysis-roads').textContent = roads.length
             ? roads.join(' → ')
             : 'The route follows mapped streets between the selected locations.';
@@ -1695,7 +1704,7 @@
         const comparison = document.getElementById('route-comparison');
         const source = routeSourceLabel(result.route_source);
         const providerTime = result.retrieved_at ? new Date(result.retrieved_at) : retrievedAt;
-        const trafficSource = result.traffic_data_available ? 'HERE Traffic' : 'Academic Simulation';
+        const trafficSource = trafficSourceSummary(result);
         provenance.textContent = `Route Geometry: ${source} · Traffic Data: ${trafficSource} · Retrieved ${providerTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         provenance.hidden = false;
         comparison.replaceChildren();
@@ -2035,9 +2044,9 @@
     }
 
     function trafficAtMapProgress(progress) {
-        if (!currentSegmentTraffic || currentSegmentTraffic.length === 0) return 'Light';
+        if (!currentSegmentTraffic || currentSegmentTraffic.length === 0) return 'Unavailable';
         const index = Math.min(currentSegmentTraffic.length - 1, Math.floor(progress * currentSegmentTraffic.length));
-        return currentSegmentTraffic[index] || 'Light';
+        return currentSegmentTraffic[index] || 'Unavailable';
     }
 
     function updateMapSimulationHud(progress, speed, traffic, remainingKm, remainingMinutes, state) {
@@ -2103,7 +2112,7 @@
         map.setView(currentRouteCoords[0], Math.max(map.getZoom(), 16), { animate: true });
         document.getElementById('map-sim-pause').disabled = false;
         document.getElementById('map-sim-pause').innerText = 'Pause';
-        updateMapSimulationHud(0, 0, currentSegmentTraffic[0] || 'Light', mapSimulation.totalKm, mapSimulation.estimatedMinutes, 'Driving');
+        updateMapSimulationHud(0, 0, currentSegmentTraffic[0] || 'Unavailable', mapSimulation.totalKm, mapSimulation.estimatedMinutes, 'Driving');
         document.getElementById('status').innerText = `🚗 Navigating real Yangon roads as ${mapSimulation.vehicle}`;
         YangonAppState.set({ phase: YangonAppState.phases.SIMULATING });
         animFrame = requestAnimationFrame(mapSimulationFrame);
@@ -2147,7 +2156,7 @@
         const totalKm = Math.max(0.001, Number(selected.distance) || geometryDistance);
         const estimatedMinutes = Math.max(0.5, Number(selected.time) || 1);
         const averageEtaSpeed = totalKm / (estimatedMinutes / 60);
-        const initialTraffic = currentSegmentTraffic[0] || selected.traffic || 'Light';
+        const initialTraffic = currentSegmentTraffic[0] || selected.traffic || 'Unavailable';
         const baseSpeed = averageEtaSpeed * (TRAFFIC_MULTIPLIER[initialTraffic] || 1);
 
         // Scale geometry distances to the provider distance so marker progress

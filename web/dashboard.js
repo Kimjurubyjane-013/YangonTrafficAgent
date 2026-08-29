@@ -5,8 +5,18 @@
     const byId = id => document.getElementById(id);
     const setText = (id, value) => { const node = byId(id); if (node) node.textContent = value; };
     const titleCase = value => String(value || '—').toLowerCase().replace(/(^|_)([a-z])/g, (_m, separator, letter) => `${separator ? ' ' : ''}${letter.toUpperCase()}`);
-    const sourceLabel = value => ['here', 'here-traffic'].includes(value) ? 'HERE Traffic' : 'Academic Simulation';
-    const formatTime = value => { const date = new Date(value); return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
+    const sourceLabel = value => {
+        const source = String(value || '').toLowerCase();
+        if (source.includes('here')) return 'HERE Real-Time Traffic';
+        if (source.includes('academic') || source === 'simulation') return 'Academic Simulation';
+        return 'Real-Time Traffic Unavailable';
+    };
+    const formatTime = value => {
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString('en-US', {
+            hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Yangon'
+        });
+    };
 
     function setState(message, type = 'ready') {
         const node = byId('dashboard-state');
@@ -44,6 +54,14 @@
         const container = byId('trend-summary');
         if (!container) return;
         container.replaceChildren();
+        if (!roads.length || trendType === 'unavailable') {
+            const message = document.createElement('p');
+            message.textContent = 'No provider trend evidence is available for this refresh.';
+            container.appendChild(message);
+            const note = document.querySelector('.model-note');
+            if (note) note.textContent = 'Traffic trends appear only when supported by provider data or explicit simulation mode.';
+            return;
+        }
         ['Improving', 'Stable', 'Worsening'].forEach(label => {
             const item = document.createElement('div');
             item.className = `trend-item ${label.toLowerCase()}`;
@@ -61,18 +79,20 @@
     }
 
     function render(data) {
-        setText('health-score', Number(data.traffic_health_score || 0).toFixed(0));
+        const available = data.available !== false;
+        setText('health-score', available && data.traffic_health_score != null ? Number(data.traffic_health_score).toFixed(0) : '—');
         setText('health-label', data.traffic_health_label || 'Unknown');
         setText('health-period', titleCase(data.time_period));
         const fill = byId('health-meter-fill');
-        if (fill) fill.style.width = `${Math.max(0, Math.min(100, Number(data.traffic_health_score || 0)))}%`;
-        setText('heavy-count', data.heavy_count ?? 0);
-        setText('moderate-count', data.moderate_count ?? 0);
-        setText('light-count', data.light_count ?? 0);
-        setText('average-score', Number(data.average_traffic_score || 0).toFixed(1));
+        if (fill) fill.style.width = available ? `${Math.max(0, Math.min(100, Number(data.traffic_health_score || 0)))}%` : '0%';
+        setText('heavy-count', available ? (data.heavy_count ?? 0) : '—');
+        setText('moderate-count', available ? (data.moderate_count ?? 0) : '—');
+        setText('light-count', available ? (data.light_count ?? 0) : '—');
+        setText('average-score', available && data.average_traffic_score != null ? Number(data.average_traffic_score).toFixed(1) : '—');
         setText('context-period', titleCase(data.time_period));
-        setText('context-source', sourceLabel(data.source || data.model_type));
-        setText('context-snapshot', formatTime(data.snapshot_time || data.generated_at));
+        setText('context-source', sourceLabel(data.source || data.traffic_source || data.model_type));
+        setText('context-snapshot', formatTime(data.yangon_local_time || data.snapshot_time || data.generated_at));
+        setText('context-provider-updated', formatTime(data.provider_updated_at));
         setText('context-rush', data.rush_hour ? 'Active' : 'Inactive');
         renderRoadList('hotspot-list', data.hotspots || data.most_congested || [], 'hotspot');
         renderRoadList('best-flow-list', data.best_flowing || [], 'best');
@@ -80,16 +100,17 @@
         const best = data.best_flowing || [];
         if (heading) heading.textContent = best.length && best.every(road => road.traffic_level === 'Heavy') ? 'Best Available Flow' : 'Best Flowing Roads';
         renderTrends(data.roads || [], data.trend_type);
+        if (!available) setState(data.message || 'Real-time traffic data could not be retrieved.', 'error');
     }
 
-    async function refresh() {
+    async function refresh(force = false) {
         if (loadingPromise) return loadingPromise;
         const button = byId('refresh-traffic');
         setState('Refreshing traffic analysis…', 'loading');
         if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
-        loadingPromise = YangonApi.trafficOverview().then(data => {
+        loadingPromise = (force ? YangonApi.trafficOverview(true) : YangonApi.trafficOverview()).then(data => {
             if (!data || data.error || !Array.isArray(data.roads)) throw new Error(data?.error || 'No traffic data returned.');
-            render(data); initialized = true; setState('', 'ready'); return data;
+            render(data); initialized = true; if (data.available !== false) setState('', 'ready'); return data;
         }).catch(error => {
             console.error('Traffic dashboard load failed:', error);
             setState('Traffic analysis is temporarily unavailable. Try Refresh Traffic.', 'error');
@@ -102,7 +123,7 @@
     }
 
     function bind() {
-        byId('refresh-traffic')?.addEventListener('click', () => refresh().catch(() => {}));
+        byId('refresh-traffic')?.addEventListener('click', () => refresh(true).catch(() => {}));
         if (window.location.protocol !== 'file:' || window.__yangonBridgeReady || window.pywebview?.api) refresh().catch(() => {});
         window.addEventListener('pywebviewready', () => { if (!initialized) refresh().catch(() => {}); });
         window.addEventListener('yangonbridgeavailable', () => { if (!initialized) refresh().catch(() => {}); });

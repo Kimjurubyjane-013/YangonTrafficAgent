@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from agent.real_world_agent import run_real_world_agent
 from algorithms.vehicle import calculate_real_route_time
@@ -14,6 +15,15 @@ def fake_provider(start, destination, alternatives=3):
 
 
 class RealWorldPipelineTests(unittest.TestCase):
+    def setUp(self):
+        # Legacy provider fixtures do not contain live traffic evidence. Their
+        # academic expectations are tested in the explicit simulation mode.
+        self._mode = patch.dict("os.environ", {"TRAFFIC_MODE": "simulation"})
+        self._mode.start()
+
+    def tearDown(self):
+        self._mode.stop()
+
     def test_requested_route_matrix_keeps_complete_trust_contract(self):
         journeys = [
             ("Hledan Centre", "Junction Square"),
@@ -136,7 +146,7 @@ class RealWorldPipelineTests(unittest.TestCase):
         result=run_real_world_agent("Hledan Centre","Myanmar Plaza","Car",
             route_provider=traffic_provider,decision_engine=RouteDecisionEngine(False))
         self.assertEqual(result["road_names"],["Clear Bypass"])
-        self.assertEqual(result["traffic_source"],"HERE Traffic")
+        self.assertEqual(result["traffic_source"],"HERE Real-Time Traffic")
         self.assertTrue(result["traffic_data_available"])
         self.assertEqual(result["base_duration"], 7.0)
         self.assertEqual(result["traffic_time"], 8.0)

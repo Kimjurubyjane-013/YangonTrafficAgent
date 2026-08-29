@@ -55,8 +55,8 @@ def graph() -> dict[str, Any]:
 
 
 @app.get("/api/traffic")
-def traffic_overview():
-    result = application_api.get_traffic_overview()
+def traffic_overview(refresh: bool = False):
+    result = application_api.get_traffic_overview(refresh)
     if result.get("error"):
         return JSONResponse(status_code=503, content=result)
     return result

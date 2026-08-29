@@ -9,9 +9,7 @@ class RouteService:
         self.traffic_engine = traffic_engine or TRAFFIC_ENGINE
 
     def find(self, request: RouteRequest) -> dict:
-        snapshot = self.traffic_engine.get_snapshot()
         return run_real_world_agent(
             request.start, request.destination, request.vehicle,
             conditions=request.conditions, traffic_engine=self.traffic_engine,
-            traffic_snapshot=snapshot,
         )

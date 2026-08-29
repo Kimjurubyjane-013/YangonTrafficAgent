@@ -515,7 +515,7 @@
             const etaMinutes = Math.max(0, this.estimatedMinutes * (1 - this.progress));
             const road = `${this.routeNames[segmentIndex]} → ${this.routeNames[segmentIndex + 1]}`;
             const values = {
-                speed: `${Math.round(this.speed * 3.6)} km/h`, traffic: this.traffic[segmentIndex] || 'Light',
+                speed: `${Math.round(this.speed * 3.6)} km/h`, traffic: this.traffic[segmentIndex] || 'Unavailable',
                 road, progress: `${Math.round(this.progress * 100)}%`, remaining: `${remainingKm.toFixed(1)} km`,
                 eta: this.arrived ? 'Arrived' : (etaMinutes < 1 ? `${Math.max(1, Math.ceil(etaMinutes * 60))} sec` : `${Math.ceil(etaMinutes)} min`),
                 camera: CAMERA_LABELS[this.cameraMode],

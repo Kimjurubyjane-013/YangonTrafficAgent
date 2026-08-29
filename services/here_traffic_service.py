@@ -97,12 +97,15 @@ def _traffic_level(duration_seconds: float, base_seconds: float) -> str:
     return "Light"
 
 
-def _route_record(route: dict, provider_id: int, retrieved_at: str) -> dict:
+def _route_record(route: dict, provider_id: int, retrieved_at: str, provider_timestamp: str | None = None) -> dict:
     geometry: list[list[float]] = []
+    traffic_geometry: list[list[list[float]]] = []
     distance = duration = base_duration = 0.0
     section_levels: list[str] = []
     for section in route.get("sections", []):
         shape = decode_flexible_polyline(section.get("polyline", ""))
+        if len(shape) >= 2:
+            traffic_geometry.append(shape)
         if geometry and shape:
             shape = shape[1:]
         geometry.extend(shape)
@@ -123,11 +126,19 @@ def _route_record(route: dict, provider_id: int, retrieved_at: str) -> dict:
         "duration": round(duration / 60, 2),
         "base_duration": round(base_duration / 60, 2),
         "traffic_delay": round(max(0.0, duration - base_duration) / 60, 2),
+        "route_duration_seconds": round(duration),
+        "base_duration_seconds": round(base_duration),
+        "traffic_delay_seconds": round(max(0.0, duration - base_duration)),
         "traffic_level": level,
         "segment_traffic": section_levels or [level],
+        "traffic_geometry": traffic_geometry,
         "traffic_data_available": True,
         "traffic_source": "HERE Traffic",
         "retrieved_at": retrieved_at,
+        # HERE Routing does not guarantee a source-update timestamp. Keep the
+        # application retrieval time separate and never invent provider time.
+        "provider_timestamp": provider_timestamp,
+        "provider": "HERE Routing API",
         "geometry": geometry,
         "road_names": _english_road_names(route),
         "source": "here-traffic",
@@ -155,8 +166,9 @@ def fetch_traffic_aware_routes(start_coord, destination_coord, alternatives=3, t
         response.raise_for_status()
         payload = response.json()
         retrieved_at = datetime.now(timezone.utc).isoformat()
+        provider_timestamp = payload.get("sourceUpdated")
         routes = [
-            _route_record(route, index, retrieved_at)
+            _route_record(route, index, retrieved_at, provider_timestamp)
             for index, route in enumerate(payload.get("routes", []))
         ]
         if not routes:

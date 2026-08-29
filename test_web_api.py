@@ -1,5 +1,6 @@
 import importlib.util
 import unittest
+from unittest.mock import patch
 
 
 HTTP_TEST_AVAILABLE = (
@@ -12,10 +13,16 @@ HTTP_TEST_AVAILABLE = (
 class WebApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._mode = patch.dict("os.environ", {"TRAFFIC_MODE": "simulation"})
+        cls._mode.start()
         from fastapi.testclient import TestClient
         from web_api import app
 
         cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._mode.stop()
 
     def test_health_and_reference_data(self):
         self.assertEqual(self.client.get("/api/health").json(), {"status": "ok"})

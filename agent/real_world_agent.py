@@ -1,9 +1,9 @@
 """Real-road route pipeline: HERE traffic candidates + symbolic ranking."""
-from datetime import datetime
 import re
 
 from algorithms.graph import LOCATION_COORDS
 from algorithms.vehicle import VEHICLE_SPEED, calculate_real_route_time
+from app.runtime_config import traffic_mode, yangon_now
 from services.here_traffic_service import fetch_traffic_aware_routes
 from services.osrm_service import fetch_real_routes
 from services.route_decision_engine import RouteDecisionEngine
@@ -105,7 +105,7 @@ def _real_route_provider(start_coord, destination_coord, alternatives=3):
 def _time_band(conditions):
     if conditions.get("time_band") in {"peak", "off_peak"}:
         return conditions["time_band"]
-    hour = datetime.now().hour
+    hour = yangon_now().hour
     return "peak" if hour in {7,8,9,16,17,18,19} else "off_peak"
 
 
@@ -129,8 +129,12 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
     conditions["time_band"] = _time_band(conditions)
     conditions.setdefault("weather", "clear")
     conditions.setdefault("incident", "none")
+    mode = traffic_mode()
     traffic_engine = traffic_engine or TRAFFIC_ENGINE
-    traffic_snapshot = traffic_snapshot or traffic_engine.get_snapshot()
+    use_simulation = mode == "simulation"
+    allow_simulation_fallback = mode == "real_with_simulation_fallback"
+    if (use_simulation or allow_simulation_fallback) and traffic_snapshot is None:
+        traffic_snapshot = traffic_engine.get_snapshot()
     candidates = []
     closure_rejections = []
     closed_road = conditions.get("closed_road", "").strip()
@@ -146,23 +150,28 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         road_label = route["road_names"][0] if route["road_names"] else "Mapped road route"
         road_summary = route["road_names"]
         has_real_traffic = bool(route.get("traffic_data_available"))
+        use_model_for_route = not has_real_traffic and (use_simulation or allow_simulation_fallback)
         model_state = traffic_engine.route_state(
             start, destination, route.get("road_names", ()), traffic_snapshot
+        ) if use_model_for_route else None
+        level = route.get("traffic_level") if has_real_traffic else (
+            model_state["traffic_level"] if model_state else "Unavailable"
         )
-        # Provider telemetry remains authoritative when genuinely available;
-        # otherwise every route consumes the shared academic traffic snapshot.
-        level = route.get("traffic_level") if has_real_traffic else model_state["traffic_level"]
-        segment_traffic = route.get("segment_traffic") if has_real_traffic else model_state["segment_traffic"]
+        segment_traffic = route.get("segment_traffic") if has_real_traffic else (
+            model_state["segment_traffic"] if model_state else ["Unavailable"]
+        )
         eta_basis = (
             "HERE traffic-aware duration adjusted for the selected vehicle"
             if has_real_traffic else
-            "Provider road duration adjusted by the shared academic traffic snapshot and vehicle type"
+            "Provider base road ETA adjusted for the selected vehicle; real-time traffic unavailable"
+            if not model_state else
+            "Provider road duration adjusted by the explicitly enabled academic traffic simulation and vehicle type"
         )
         model_segments = []
         if has_real_traffic:
             model_segments.append({"index":0,"name":road_label,"road_class":"arterial",
                 "traffic":str(level).lower(),"preferred":False,"one_way_ok":True})
-        else:
+        elif model_state:
             for index, road_id in enumerate(model_state["road_ids"]):
                 road = traffic_engine.repository.by_id[road_id]
                 state = traffic_snapshot.roads[road_id]
@@ -173,7 +182,8 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
                 })
         if not model_segments:
             model_segments = [{"index":0,"name":road_label,"road_class":"arterial",
-                "traffic":str(level).lower(),"preferred":False,"one_way_ok":True}]
+                "traffic":str(level).lower() if level in {"Light", "Moderate", "Heavy"} else "light",
+                "preferred":False,"one_way_ok":True}]
         candidates.append({
             "candidate_id": route["provider_id"], "route": [start, destination],
             # Provider/corridor labels are internal metadata, not road names.
@@ -182,27 +192,44 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             # HERE duration already includes traffic. Passing Light here avoids
             # applying a second synthetic congestion multiplier; vehicle
             # characteristics remain part of the existing domain model.
-            "time": calculate_real_route_time(route["duration"], route["distance"], vehicle, "Light" if has_real_traffic else level),
+            "time": calculate_real_route_time(
+                route["duration"], route["distance"], vehicle,
+                "Light" if has_real_traffic or level == "Unavailable" else level,
+            ),
             "traffic": level, "segment_traffic": segment_traffic or [level], "geometry": route["geometry"],
+            "traffic_geometry": route.get("traffic_geometry"),
             "road_names": route["road_names"],
             "eta_basis": eta_basis,
             "route_source": route.get("source", "unknown-real-road-provider"),
             "base_duration": route.get("base_duration", route.get("duration")),
             "traffic_time": route.get("duration") if has_real_traffic else None,
-            "traffic_delay": route.get("traffic_delay") if has_real_traffic else model_state["estimated_delay_minutes"],
-            "traffic_source": "HERE Traffic" if has_real_traffic else "Academic Simulation",
-            "provider_notice": None if has_real_traffic else "Real traffic provider unavailable; using the academic traffic model.",
+            "traffic_delay": route.get("traffic_delay") if has_real_traffic else (
+                model_state["estimated_delay_minutes"] if model_state else None
+            ),
+            "route_duration_seconds": route.get("route_duration_seconds", round(float(route["duration"]) * 60)),
+            "base_duration_seconds": route.get("base_duration_seconds", round(float(route.get("base_duration", route["duration"])) * 60)),
+            "traffic_delay_seconds": route.get("traffic_delay_seconds") if has_real_traffic else None,
+            "provider": route.get("provider", route.get("source")),
+            "provider_timestamp": route.get("provider_timestamp", route.get("retrieved_at")),
+            "traffic_source": "HERE Real-Time Traffic" if has_real_traffic else (
+                "Academic Simulation" if model_state else "Real-time provider unavailable"
+            ),
+            "provider_notice": None if has_real_traffic else (
+                "Real-time traffic unavailable; displaying base route ETA only."
+                if not model_state else
+                "Real-time traffic provider unavailable; academic simulation is explicitly enabled."
+            ),
             "traffic_data_available": has_real_traffic,
-            "traffic_model_available": True,
-            "traffic_snapshot_id": traffic_snapshot.snapshot_id,
-            "traffic_score": route.get("traffic_score", model_state["average_score"]),
+            "traffic_model_available": bool(model_state),
+            "traffic_snapshot_id": traffic_snapshot.snapshot_id if model_state else None,
+            "traffic_score": route.get("traffic_score", model_state["average_score"] if model_state else None),
             "heavy_segments": (
                 sum(str(item).lower() == "heavy" for item in (segment_traffic or [level]))
-                if has_real_traffic else model_state["heavy_segments"]
+                if has_real_traffic else model_state["heavy_segments"] if model_state else 0
             ),
-            "critical_segments": route.get("critical_segments", model_state["critical_segments"] if not has_real_traffic else 0),
-            "cumulative_traffic_impact": route.get("cumulative_traffic_impact", model_state["cumulative_traffic_impact"]),
-            "average_congestion_pressure": route.get("average_congestion_pressure", model_state["average_congestion_pressure"]),
+            "critical_segments": route.get("critical_segments", model_state["critical_segments"] if model_state else 0),
+            "cumulative_traffic_impact": route.get("cumulative_traffic_impact", model_state["cumulative_traffic_impact"] if model_state else 0),
+            "average_congestion_pressure": route.get("average_congestion_pressure", model_state["average_congestion_pressure"] if model_state else 0),
             "retrieved_at": route.get("retrieved_at"),
             "segments": model_segments,
         })
@@ -246,6 +273,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         } for index, item in enumerate(options)],
     }
     return {"route":best["route"],"display_route":best["display_route"],"geometry":best["geometry"],
+        "traffic_geometry":best.get("traffic_geometry"),
         "road_names":best["road_names"],"distance":best["distance"],"time":best["time"],
         "traffic":best["traffic"],"segment_traffic":best["segment_traffic"],"alternatives":alternatives,
         "eta_basis":best["eta_basis"],"route_source":best["route_source"],
@@ -257,6 +285,10 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         "traffic_model_available":best.get("traffic_model_available",True),
         "traffic_snapshot_id":best.get("traffic_snapshot_id"),
         "traffic_score":best.get("traffic_score"),
+        "route_duration_seconds":best.get("route_duration_seconds"),
+        "base_duration_seconds":best.get("base_duration_seconds"),
+        "traffic_delay_seconds":best.get("traffic_delay_seconds"),
+        "provider":best.get("provider"),"provider_timestamp":best.get("provider_timestamp"),
         "retrieved_at":best.get("retrieved_at"),
         "decision":best["decision"],"decision_engine":engine.engine_name,"diagnostic":engine.diagnostic,
         "evaluation": evaluation,"recommendation_reason":recommendation_reason,

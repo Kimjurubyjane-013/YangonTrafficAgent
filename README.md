@@ -22,6 +22,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements-desktop.txt
 $env:HERE_API_KEY = "your-here-api-key"
+$env:TRAFFIC_MODE = "real"
 python main.py
 ```
 
@@ -37,6 +38,7 @@ python -m venv .venv-web
 .\.venv-web\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 $env:HERE_API_KEY = "your-here-api-key"
+$env:TRAFFIC_MODE = "real"
 python -m uvicorn web_api:app --reload
 ```
 
@@ -74,8 +76,9 @@ and is never imported by the Railway server.
 The committed configuration overrides the old dashboard command for each new
 deployment. Remove any stale dashboard Start Command such as `main:app` as
 housekeeping so the service settings are not misleading. `HERE_API_KEY` is
-optional: without it, real-road routing and the labelled academic traffic
-fallback remain available. SWI-Prolog is also optional because the
+required for live traffic. Without it, real OSRM/OpenStreetMap road geometry
+remains available, but traffic is reported as unavailable. SWI-Prolog is
+optional because the
 deterministic Python decision fallback is used when its runtime is absent.
 
 ## Deploy to Vercel
@@ -100,10 +103,22 @@ implementation of the same scoring contract. Nothing is mocked. Deploy the
 backend to a container/VPS with SWI-Prolog installed if Prolog execution is a
 hard production requirement.
 
-HERE Routing supplies current and historical traffic when configured. Without
-`HERE_API_KEY`, or when HERE is unavailable, the app keeps real
-OSRM/OpenStreetMap road geometry and uses the clearly labelled academic traffic
-snapshot. Simulated values are never presented as live measurements.
+HERE Routing supplies traffic-aware route duration when configured. HERE
+Traffic API v7 supplies the city dashboard flow snapshot, mapped geographically
+to modeled roads. Without `HERE_API_KEY`, or when HERE is unavailable, the app
+keeps real OSRM/OpenStreetMap road geometry and truthfully reports live traffic
+as unavailable. It does not silently substitute academic values.
+
+Traffic behavior is explicit through `TRAFFIC_MODE`:
+
+- `real` (default): provider traffic only; failures remain unavailable.
+- `simulation`: deterministic academic traffic for demonstrations.
+- `real_with_simulation_fallback`: try HERE first, then use the visibly labelled
+  academic simulation. This mode is opt-in and is not the production default.
+
+`TRAFFIC_CACHE_SECONDS` controls the HERE flow cache (default 60 seconds,
+bounded to 30-300). `APP_TIMEZONE` defaults to `Asia/Yangon`; request-time
+periods and dashboard timestamps use this zone rather than server-local time.
 
 For the complete HTTP test suite, install `requirements-dev.txt` and run:
 
@@ -141,12 +156,11 @@ second time. Delay and impact exposure each have a `0.5`-minute-equivalent cap,
 and preferred-road benefit is capped at `0.1`. A dominance guard prevents a route that is both slower and longer
 from ranking first unless it has a documented severe-traffic advantage.
 
-Live traffic durations depend on HERE Routing. A HERE duration already includes
+Live route traffic durations depend on HERE Routing. A HERE duration already includes
 traffic, so the application does not apply a second synthetic congestion
 multiplier. Base duration and traffic delay are preserved in the response. The
-OSRM fallback preserves real-road routing and consumes the shared simulated
-traffic snapshot; `traffic_data_available` remains false because the values are
-not provider telemetry.
+OSRM fallback preserves real-road routing and its base ETA, but in normal
+production mode it does not invent traffic classification or delay.
 
 ## Phase 2 traffic-intelligence foundation
 
@@ -168,7 +182,7 @@ Central configuration is in `app/traffic_config.py`. Supported road types are
 overview, route finder, explanations, map, and simulation can refer to the same
 state.
 
-Time periods use local application time:
+Time periods use `Asia/Yangon` application time:
 
 - 05:00-07:00: `EARLY_MORNING`
 - 07:00-09:30: `MORNING_RUSH`
