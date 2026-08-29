@@ -19,6 +19,10 @@ class WebApiTests(unittest.TestCase):
 
     def test_health_and_reference_data(self):
         self.assertEqual(self.client.get("/api/health").json(), {"status": "ok"})
+        self.assertEqual(
+            self.client.get("/health").json(),
+            {"status": "ok", "service": "Yangon Traffic Intelligence"},
+        )
         self.assertIn("Hledan Centre", self.client.get("/api/locations").json())
         self.assertIn("Car", self.client.get("/api/vehicles").json())
         graph = self.client.get("/api/graph").json()

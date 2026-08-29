@@ -29,8 +29,14 @@ class RoutePayload(BaseModel):
 
 
 @app.get("/api/health")
-def health() -> dict[str, str]:
+def api_health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/health", include_in_schema=False)
+def railway_health() -> dict[str, str]:
+    """Lightweight root probe used by Railway without touching the GUI."""
+    return {"status": "ok", "service": "Yangon Traffic Intelligence"}
 
 
 @app.get("/api/locations")

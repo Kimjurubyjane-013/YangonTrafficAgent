@@ -46,6 +46,7 @@ Open `http://127.0.0.1:8000`. API documentation is available at
 HTTP endpoints:
 
 - `GET /api/health`
+- `GET /health` (production platform health probe)
 - `GET /api/locations`
 - `GET /api/vehicles`
 - `GET /api/graph`
@@ -54,6 +55,28 @@ HTTP endpoints:
 - `GET /api/traffic/best-flowing?limit=8`
 - `GET /api/traffic/{road_id}`
 - `POST /api/route`
+
+## Deploy to Railway
+
+Railway runs the FastAPI browser/API entry point independently from the
+pywebview desktop entry point. The repository-level `railway.json` supplies the
+production command:
+
+```text
+uvicorn web_api:app --host 0.0.0.0 --port $PORT
+```
+
+Use the repository root as the Railway service root. Railway provides `PORT`;
+do not replace it with a fixed port. The configured health check is `GET
+/health`. `main.py` remains exclusively for `python main.py` desktop startup
+and is never imported by the Railway server.
+
+The committed configuration overrides the old dashboard command for each new
+deployment. Remove any stale dashboard Start Command such as `main:app` as
+housekeeping so the service settings are not misleading. `HERE_API_KEY` is
+optional: without it, real-road routing and the labelled academic traffic
+fallback remain available. SWI-Prolog is also optional because the
+deterministic Python decision fallback is used when its runtime is absent.
 
 ## Deploy to Vercel
 

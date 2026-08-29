@@ -100,6 +100,18 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn('"src": "web_api.py"',vercel)
         self.assertNotIn("import webview",web_api)
 
+    def test_railway_uses_the_http_entrypoint_not_the_desktop_entrypoint(self):
+        root=Path(__file__).parent
+        railway=(root/"railway.json").read_text(encoding="utf-8")
+        main=(root/"main.py").read_text(encoding="utf-8")
+        web_api=(root/"web_api.py").read_text(encoding="utf-8")
+        self.assertIn('"startCommand": "uvicorn web_api:app --host 0.0.0.0 --port $PORT"',railway)
+        self.assertIn('"healthcheckPath": "/health"',railway)
+        self.assertIn('app = FastAPI(',web_api)
+        self.assertIn('@app.get("/health"',web_api)
+        self.assertNotIn('app = FastAPI(',main)
+        self.assertIn('if __name__ == "__main__":',main)
+
     def test_desktop_startup_wires_pywebview_without_opening_a_window(self):
         from app.startup import run
         with patch("webview.create_window") as create_window, patch("webview.start") as start:
