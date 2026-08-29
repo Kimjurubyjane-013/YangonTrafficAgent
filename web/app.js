@@ -28,6 +28,7 @@
                     setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
                 });
             }
+            if (dashboardVisible) setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
         }
 
         function applyTheme(theme) {

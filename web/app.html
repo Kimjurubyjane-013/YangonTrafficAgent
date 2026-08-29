@@ -354,28 +354,41 @@
 
 <main class="traffic-dashboard" id="dashboard-view" hidden>
     <section class="dashboard-head">
-        <div><div class="panel-kicker">Citywide Traffic Monitoring</div><h1>Yangon Traffic Intelligence Dashboard</h1><p>Current provider-backed road conditions, congestion pressure, and transparent traffic availability.</p></div>
-        <button type="button" id="refresh-traffic" class="dashboard-refresh">Refresh Traffic</button>
+        <div><div class="panel-kicker">Citywide Traffic Monitoring</div><h1>Yangon Traffic Intelligence</h1><p>Live traffic conditions and citywide congestion insights.</p></div>
+        <button type="button" id="refresh-traffic" class="dashboard-refresh"><span aria-hidden="true">↻</span> Refresh Traffic</button>
     </section>
     <div class="traffic-context" id="traffic-context" aria-live="polite">
+        <span class="live-status"><i aria-hidden="true"></i><small>Status</small><strong id="context-live">Loading</strong></span>
         <span><small>Current Period</small><strong id="context-period">—</strong></span>
-        <span><small>Traffic Source</small><strong id="context-source">—</strong></span>
         <span><small>Yangon Time</small><strong id="context-snapshot">—</strong></span>
         <span><small>Traffic Updated</small><strong id="context-provider-updated">—</strong></span>
         <span><small>Rush Hour</small><strong id="context-rush">—</strong></span>
+        <span class="traffic-source-chip"><small>Traffic Source</small><strong id="context-source">—</strong></span>
     </div>
     <div class="dashboard-state" id="dashboard-state" role="status">Loading current traffic intelligence…</div>
     <section class="traffic-summary-grid" aria-label="Traffic summary">
-        <article class="health-card"><div><span>Traffic Health</span><strong><b id="health-score">—</b> / 100</strong><em id="health-label">Loading</em></div><div class="health-meter" aria-hidden="true"><i id="health-meter-fill"></i></div><small id="health-period">Current Traffic Model</small></article>
-        <article class="traffic-stat heavy"><span>Heavy Roads</span><strong id="heavy-count">—</strong><small>High congestion</small></article>
-        <article class="traffic-stat moderate"><span>Moderate Roads</span><strong id="moderate-count">—</strong><small>Slower movement</small></article>
-        <article class="traffic-stat light"><span>Light Roads</span><strong id="light-count">—</strong><small>Free flowing</small></article>
-        <article class="traffic-stat neutral"><span>Average Traffic Score</span><strong id="average-score">—</strong><small>Across modeled roads</small></article>
+        <article class="health-card"><div class="health-card-copy"><span>Traffic Health</span><strong><b id="health-score">—</b><small>/ 100</small></strong><em id="health-label">Loading</em><p id="health-explanation">Checking monitored roads…</p></div><div class="health-gauge" aria-hidden="true"><i id="health-meter-fill"></i><span></span></div><small id="health-period">Current Traffic Period</small></article>
+        <div class="traffic-metric-grid">
+            <article class="traffic-stat light"><span><i aria-hidden="true"></i>Light Roads</span><strong id="light-count">—</strong><small>Free flowing</small></article>
+            <article class="traffic-stat moderate"><span><i aria-hidden="true"></i>Moderate Roads</span><strong id="moderate-count">—</strong><small>Congestion developing</small></article>
+            <article class="traffic-stat heavy"><span><i aria-hidden="true"></i>Heavy Roads</span><strong id="heavy-count">—</strong><small>High congestion</small></article>
+            <article class="traffic-stat neutral"><span><i aria-hidden="true"></i>Average Score</span><strong id="average-score">—</strong><small>Matched monitored roads</small></article>
+        </div>
+    </section>
+    <section class="dashboard-overview-grid">
+        <article class="dashboard-card traffic-map-card">
+            <div class="dashboard-card-head"><div><span>Network View</span><h2>Traffic Overview</h2></div><small>Matched monitored roads</small></div>
+            <div class="dashboard-map-wrap"><div id="dashboard-traffic-map" aria-label="Map of monitored Yangon roads by traffic condition"></div><div id="dashboard-map-empty" class="dashboard-map-empty" hidden>Traffic geometry is unavailable for this refresh.</div><div class="dashboard-map-legend" aria-label="Traffic Conditions legend"><strong>Traffic Conditions</strong><span><i class="light"></i>Light</span><span><i class="moderate"></i>Moderate</span><span><i class="heavy"></i>Heavy</span><span><i class="unknown"></i>No Data</span></div></div>
+        </article>
+        <article class="dashboard-card city-insight-card">
+            <div class="dashboard-card-head"><div><span>At A Glance</span><h2>City Traffic Insight</h2></div></div>
+            <div class="city-insight-body"><div class="insight-symbol" aria-hidden="true">YGN</div><p id="city-insight">Waiting for current traffic evidence.</p><dl><div><dt>Roads Matched</dt><dd id="matched-road-count">—</dd></div><div><dt>Provider Records</dt><dd id="flow-record-count">—</dd></div></dl></div>
+        </article>
     </section>
     <section class="dashboard-lists">
         <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Priority Monitoring</span><h2>Congestion Hotspots</h2></div></div><div id="hotspot-list" class="ranked-road-list"></div></article>
         <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Network Performance</span><h2>Best Flowing Roads</h2></div></div><div id="best-flow-list" class="ranked-road-list"></div></article>
-        <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Traffic Evidence</span><h2>Traffic Trends</h2></div></div><div id="trend-summary" class="trend-summary"></div><small class="model-note">Provider-backed traffic evidence refreshes with the current snapshot.</small></article>
+        <article class="dashboard-card trend-card"><div class="dashboard-card-head"><div><span>Traffic Evidence</span><h2>Traffic Trends</h2></div></div><div id="trend-summary" class="trend-summary"></div><small class="model-note">Provider-backed traffic evidence refreshes with the current snapshot.</small></article>
     </section>
 </main>
 

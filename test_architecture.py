@@ -85,8 +85,9 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("YangonApi.trafficOverview()",dashboard)
         self.assertIn("data.roads",dashboard)
         self.assertNotIn("Math.random",dashboard)
-        self.assertNotIn("L.map",dashboard)
-        self.assertNotIn("traffic-map",dashboard)
+        self.assertIn("L.map('dashboard-traffic-map'",dashboard)
+        self.assertIn("getTrafficColor(trafficLevel(road.traffic_level))",dashboard)
+        self.assertIn("graphRoads()",dashboard)
 
     def test_browser_transport_and_vercel_entrypoint_are_present(self):
         root=Path(__file__).parent
@@ -135,6 +136,8 @@ class ArchitectureTests(unittest.TestCase):
         for level, color in (("Light", "#2F9E68"), ("Moderate", "#D88918"), ("Heavy", "#D94B42")):
             self.assertIn(f"{level}: Object.freeze({{ css: '{color}'", palette)
             self.assertIn(f"var(--traffic-{level.lower()})", css)
+        self.assertIn("Unknown: Object.freeze({ css: '#71808A'", palette)
+        self.assertIn("getTrafficColor: css", palette)
 
         self.assertLess(html.index('./traffic-colors.js'), html.index('./simulation3d.js'))
         self.assertIn("YangonTrafficColors.css(traffic)", html)
