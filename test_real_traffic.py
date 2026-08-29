@@ -97,29 +97,32 @@ class RealTrafficTests(unittest.TestCase):
         self.assertIn("--text-primary", css)
         self.assertIn("--surface-raised", css)
         self.assertIn("body[data-theme=dark]", css)
-        self.assertIn("|| 'Unavailable'", html)
-        self.assertNotIn("normalize(option.traffic) || 'Light'", html)
 
-    def test_real_mode_does_not_silently_fallback(self):
+    def test_real_mode_falls_back_to_inferred_when_here_unavailable(self):
+        """When HERE is unavailable in real mode, inferred traffic is used (not empty)."""
         class Missing:
             def refresh(self, force=False):
                 raise HereFlowUnavailable("provider unavailable")
         backend = TrafficBackend(real_service=Missing())
         with patch.dict(os.environ, {"TRAFFIC_MODE": "real"}):
             result = backend.overview()
-        self.assertFalse(result["available"])
-        self.assertEqual(result["roads"], [])
-        self.assertEqual(result["traffic_source"], "unavailable")
+        # New behavior: inferred traffic provides data even when HERE is unavailable
+        self.assertTrue(result["available"])
+        self.assertTrue(result["roads"])
+        self.assertIn(result["traffic_source"], ("Inferred Traffic", "inferred_traffic"))
+        self.assertEqual(result["mode"], "inferred")
 
     def test_explicit_simulation_mode_remains_available(self):
         backend = TrafficBackend()
         with patch.dict(os.environ, {"TRAFFIC_MODE": "simulation"}):
             result = backend.overview()
         self.assertTrue(result["available"])
-        self.assertEqual(result["traffic_source"], "Academic Simulation")
+        # Source is now labelled as inferred traffic (was "Academic Simulation")
+        self.assertIn(result["traffic_source"], ("Academic Simulation", "Inferred Traffic"))
         self.assertTrue(result["roads"])
 
-    def test_osrm_route_in_real_mode_keeps_traffic_unavailable(self):
+    def test_osrm_route_in_real_mode_uses_inferred_traffic(self):
+        """When OSRM route has no HERE traffic, inferred model fills in traffic."""
         provider = lambda *_args, **_kwargs: [{
             "provider_id": 0, "distance": 2.0, "duration": 4.0,
             "geometry": [[16.8262, 96.13049], [16.8172, 96.1314]],
@@ -130,10 +133,37 @@ class RealTrafficTests(unittest.TestCase):
                 "Hledan Centre", "Junction Square", "Car",
                 route_provider=provider, decision_engine=RouteDecisionEngine(False),
             )
-        self.assertEqual(result["traffic"], "Unavailable")
+        # New behavior: traffic is always inferred (never "Unavailable") when no HERE data
+        self.assertIn(result["traffic"], ("Light", "Moderate", "Heavy"))
         self.assertFalse(result["traffic_data_available"])
-        self.assertFalse(result["traffic_model_available"])
-        self.assertIsNone(result["traffic_delay"])
+        self.assertTrue(result["traffic_model_available"])
+        self.assertIsNotNone(result["traffic_delay"])
+
+    def test_partial_here_snapshot_is_merged_with_inference(self):
+        service = HereFlowTrafficService(request_get=lambda *_a, **_kw: _Response(_payload()))
+        backend = TrafficBackend(real_service=service)
+        with patch.dict(os.environ, {"HERE_API_KEY": "test-key", "TRAFFIC_MODE": "real"}):
+            result = backend.overview(force=True)
+        sources = {road["source"] for road in result["roads"]}
+        self.assertIn("HERE", sources)
+        self.assertIn("INFERRED", sources)
+        self.assertEqual(result["traffic_mode_label"], "Mixed")
+        self.assertEqual(sum(result[key] for key in (
+            "provider_coverage_percent", "inferred_coverage_percent", "unknown_coverage_percent")), 100.0)
+
+    def test_unknown_is_used_only_when_provider_and_inference_fail(self):
+        class Missing:
+            def refresh(self, force=False):
+                raise HereFlowUnavailable("provider unavailable")
+        class BrokenInference:
+            def overview(self, force=False):
+                raise RuntimeError("model unavailable")
+        backend = TrafficBackend(real_service=Missing(), simulation_engine=BrokenInference())
+        with patch.dict(os.environ, {"TRAFFIC_MODE": "real"}):
+            result = backend.overview()
+        self.assertEqual(result["traffic_mode_label"], "Unknown")
+        self.assertEqual(result["unknown_coverage_percent"], 100.0)
+        self.assertTrue(all(road["source"] == "UNKNOWN" for road in result["roads"]))
 
 
 if __name__ == "__main__":

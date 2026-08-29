@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from agent.real_world_agent import run_real_world_agent
+from agent.real_world_agent import _coverage_from_sources, _weighted_level, run_real_world_agent
 from algorithms.vehicle import calculate_real_route_time
 from services.osrm_service import _english_road_names
 from services.route_decision_engine import RouteDecisionEngine
@@ -42,7 +42,8 @@ class RealWorldPipelineTests(unittest.TestCase):
                 self.assertTrue(result["geometry"])
                 self.assertTrue(result["alternatives"])
                 self.assertIn(result["traffic"], {"Light", "Moderate", "Heavy"})
-                self.assertEqual(result["traffic_source"], "Academic Simulation")
+                # Source is now "Inferred Traffic Model" (was "Academic Simulation")
+                self.assertIn(result["traffic_source"], ("Academic Simulation", "Inferred Traffic Model"))
                 self.assertTrue(result["recommendation_reason"]["explanation"])
 
     def test_english_names_are_clean_and_deduplicated(self):
@@ -84,8 +85,10 @@ class RealWorldPipelineTests(unittest.TestCase):
         self.assertFalse(result["traffic_data_available"])
         self.assertTrue(result["traffic_model_available"])
         self.assertTrue(result["traffic_snapshot_id"])
-        self.assertEqual(result["traffic_source"], "Academic Simulation")
-        self.assertIn("provider unavailable", result["provider_notice"].lower())
+        # Source is now "Inferred Traffic Model" (was "Academic Simulation")
+        self.assertIn(result["traffic_source"], ("Academic Simulation", "Inferred Traffic Model"))
+        # Notice mentions HERE unavailability
+        self.assertIn("here", result["provider_notice"].lower())
 
     def test_internal_provider_labels_are_not_displayed_as_roads(self):
         result=run_real_world_agent("Hledan Centre","Myanmar Plaza","Car",route_provider=fake_provider,decision_engine=RouteDecisionEngine(False))
@@ -152,6 +155,32 @@ class RealWorldPipelineTests(unittest.TestCase):
         self.assertEqual(result["traffic_time"], 8.0)
         self.assertEqual(result["traffic_delay"], 1.0)
         self.assertIsNone(result["provider_notice"])
+
+    def test_hybrid_segment_contract_and_exact_coverage(self):
+        self.assertEqual(_coverage_from_sources(["HERE", "INFERRED", "UNKNOWN"]), (33.3, 33.3, 33.4))
+        level, score = _weighted_level(
+            ["Heavy", "Light"],
+            [[[16.8, 96.1], [16.8001, 96.1]], [[16.8, 96.1], [16.81, 96.1]]],
+        )
+        self.assertEqual(level, "Light")
+        self.assertLess(score, 35)
+
+    def test_partial_provider_route_is_labelled_mixed(self):
+        def provider(*_args, **_kwargs):
+            return [{"provider_id": 0, "distance": 4.0, "duration": 8.0,
+                "traffic_level": "Moderate", "segment_traffic": ["Moderate", "Unknown"],
+                "segment_sources": ["HERE", "UNKNOWN"], "traffic_data_available": True,
+                "geometry": [[16.8262, 96.13049], [16.8172, 96.1314]],
+                "traffic_geometry": [[[16.8262, 96.13049], [16.822, 96.131]],
+                                     [[16.822, 96.131], [16.8172, 96.1314]]],
+                "road_names": ["Pyay Road"], "source": "here-traffic"}]
+        result = run_real_world_agent("Hledan Centre", "Junction Square", "Car",
+            route_provider=provider, decision_engine=RouteDecisionEngine(False))
+        self.assertEqual(result["traffic_source_label"], "MIXED")
+        self.assertEqual(result["segment_sources"], ["HERE", "INFERRED"])
+        self.assertEqual(result["provider_coverage_percent"], 50.0)
+        self.assertEqual(result["inferred_coverage_percent"], 50.0)
+        self.assertEqual(result["unknown_coverage_percent"], 0.0)
 
 
 if __name__ == "__main__": unittest.main()

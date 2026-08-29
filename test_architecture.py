@@ -1,4 +1,5 @@
 import unittest
+import importlib.util
 from pathlib import Path
 from unittest.mock import patch
 
@@ -61,7 +62,8 @@ class ArchitectureTests(unittest.TestCase):
             "scenario-mode","departure-band","incident-level","closed-road","analysis-view","analysis-btn",
             "analysis-back","route-provenance","route-comparison","nav-dashboard","dashboard-view",
             "health-score","hotspot-list","best-flow-list","r-traffic-source","route-why",
-            "traffic-unavailable","dashboard-available","retry-traffic","refresh-traffic"):
+            "dashboard-available","dashboard-error-row","retry-traffic","refresh-traffic",
+            "coverage-bars","provider-status-note"):
             self.assertIn(f'id="{element_id}"',html)
         for removed_id in ("nav-traffic","nav-simulation","traffic-map-view","dashboard-map","legacy-home-view"):
             self.assertNotIn(f'id="{removed_id}"',html)
@@ -92,9 +94,9 @@ class ArchitectureTests(unittest.TestCase):
         self.assertNotIn("dashboard-traffic-map",html)
         self.assertNotIn("dashboard-map-wrap",css)
         self.assertNotIn("dashboard-map-legend",css)
-        self.assertIn('id="traffic-unavailable"',html)
+        self.assertIn('id="dashboard-error-row"',html)
+        self.assertIn("data.unknown_coverage_percent",dashboard)
         self.assertIn("byId('dashboard-available').hidden = true",dashboard)
-        self.assertIn("byId('traffic-unavailable').hidden = true",dashboard)
 
     def test_browser_transport_and_vercel_entrypoint_are_present(self):
         root=Path(__file__).parent
@@ -121,6 +123,8 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn('if __name__ == "__main__":',main)
 
     def test_desktop_startup_wires_pywebview_without_opening_a_window(self):
+        if importlib.util.find_spec("webview") is None:
+            self.skipTest("optional pywebview desktop runtime is not installed")
         from app.startup import run
         with patch("webview.create_window") as create_window, patch("webview.start") as start:
             run()

@@ -131,6 +131,7 @@ def _route_record(route: dict, provider_id: int, retrieved_at: str, provider_tim
         "traffic_delay_seconds": round(max(0.0, duration - base_duration)),
         "traffic_level": level,
         "segment_traffic": section_levels or [level],
+        "segment_sources": ["HERE"] * max(1, len(section_levels)),
         "traffic_geometry": traffic_geometry,
         "traffic_data_available": True,
         "traffic_source": "HERE Traffic",

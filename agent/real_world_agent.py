@@ -1,4 +1,5 @@
-"""Real-road route pipeline: HERE traffic candidates + symbolic ranking."""
+"""Real-road route pipeline: provider geometry, hybrid traffic, symbolic ranking."""
+import math
 import re
 
 from algorithms.graph import LOCATION_COORDS
@@ -11,6 +12,8 @@ from services.traffic_service import TRAFFIC_ENGINE
 
 _ENGINE = None
 _GENERIC_ROAD_WORDS = {"road", "street", "avenue", "lane", "highway", "route"}
+_TRAFFIC_SCORE = {"Light": 25.0, "Moderate": 55.0, "Heavy": 85.0}
+_VALID_TRAFFIC = frozenset(_TRAFFIC_SCORE)
 
 
 def _format_minutes(value):
@@ -109,6 +112,73 @@ def _time_band(conditions):
     return "peak" if hour in {7,8,9,16,17,18,19} else "off_peak"
 
 
+def _polyline_length(points):
+    total = 0.0
+    points = points or ()
+    for first, second in zip(points, points[1:]):
+        lat1, lon1 = map(math.radians, first[:2])
+        lat2, lon2 = map(math.radians, second[:2])
+        dlat, dlon = lat2 - lat1, lon2 - lon1
+        value = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        total += 6371.0 * 2 * math.asin(min(1.0, math.sqrt(value)))
+    return total
+
+
+def _coverage_from_sources(sources):
+    total = len(sources)
+    if not total:
+        return 0.0, 0.0, 100.0
+    provider = round(sources.count("HERE") / total * 100, 1)
+    inferred = round(sources.count("INFERRED") / total * 100, 1)
+    return provider, inferred, round(max(0.0, 100.0 - provider - inferred), 1)
+
+
+def _weighted_level(levels, traffic_geometry=None):
+    valid = [(index, level) for index, level in enumerate(levels) if level in _VALID_TRAFFIC]
+    if not valid:
+        return "Unknown", None
+    weights = []
+    for index, _level in valid:
+        geometry = traffic_geometry[index] if traffic_geometry and index < len(traffic_geometry) else ()
+        weights.append(max(0.001, _polyline_length(geometry)))
+    score = sum(_TRAFFIC_SCORE[level] * weight for (_, level), weight in zip(valid, weights)) / sum(weights)
+    level = "Light" if score <= 35 else "Moderate" if score <= 70 else "Heavy"
+    return level, round(score, 1)
+
+
+def _effective_route_traffic(route, model_state):
+    """Merge provider sections with inference and retain honest provenance."""
+    provider_levels = list(route.get("segment_traffic") or ())
+    provider_sources = [str(value).upper() for value in (route.get("segment_sources") or ())]
+    complete_provider_response = bool(route.get("traffic_data_available") and not provider_sources)
+    if complete_provider_response:
+        provider_sources = ["HERE"] * max(1, len(provider_levels))
+    inferred_levels = list(model_state.get("segment_traffic") or ())
+    if provider_sources:
+        size = max(len(provider_levels), len(provider_sources), 1)
+    else:
+        size = max(len(inferred_levels), 1)
+    levels, sources = [], []
+    for index in range(size):
+        provider_level = provider_levels[index] if index < len(provider_levels) else None
+        provider_source = provider_sources[index] if index < len(provider_sources) else "UNKNOWN"
+        inferred_level = inferred_levels[index % len(inferred_levels)] if inferred_levels else None
+        if provider_source == "HERE" and provider_level in _VALID_TRAFFIC:
+            levels.append(provider_level); sources.append("HERE")
+        elif inferred_level in _VALID_TRAFFIC:
+            levels.append(inferred_level); sources.append("INFERRED")
+        else:
+            levels.append("Unknown"); sources.append("UNKNOWN")
+    level, score = _weighted_level(levels, route.get("traffic_geometry"))
+    provider, inferred, unknown = _coverage_from_sources(sources)
+    label = "HERE" if provider == 100 else "INFERRED" if inferred == 100 else "UNKNOWN" if unknown == 100 else "MIXED"
+    description = {"HERE": "HERE Real-Time Traffic", "INFERRED": "Inferred Traffic Model", "MIXED": "Mixed Traffic Data", "UNKNOWN": "Traffic Data Unavailable"}[label]
+    return {"traffic": level, "traffic_score": score, "segment_traffic": levels,
+            "segment_sources": sources, "traffic_source_label": label,
+            "traffic_source": description, "provider_coverage_percent": provider,
+            "inferred_coverage_percent": inferred, "unknown_coverage_percent": unknown}
+
+
 def run_real_world_agent(start, destination, vehicle, conditions=None, route_provider=None, decision_engine=None,
                          traffic_engine=None, traffic_snapshot=None):
     conditions = dict(conditions or {})
@@ -131,9 +201,9 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
     conditions.setdefault("incident", "none")
     mode = traffic_mode()
     traffic_engine = traffic_engine or TRAFFIC_ENGINE
-    use_simulation = mode == "simulation"
-    allow_simulation_fallback = mode == "real_with_simulation_fallback"
-    if (use_simulation or allow_simulation_fallback) and traffic_snapshot is None:
+    # Always obtain inferred traffic snapshot — used as fallback for segments
+    # without provider coverage, regardless of traffic mode setting.
+    if traffic_snapshot is None:
         traffic_snapshot = traffic_engine.get_snapshot()
     candidates = []
     closure_rejections = []
@@ -150,36 +220,39 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         road_label = route["road_names"][0] if route["road_names"] else "Mapped road route"
         road_summary = route["road_names"]
         has_real_traffic = bool(route.get("traffic_data_available"))
-        use_model_for_route = not has_real_traffic and (use_simulation or allow_simulation_fallback)
+
+        # Always compute inferred model state — used as segment fallback even
+        # when HERE provides the route-level traffic.
         model_state = traffic_engine.route_state(
             start, destination, route.get("road_names", ()), traffic_snapshot
-        ) if use_model_for_route else None
-        level = route.get("traffic_level") if has_real_traffic else (
-            model_state["traffic_level"] if model_state else "Unavailable"
         )
-        segment_traffic = route.get("segment_traffic") if has_real_traffic else (
-            model_state["segment_traffic"] if model_state else ["Unavailable"]
+
+        effective = _effective_route_traffic(route, model_state)
+        level = effective["traffic"]
+        segment_traffic = effective["segment_traffic"]
+        traffic_source_label = effective["traffic_source_label"]
+        traffic_source_full = effective["traffic_source"]
+        provider_notice = None if traffic_source_label == "HERE" else (
+            "Some traffic sections use inferred estimates." if traffic_source_label == "MIXED"
+            else "HERE traffic is unavailable; traffic is estimated from the inferred traffic model."
         )
-        eta_basis = (
-            "HERE traffic-aware duration adjusted for the selected vehicle"
-            if has_real_traffic else
-            "Provider base road ETA adjusted for the selected vehicle; real-time traffic unavailable"
-            if not model_state else
-            "Provider road duration adjusted by the explicitly enabled academic traffic simulation and vehicle type"
-        )
+        eta_basis = ("HERE traffic-aware duration adjusted for the selected vehicle" if traffic_source_label == "HERE"
+                     else "Road duration adjusted by effective segment traffic and vehicle type")
+
         model_segments = []
         if has_real_traffic:
             model_segments.append({"index":0,"name":road_label,"road_class":"arterial",
                 "traffic":str(level).lower(),"preferred":False,"one_way_ok":True})
-        elif model_state:
-            for index, road_id in enumerate(model_state["road_ids"]):
-                road = traffic_engine.repository.by_id[road_id]
-                state = traffic_snapshot.roads[road_id]
-                model_segments.append({
-                    "index": index, "name": road.road_name, "road_class": road.road_type,
-                    "traffic": state.traffic_level.lower(), "preferred": road.preferred,
-                    "one_way_ok": road.bidirectional,
-                })
+        else:
+            for index, road_id in enumerate(model_state.get("road_ids", [])):
+                road = traffic_engine.repository.by_id.get(road_id)
+                state = traffic_snapshot.roads.get(road_id)
+                if road and state:
+                    model_segments.append({
+                        "index": index, "name": road.road_name, "road_class": road.road_type,
+                        "traffic": state.traffic_level.lower(), "preferred": road.preferred,
+                        "one_way_ok": road.bidirectional,
+                    })
         if not model_segments:
             model_segments = [{"index":0,"name":road_label,"road_class":"arterial",
                 "traffic":str(level).lower() if level in {"Light", "Moderate", "Heavy"} else "light",
@@ -189,47 +262,44 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             # Provider/corridor labels are internal metadata, not road names.
             "display_route": [start, *road_summary, destination],
             "distance": route["distance"],
-            # HERE duration already includes traffic. Passing Light here avoids
-            # applying a second synthetic congestion multiplier; vehicle
-            # characteristics remain part of the existing domain model.
+            # HERE duration already includes traffic. For inferred traffic, apply
+            # the inferred level multiplier; vehicle characteristics also apply.
             "time": calculate_real_route_time(
                 route["duration"], route["distance"], vehicle,
-                "Light" if has_real_traffic or level == "Unavailable" else level,
+                "Light" if has_real_traffic else level,
             ),
-            "traffic": level, "segment_traffic": segment_traffic or [level], "geometry": route["geometry"],
+            "traffic": level,
+            "segment_traffic": segment_traffic,
+            "segment_sources": effective["segment_sources"],
+            "geometry": route["geometry"],
             "traffic_geometry": route.get("traffic_geometry"),
             "road_names": route["road_names"],
             "eta_basis": eta_basis,
             "route_source": route.get("source", "unknown-real-road-provider"),
             "base_duration": route.get("base_duration", route.get("duration")),
             "traffic_time": route.get("duration") if has_real_traffic else None,
-            "traffic_delay": route.get("traffic_delay") if has_real_traffic else (
-                model_state["estimated_delay_minutes"] if model_state else None
-            ),
+            "traffic_delay": route.get("traffic_delay") if has_real_traffic else model_state["estimated_delay_minutes"],
             "route_duration_seconds": route.get("route_duration_seconds", round(float(route["duration"]) * 60)),
             "base_duration_seconds": route.get("base_duration_seconds", round(float(route.get("base_duration", route["duration"])) * 60)),
             "traffic_delay_seconds": route.get("traffic_delay_seconds") if has_real_traffic else None,
             "provider": route.get("provider", route.get("source")),
             "provider_timestamp": route.get("provider_timestamp", route.get("retrieved_at")),
-            "traffic_source": "HERE Real-Time Traffic" if has_real_traffic else (
-                "Academic Simulation" if model_state else "Real-time provider unavailable"
-            ),
-            "provider_notice": None if has_real_traffic else (
-                "Real-time traffic unavailable; displaying base route ETA only."
-                if not model_state else
-                "Real-time traffic provider unavailable; academic simulation is explicitly enabled."
-            ),
+            "traffic_source": traffic_source_full,
+            "traffic_source_label": traffic_source_label,
+            "provider_coverage_percent": effective["provider_coverage_percent"],
+            "inferred_coverage_percent": effective["inferred_coverage_percent"],
+            "unknown_coverage_percent": effective["unknown_coverage_percent"],
+            "provider_notice": provider_notice,
             "traffic_data_available": has_real_traffic,
-            "traffic_model_available": bool(model_state),
-            "traffic_snapshot_id": traffic_snapshot.snapshot_id if model_state else None,
-            "traffic_score": route.get("traffic_score", model_state["average_score"] if model_state else None),
+            "traffic_model_available": True,  # Always true now — inferred is always computed
+            "traffic_snapshot_id": traffic_snapshot.snapshot_id,
+            "traffic_score": effective["traffic_score"] if effective["traffic_score"] is not None else model_state.get("average_score"),
             "heavy_segments": (
-                sum(str(item).lower() == "heavy" for item in (segment_traffic or [level]))
-                if has_real_traffic else model_state["heavy_segments"] if model_state else 0
+                sum(str(item).lower() == "heavy" for item in segment_traffic)
             ),
-            "critical_segments": route.get("critical_segments", model_state["critical_segments"] if model_state else 0),
-            "cumulative_traffic_impact": route.get("cumulative_traffic_impact", model_state["cumulative_traffic_impact"] if model_state else 0),
-            "average_congestion_pressure": route.get("average_congestion_pressure", model_state["average_congestion_pressure"] if model_state else 0),
+            "critical_segments": route.get("critical_segments", model_state["critical_segments"]),
+            "cumulative_traffic_impact": route.get("cumulative_traffic_impact", model_state["cumulative_traffic_impact"]),
+            "average_congestion_pressure": route.get("average_congestion_pressure", model_state["average_congestion_pressure"]),
             "retrieved_at": route.get("retrieved_at"),
             "segments": model_segments,
         })
@@ -275,11 +345,16 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
     return {"route":best["route"],"display_route":best["display_route"],"geometry":best["geometry"],
         "traffic_geometry":best.get("traffic_geometry"),
         "road_names":best["road_names"],"distance":best["distance"],"time":best["time"],
-        "traffic":best["traffic"],"segment_traffic":best["segment_traffic"],"alternatives":alternatives,
+        "traffic":best["traffic"],"segment_traffic":best["segment_traffic"],
+        "segment_sources":best.get("segment_sources",[]),"alternatives":alternatives,
         "eta_basis":best["eta_basis"],"route_source":best["route_source"],
         "base_duration":best.get("base_duration"),"traffic_delay":best.get("traffic_delay"),
         "traffic_time":best.get("traffic_time"),
         "traffic_source":best.get("traffic_source"),
+        "traffic_source_label":best.get("traffic_source_label","INFERRED"),
+        "provider_coverage_percent":best.get("provider_coverage_percent",0),
+        "inferred_coverage_percent":best.get("inferred_coverage_percent",0),
+        "unknown_coverage_percent":best.get("unknown_coverage_percent",0),
         "provider_notice":best.get("provider_notice"),
         "traffic_data_available":best.get("traffic_data_available",False),
         "traffic_model_available":best.get("traffic_model_available",True),

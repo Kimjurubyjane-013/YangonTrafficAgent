@@ -354,36 +354,82 @@
 
 <main class="traffic-dashboard" id="dashboard-view" hidden>
     <section class="dashboard-head">
-        <div><div class="panel-kicker">Citywide Traffic Monitoring</div><h1>Yangon Traffic Intelligence</h1><p id="dashboard-subtitle">Real-time traffic insights and smart route recommendations.</p></div>
-        <button type="button" id="refresh-traffic" class="dashboard-refresh"><span aria-hidden="true">↻</span> Refresh Traffic</button>
+        <div>
+            <div class="panel-kicker">Citywide Traffic Monitoring</div>
+            <h1>Yangon Traffic Intelligence</h1>
+            <p id="dashboard-subtitle">Current traffic conditions and route insights.</p>
+        </div>
+        <button type="button" id="refresh-traffic" class="dashboard-refresh"><span aria-hidden="true">↻</span> Refresh</button>
     </section>
+
+    <!-- Status row -->
     <div class="traffic-context" id="traffic-context" aria-live="polite">
-        <span class="live-status"><i aria-hidden="true"></i><small>Status</small><strong id="context-live">Loading</strong></span>
-        <span><small>Current Period</small><strong id="context-period">—</strong></span>
         <span><small>Yangon Time</small><strong id="context-snapshot">—</strong></span>
-        <span><small>Traffic Updated</small><strong id="context-provider-updated">—</strong></span>
+        <span><small>Traffic Mode</small><strong id="context-live">Loading</strong></span>
+        <span><small>Current Period</small><strong id="context-period">—</strong></span>
         <span><small>Rush Hour</small><strong id="context-rush">—</strong></span>
-        <span class="traffic-source-chip"><small>Traffic Source</small><strong id="context-source">—</strong></span>
+        <span><small>Last Updated</small><strong id="context-provider-updated">—</strong></span>
     </div>
-    <div class="dashboard-state" id="dashboard-state" role="status">Loading current traffic intelligence…</div>
-    <section class="traffic-unavailable" id="traffic-unavailable" hidden>
-        <div class="unavailable-icon" aria-hidden="true">!</div>
-        <div><h2>Real-Time Traffic Unavailable</h2><p>We could not retrieve live traffic conditions right now. Route planning is still available using base road geometry.</p><dl><div><dt>Yangon Time</dt><dd id="unavailable-time">—</dd></div><div><dt>Traffic Provider</dt><dd id="unavailable-provider">—</dd></div><div><dt>Status</dt><dd>Unavailable</dd></div></dl></div>
-        <button type="button" id="retry-traffic" class="dashboard-retry">Retry Traffic</button>
-    </section>
+
+    <div class="dashboard-state" id="dashboard-state" role="status" hidden>Loading current traffic intelligence…</div>
+
+    <!-- Main dashboard content — always shown when data is available -->
     <div id="dashboard-available" hidden>
+
+    <!-- Traffic Health + Metric Cards -->
     <section class="traffic-summary-grid" aria-label="Traffic Status Summary">
-        <article class="health-card"><div class="health-card-copy"><span>Traffic Health</span><strong><b id="health-score">—</b><small>/ 100</small></strong><em id="health-label">Loading</em><p id="health-explanation">Checking monitored roads…</p></div><div class="health-gauge" aria-hidden="true"><i id="health-meter-fill"></i><span></span></div><small id="health-period">Current Traffic Period</small></article>
+        <article class="health-card">
+            <div class="health-card-copy">
+                <span>Traffic Health</span>
+                <strong><b id="health-score">—</b><small>/ 100</small></strong>
+                <em id="health-label">Loading</em>
+                <p id="health-explanation">Checking monitored roads…</p>
+            </div>
+            <div class="health-gauge" aria-hidden="true"><i id="health-meter-fill"></i><span></span></div>
+            <small id="health-period">Current Traffic Period</small>
+        </article>
         <div class="traffic-metric-grid">
             <article class="traffic-stat light"><span><i aria-hidden="true"></i>Light Roads</span><strong id="light-count">—</strong><small>Free flowing</small></article>
-            <article class="traffic-stat moderate"><span><i aria-hidden="true"></i>Moderate Roads</span><strong id="moderate-count">—</strong><small>Congestion developing</small></article>
+            <article class="traffic-stat moderate"><span><i aria-hidden="true"></i>Moderate Roads</span><strong id="moderate-count">—</strong><small>Slowing</small></article>
             <article class="traffic-stat heavy"><span><i aria-hidden="true"></i>Heavy Roads</span><strong id="heavy-count">—</strong><small>High congestion</small></article>
+            <article class="traffic-stat neutral" id="avg-speed-card"><span><i aria-hidden="true"></i>Avg. Speed</span><strong id="avg-speed">—</strong><small>km/h citywide</small></article>
         </div>
     </section>
+
+    <!-- Insights: Hotspots + Best Flowing -->
     <section class="dashboard-lists">
-        <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Priority Monitoring</span><h2>Congestion Hotspots</h2></div></div><div id="hotspot-list" class="ranked-road-list"></div></article>
-        <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Network Performance</span><h2>Best Flowing Roads</h2></div></div><div id="best-flow-list" class="ranked-road-list"></div></article>
+        <article class="dashboard-card">
+            <div class="dashboard-card-head">
+                <div><span>Priority Monitoring</span><h2>Congestion Hotspots</h2></div>
+                <small id="hotspot-source-badge" class="source-badge">—</small>
+            </div>
+            <div id="hotspot-list" class="ranked-road-list"></div>
+        </article>
+        <article class="dashboard-card">
+            <div class="dashboard-card-head">
+                <div><span>Network Performance</span><h2>Best Flowing Roads</h2></div>
+                <small id="best-flow-source-badge" class="source-badge">—</small>
+            </div>
+            <div id="best-flow-list" class="ranked-road-list"></div>
+        </article>
     </section>
+
+    <!-- Coverage card -->
+    <section class="coverage-card" id="coverage-card" aria-label="Traffic Data Coverage">
+        <div class="coverage-head">
+            <div class="panel-kicker">Data Provenance</div>
+            <h3 class="coverage-title">Traffic Data Coverage</h3>
+        </div>
+        <div class="coverage-bars" id="coverage-bars"></div>
+        <p class="coverage-note" id="provider-status-note">—</p>
+    </section>
+
+    </div><!-- /dashboard-available -->
+
+    <!-- Subtle retry row (only shown on hard failure, not on inferred mode) -->
+    <div class="dashboard-error-row" id="dashboard-error-row" hidden>
+        <p id="dashboard-error-msg">Traffic data temporarily unavailable.</p>
+        <button type="button" id="retry-traffic" class="dashboard-retry">Retry</button>
     </div>
 </main>
 
@@ -1139,22 +1185,49 @@
     }
 
     function hasTrafficEvidence(opt) {
-        return opt.traffic !== 'Unavailable' && (opt.traffic_data_available !== false || opt.traffic_model_available === true);
+        // Always true now — inferred traffic is always available
+        const level = YangonTrafficColors.normalize(opt.traffic);
+        return level != null && level !== 'Unknown';
     }
 
     function trafficSummary(opt) {
-        if (opt.traffic_data_available) return `Traffic: ${opt.traffic}`;
-        if (opt.traffic_model_available) return `Simulated Traffic: ${opt.traffic}`;
-        return 'Traffic: Real-Time Data Unavailable';
+        const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
+        if (opt.traffic_data_available) return `Traffic: ${level}`;
+        if (opt.traffic_model_available !== false) return `Traffic: ${level}`;
+        return `Traffic: ${level}`;
+    }
+
+    function trafficSourceLabel(opt) {
+        const label = String(opt.traffic_source_label || '').toUpperCase();
+        if (label === 'HERE') return 'HERE';
+        if (label === 'MIXED') return 'Mixed';
+        if (label === 'INFERRED') return 'Inferred';
+        if (label === 'UNKNOWN') return 'Unknown';
+        // Derive from fields if label absent
+        if (opt.traffic_data_available) return 'HERE';
+        if (opt.traffic_model_available !== false) return 'Inferred';
+        return 'Unknown';
     }
 
     function trafficSourceSummary(opt) {
-        if (opt.traffic_data_available) return 'HERE Real-Time Traffic';
-        if (opt.traffic_model_available) return 'Academic Simulation';
-        return 'Real-Time Traffic Unavailable';
+        const label = trafficSourceLabel(opt);
+        if (label === 'HERE') return 'HERE Real-Time Traffic';
+        if (label === 'Mixed') {
+            const pct = Number(opt.provider_coverage_percent || 0);
+            const inferred = Number(opt.inferred_coverage_percent || 0);
+            return `Mixed Traffic Data (HERE ${pct.toFixed(0)}% · Inferred ${inferred.toFixed(0)}%)`;
+        }
+        if (label === 'Inferred') return 'Inferred Traffic Model';
+        return 'Traffic Data Unavailable';
+    }
+
+    function etaSourceLabel(opt) {
+        if (opt.traffic_data_available) return 'Traffic-adjusted ETA';
+        return 'Estimated ETA · Inferred conditions';
     }
 
     function updateRouteResultDetails(opt) {
+        const srcLabel = trafficSourceLabel(opt);
         document.getElementById('r-traffic-source').textContent = `Traffic Source: ${trafficSourceSummary(opt)}`;
         const trafficResult = document.getElementById('r-traffic');
         const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
@@ -1195,18 +1268,22 @@
             const routeText = document.createElement('span'); routeText.textContent = (opt.display_route || opt.route).join(' → ');
             const metrics = document.createElement('span'); metrics.textContent = `${opt.distance} km · ${formatDuration(opt.time)}`;
             const delay = Number(opt.traffic_delay || 0);
-            if (opt.traffic_data_available && delay > 0) {
-                metrics.textContent += ` · ${formatDuration(delay)} traffic delay`;
+            if (delay > 0) {
+                metrics.textContent += ` · +${formatDuration(delay)}`;
             }
-            const trafficAvailable = hasTrafficEvidence(opt);
             const badge = document.createElement('span');
             badge.className = 'badge';
-            badge.style.background = trafficAvailable ? color : '#60717d';
-            badge.textContent = trafficAvailable ? opt.traffic : 'Unavailable';
-            badge.title = opt.traffic_data_available
-                ? `${opt.traffic} Provider Traffic`
-                : opt.traffic_model_available ? `${opt.traffic} Simulated Traffic` : 'Estimate Based On Standard Mapped-Road Speeds';
-            div.append(title, document.createElement('br'), routeText, document.createElement('br'), metrics, badge);
+            badge.style.background = color;
+            badge.textContent = level;
+            badge.title = trafficSourceSummary(opt);
+
+            const srcBadge = document.createElement('span');
+            srcBadge.className = `badge route-src-badge`;
+            srcBadge.style.background = '#60717d';
+            srcBadge.textContent = trafficSourceLabel(opt);
+            srcBadge.title = trafficSourceSummary(opt);
+
+            div.append(title, document.createElement('br'), routeText, document.createElement('br'), metrics, badge, srcBadge);
 
             container.appendChild(div);
         });
@@ -1219,9 +1296,9 @@
         document.getElementById('hud-distance').innerText = opt.distance + ' km';
 
         const badge = document.getElementById('hud-traffic');
-        const trafficAvailable = hasTrafficEvidence(opt);
-        badge.innerText = trafficAvailable ? opt.traffic : 'Unavailable';
-        badge.style.background = trafficAvailable ? YangonTrafficColors.css(opt.traffic) : '#60717d';
+        const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
+        badge.innerText = level;
+        badge.style.background = YangonTrafficColors.css(opt.traffic);
 
         hud.classList.add('visible');
     }
@@ -1232,15 +1309,14 @@
         const roadPhrase = roads.length
             ? ` It follows ${roads.slice(0, 2).join(' and ')}${roads.length > 2 ? ', with other mapped streets along the way' : ''}.`
             : ' It follows the available mapped road geometry between your selected places.';
+        const srcNote = opt.traffic_data_available
+            ? ''
+            : ' Traffic is estimated by inferred model — not live provider data.';
         const recommendation = optionIndex === 0
-            ? (hasTrafficEvidence(opt)
-                ? `I recommend this ${opt.distance} km route because it offers the best balance of travel time and traffic conditions.`
-                : `I recommend this ${opt.distance} km mapped-road route using the best available base road-time estimate.`)
+            ? `I recommend this ${opt.distance} km route because it offers the best balance of travel time and traffic conditions.`
             : `You are previewing alternative ${optionIndex}. It is a real-road option that may be useful if you prefer a different approach.`;
-        const trafficNote = !hasTrafficEvidence(opt)
-            ? ' Real-time traffic was unavailable, so this ETA uses mapped-road travel time without claiming live congestion.'
-            : (opt.traffic_model_available && !opt.traffic_data_available ? ' This uses the current academic traffic simulation.' : '') + (opt.traffic === 'Heavy'
-            ? ' Heavy traffic may cause meaningful delay, so allow extra time.'
+        const trafficNote = srcNote + (opt.traffic === 'Heavy'
+            ? ' Heavy traffic may cause meaningful delay; allow extra time.'
             : opt.traffic === 'Moderate'
                 ? ' Some traffic delay is included in the estimate.'
                 : ' Traffic conditions are currently favorable for this journey.');
@@ -1260,22 +1336,21 @@
         if (!opt) return;
         const route = opt.display_route || opt.route || [];
         const roads = [...new Set((opt.road_names || route.slice(1, -1)).filter(Boolean))];
-        const trafficAvailable = hasTrafficEvidence(opt);
         document.getElementById('analysis-route').textContent = route.join(' → ') || 'Selected Route';
         document.getElementById('analysis-distance').textContent = `${opt.distance} km`;
         document.getElementById('analysis-time').textContent = formatDuration(opt.time);
-        document.getElementById('analysis-source').textContent = `Route Geometry: ${routeSourceLabel(opt.route_source)} · Traffic Data: ${trafficSourceSummary(opt)}`;
-        document.getElementById('analysis-traffic').textContent = opt.traffic_model_available && !opt.traffic_data_available
-            ? `${opt.traffic} Simulated Traffic`
-            : trafficAvailable ? `${opt.traffic} Traffic` : 'Real-Time Traffic Unavailable';
+        document.getElementById('analysis-source').textContent = `Route Geometry: ${routeSourceLabel(opt.route_source)} · Traffic: ${trafficSourceSummary(opt)}`;
+        const trafficLabel = trafficSourceLabel(opt);
+        const levelText = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
+        document.getElementById('analysis-traffic').textContent = trafficLabel === 'Inferred'
+            ? `${levelText} · Inferred`
+            : trafficLabel === 'Mixed' ? `${levelText} · Mixed` : `${levelText}`;
         document.getElementById('analysis-roads').textContent = roads.length
             ? roads.join(' → ')
             : 'The route follows mapped streets between the selected locations.';
 
         const routePosition = optionIndex === 0 ? 'This is the recommended route' : `This is Alternative ${optionIndex}`;
-        const conditionReason = trafficAvailable
-            ? `It balances travel time with ${String(opt.traffic).toLowerCase()} traffic conditions.`
-            : 'It has the best available mapped-road travel-time estimate.';
+        const conditionReason = `It balances travel time with ${String(opt.traffic || 'moderate').toLowerCase()} traffic conditions (${trafficSourceSummary(opt)}).`;
         document.getElementById('analysis-reason').textContent = `${routePosition}. ${conditionReason}`;
 
         const alternatives = document.getElementById('analysis-alternatives');
@@ -1923,12 +1998,17 @@
             time: result.time,
             traffic: result.traffic,
             segment_traffic: result.segment_traffic,
+            segment_sources: result.segment_sources,
             eta_basis: result.eta_basis,
             route_source: result.route_source,
             base_duration: result.base_duration,
             traffic_delay: result.traffic_delay,
             traffic_time: result.traffic_time,
             traffic_source: result.traffic_source,
+            traffic_source_label: result.traffic_source_label,
+            provider_coverage_percent: result.provider_coverage_percent,
+            inferred_coverage_percent: result.inferred_coverage_percent,
+            unknown_coverage_percent: result.unknown_coverage_percent,
             provider_notice: result.provider_notice,
             traffic_data_available: result.traffic_data_available,
             traffic_model_available: result.traffic_model_available,
