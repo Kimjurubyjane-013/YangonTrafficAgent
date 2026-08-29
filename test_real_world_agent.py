@@ -191,5 +191,17 @@ class RealWorldPipelineTests(unittest.TestCase):
             self.assertAlmostEqual(option["traffic_delay"],
                 max(0, option["traffic_adjusted_eta"] - option["free_flow_eta"]), places=2)
 
+    def test_best_and_alternatives_share_normalized_contract(self):
+        result = run_real_world_agent("Hledan Centre", "Myanmar Plaza", "Car",
+            route_provider=fake_provider, decision_engine=RouteDecisionEngine(False))
+        fields = {"route_id", "geometry", "road_names", "distance", "free_flow_eta",
+                  "traffic_adjusted_eta", "traffic_delay", "overall_traffic",
+                  "segment_traffic", "traffic_source", "provider_coverage",
+                  "route_cost", "recommendation_reason", "direction_summary"}
+        for option in [result, *result["alternatives"]]:
+            self.assertTrue(fields.issubset(option))
+            self.assertEqual(option["overall_traffic"], option["traffic"])
+            self.assertEqual(option["direction_summary"]["origin"], "Hledan Centre")
+
 
 if __name__ == "__main__": unittest.main()

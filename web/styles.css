@@ -1,4 +1,4 @@
-:root{--ink:#132333;--muted:#647789;--line:#dce5eb;--canvas:#f2f6f8;--blue:#1265a5;--blue-dark:#0b4d82;--teal:#09868c;--success:#24b66f;--shadow:0 8px 28px rgba(25,49,68,.08)}
+:root{--ink:#132333;--muted:#647789;--line:#dce5eb;--canvas:#f2f6f8;--blue:#1265a5;--blue-dark:#0b4d82;--teal:#09868c;--success:#24b66f;--shadow:0 8px 28px rgba(25,49,68,.08);--source-here-bg:#e4f1fb;--source-here-text:#084a78;--source-here-border:#83b6d8;--source-inferred-bg:#f0eafb;--source-inferred-text:#49356f;--source-inferred-border:#aa97cf;--source-mixed-bg:#e8f2e4;--source-mixed-text:#35552d;--source-mixed-border:#94b789;--source-unknown-bg:#edf0f2;--source-unknown-text:#44515a;--source-unknown-border:#aeb8bf}
 html{background:var(--canvas)}
 body{min-width:320px;background:radial-gradient(circle at 15% -10%,rgba(18,101,165,.10),transparent 30rem),var(--canvas)!important;color:var(--ink)!important}
 .app-header{min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px max(20px,calc((100vw - 1640px)/2));background:rgba(255,255,255,.92);border-bottom:1px solid rgba(205,219,228,.9);backdrop-filter:blur(14px);position:sticky;top:0;z-index:2000}
@@ -226,11 +226,12 @@ body[data-theme=dark] .traffic-dashboard,body[data-theme=dark] .dashboard-head h
 .traffic-context strong[id="context-live"] { font-weight: 750; }
 
 /* Source badges in road lists */
-.road-src-badge,.source-badge{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:4px;font-size:9px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
-.road-src-badge.road-src-here,.src-badge-here{background:#0b4d82;color:#fff}
-.road-src-badge.road-src-inferred,.src-badge-inferred{background:#5a4a7c;color:#fff}
-.src-badge-mixed{background:#4a6740;color:#fff}
-.route-src-badge{font-size:9px;padding:2px 6px;border-radius:4px;vertical-align:middle;margin-left:4px}
+.road-src-badge,.source-badge,.route-src-badge{display:inline-flex;align-items:center;height:20px;padding:0 7px;border:1px solid transparent;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.road-src-here,.src-badge-here,.route-src-here{background:var(--source-here-bg)!important;color:var(--source-here-text)!important;border-color:var(--source-here-border)!important}
+.road-src-inferred,.src-badge-inferred,.route-src-inferred{background:var(--source-inferred-bg)!important;color:var(--source-inferred-text)!important;border-color:var(--source-inferred-border)!important}
+.road-src-mixed,.src-badge-mixed,.route-src-mixed{background:var(--source-mixed-bg)!important;color:var(--source-mixed-text)!important;border-color:var(--source-mixed-border)!important}
+.road-src-unknown,.src-badge-unknown,.route-src-unknown{background:var(--source-unknown-bg)!important;color:var(--source-unknown-text)!important;border-color:var(--source-unknown-border)!important}
+.route-src-badge{vertical-align:middle}
 
 /* Row now has 4 columns to accommodate source badge */
 .ranked-road{grid-template-columns:27px 8px 1fr auto!important}
@@ -244,7 +245,8 @@ body[data-theme=dark] .traffic-dashboard,body[data-theme=dark] .dashboard-head h
 
 /* Coverage card */
 .coverage-card{margin-top:16px;padding:20px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:0 3px 14px rgba(25,45,53,.045)}
-.coverage-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.coverage-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}.coverage-head .source-badge{margin-left:auto}
+.health-card-copy>span{display:flex;align-items:center;gap:8px}.health-card-copy>span .source-badge{font-size:8px}
 .coverage-title{margin:0;font-size:15px;color:var(--text-primary)}
 .coverage-bars{display:grid;gap:10px}
 .coverage-item{display:flex;flex-direction:column;gap:5px}
@@ -268,8 +270,7 @@ body[data-theme=dark] .coverage-label{color:var(--text-secondary)!important}
 body[data-theme=dark] .coverage-pct{color:var(--text-primary)!important}
 body[data-theme=dark] .coverage-bar-track{background:var(--border-soft)}
 body[data-theme=dark] .dashboard-error-row{background:var(--surface)!important;border-color:var(--border)!important}
-body[data-theme=dark] .road-src-badge.road-src-here,.dark .src-badge-here{background:#1e6cad}
-body[data-theme=dark] .road-src-badge.road-src-inferred,.dark .src-badge-inferred{background:#7b65a8}
+body[data-theme=dark]{--source-here-bg:#183b55;--source-here-text:#b9ddf5;--source-here-border:#467da3;--source-inferred-bg:#352c49;--source-inferred-text:#ded1f5;--source-inferred-border:#746196;--source-mixed-bg:#293d29;--source-mixed-text:#cbe4c3;--source-mixed-border:#607f58;--source-unknown-bg:#2d3338;--source-unknown-text:#d4dade;--source-unknown-border:#626d75}
 
 /* Responsive: coverage card on mobile */
 @media(max-width:760px){.coverage-bars{grid-template-columns:1fr}.coverage-card{padding:16px}}

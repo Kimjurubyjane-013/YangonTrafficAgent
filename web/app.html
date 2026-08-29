@@ -380,7 +380,7 @@
     <section class="traffic-summary-grid" aria-label="Traffic Status Summary">
         <article class="health-card">
             <div class="health-card-copy">
-                <span>Traffic Health</span>
+                <span>Traffic Health <small id="health-source-badge" class="source-badge">â€”</small></span>
                 <strong><b id="health-score">—</b><small>/ 100</small></strong>
                 <em id="health-label">Loading</em>
                 <p id="health-explanation">Checking monitored roads…</p>
@@ -407,7 +407,7 @@
         </article>
         <article class="dashboard-card">
             <div class="dashboard-card-head">
-                <div><span>Network Performance</span><h2>Best Flowing Roads</h2></div>
+                <div><span>Network Performance</span><h2 id="best-flow-title">Best Flowing Roads</h2></div>
                 <small id="best-flow-source-badge" class="source-badge">—</small>
             </div>
             <div id="best-flow-list" class="ranked-road-list"></div>
@@ -419,6 +419,7 @@
         <div class="coverage-head">
             <div class="panel-kicker">Data Provenance</div>
             <h3 class="coverage-title">Traffic Data Coverage</h3>
+            <small id="coverage-source-badge" class="source-badge">â€”</small>
         </div>
         <div class="coverage-bars" id="coverage-bars"></div>
         <p class="coverage-note" id="provider-status-note">—</p>
@@ -1292,9 +1293,9 @@
             badge.title = trafficSourceSummary(opt);
 
             const srcBadge = document.createElement('span');
-            srcBadge.className = `badge route-src-badge`;
-            srcBadge.style.background = '#60717d';
-            srcBadge.textContent = trafficSourceLabel(opt);
+            const sourceKind = trafficSourceLabel(opt).toLowerCase();
+            srcBadge.className = `route-src-badge route-src-${sourceKind}`;
+            srcBadge.textContent = trafficSourceLabel(opt).toUpperCase();
             srcBadge.title = trafficSourceSummary(opt);
 
             const badgeRow = document.createElement('div'); badgeRow.className = 'route-option-badges';
@@ -1310,10 +1311,14 @@
                 const best = allOptionsData[0];
                 const etaDifference = Number(opt.time) - Number(best.time);
                 const distanceDifference = Number(opt.distance) - Number(best.distance);
+                const heavyDifference = (opt.segment_traffic || []).filter(item => YangonTrafficColors.normalize(item) === 'Heavy').length
+                    - (best.segment_traffic || []).filter(item => YangonTrafficColors.normalize(item) === 'Heavy').length;
                 const comparison = document.createElement('p'); comparison.className = 'route-option-difference';
                 const severity = { Light: 0, Moderate: 1, Heavy: 2, Unknown: 3 };
-                if (etaDifference > 0.01 && severity[level] < severity[YangonTrafficColors.normalize(best.traffic) || 'Unknown']) {
-                    comparison.textContent = `${formatDuration(etaDifference)} slower, with lighter traffic.`;
+                if (etaDifference > 0.01 && heavyDifference < 0) {
+                    comparison.textContent = `${formatDuration(etaDifference)} slower, with ${Math.abs(heavyDifference)} fewer Heavy segment${heavyDifference === -1 ? '' : 's'}.`;
+                } else if (etaDifference > 0.01 && severity[level] < severity[YangonTrafficColors.normalize(best.traffic) || 'Unknown']) {
+                    comparison.textContent = `${formatDuration(etaDifference)} slower, with lighter overall traffic.`;
                 } else if (etaDifference > 0.01) {
                     comparison.textContent = `${formatDuration(etaDifference)} slower than the recommended route.`;
                 } else if (distanceDifference > 0.01) {

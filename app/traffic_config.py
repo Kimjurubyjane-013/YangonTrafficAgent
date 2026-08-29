@@ -31,17 +31,20 @@ TIME_PERIODS = (
 )
 RUSH_HOUR_PERIODS = frozenset({"MORNING_RUSH", "EVENING_RUSH"})
 TIME_DENSITY_EFFECT = {"EARLY_MORNING":-14.0,"MORNING_RUSH":10.0,"DAYTIME":0.0,"EVENING_RUSH":12.0,"NIGHT":-20.0}
-TIME_SCORE_EFFECT = {"EARLY_MORNING":-6.0,"MORNING_RUSH":8.0,"DAYTIME":0.0,"EVENING_RUSH":8.0,"NIGHT":-8.0}
-RUSH_HOUR_SCORE_EFFECT = 1.0
-# The three core components deliberately sum below one. Context and time then
-# refine the baseline instead of counting the same congestion several times.
+TIME_SCORE_EFFECT = {"EARLY_MORNING":-5.0,"MORNING_RUSH":3.0,"DAYTIME":0.0,"EVENING_RUSH":4.0,"NIGHT":-5.0}
+# Time and road context already affect density. The direct period adjustment is
+# deliberately small so the same demand is not counted a second time.
+RUSH_HOUR_SCORE_EFFECT = 0.0
 VEHICLE_DENSITY_WEIGHT = 0.22
 BASE_CONGESTION_WEIGHT = 0.30
 CONGESTION_PRESSURE_WEIGHT = 0.10
-# Expand meaningful road-to-road differences around the neutral midpoint.
-# Without this calibration, independently calculated inputs still compress
-# almost every daytime road into the Moderate band.
-SCORE_SPREAD_FACTOR = 2.00
+# A bounded overload term preserves genuine high-pressure congestion without
+# making ordinary arterial roads Heavy merely because several correlated
+# inputs describe the same demand.
+PRESSURE_OVERLOAD_START = 0.85
+PRESSURE_OVERLOAD_WEIGHT = 18.0
+MAX_PRESSURE_OVERLOAD_SCORE = 8.0
+SCORE_SPREAD_FACTOR = 1.40
 CAPACITY_DENSITY_WEIGHT = 0.04
 DETERMINISTIC_VARIATION_LIMIT = 4.0
 CRITICAL_CONGESTION_SCORE = 90.0

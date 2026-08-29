@@ -49,6 +49,10 @@ class TrafficFoundationTests(unittest.TestCase):
             self.assertGreaterEqual(state.estimated_delay_minutes, 0)
             self.assertTrue(state.reasons)
             self.assertEqual(classify_traffic(state.traffic_score), state.traffic_level)
+            for component in ("base_congestion", "vehicle_density", "capacity_pressure",
+                              "time_period", "rush_hour", "road_context", "capacity_overload",
+                              "raw_score", "final_score"):
+                self.assertIn(component, state.score_components)
 
     def test_academic_model_has_believable_time_period_variation(self):
         snapshots = {
@@ -99,6 +103,27 @@ class TrafficFoundationTests(unittest.TestCase):
         route = self.engine.route_state("Hledan Centre", "Myanmar Plaza", ["Pyay Road"], first)
         for road_id, level in zip(route["road_ids"], route["segment_traffic"]):
             self.assertEqual(level, first.roads[road_id].traffic_level)
+        self.assertEqual(route["snapshot_id"], first.snapshot_id)
+        for diagnostic in route["segment_diagnostics"]:
+            self.assertEqual(diagnostic["traffic_level"], first.roads[diagnostic["road_id"]].traffic_level)
+
+    def test_dashboard_and_route_planner_share_effective_snapshot_states(self):
+        snapshot=self.engine.get_snapshot(self.daytime)
+        dashboard=self.engine.overview(self.daytime)
+        route=self.engine.route_state("Hledan Centre", "Junction Square", ["Pyay Road"], snapshot)
+        dashboard_roads={item["road_id"]:item for item in dashboard["roads"]}
+        self.assertEqual(dashboard["snapshot_id"], route["snapshot_id"])
+        for road_id,level in zip(route["road_ids"],route["segment_traffic"]):
+            self.assertEqual(dashboard_roads[road_id]["traffic_level"],level)
+
+    def test_hledan_junction_segments_are_explainable_not_special_cased(self):
+        for at in (datetime(2026,8,26,12,0), datetime(2026,8,26,17,0)):
+            snapshot=self.engine.get_snapshot(at, force=True)
+            route=self.engine.route_state("Hledan Centre", "Junction Square", ["Pyay Road"], snapshot)
+            self.assertTrue(route["segment_diagnostics"])
+            for item in route["segment_diagnostics"]:
+                self.assertIn(item["traffic_level"], {"Light", "Moderate", "Heavy"})
+                self.assertAlmostEqual(item["traffic_score"], item["score_components"]["final_score"], delta=0.06)
 
     def test_overview_works_without_route_request(self):
         overview = self.engine.overview(self.daytime)

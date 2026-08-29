@@ -178,5 +178,26 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn(".traffic-dashboard{margin-inline:auto", css)
         self.assertIn("setState('', 'ready')", (root/"web"/"dashboard.js").read_text(encoding="utf-8"))
 
+    def test_source_badges_have_central_light_and_dark_contrast_styles(self):
+        root=Path(__file__).parent
+        css=(root/"web"/"styles.css").read_text(encoding="utf-8")
+        html=(root/"web"/"app.html").read_text(encoding="utf-8")
+        dashboard=(root/"web"/"dashboard.js").read_text(encoding="utf-8")
+        for source in ("here", "inferred", "mixed", "unknown"):
+            self.assertIn(f"--source-{source}-bg:", css)
+            self.assertIn(f"--source-{source}-text:", css)
+            self.assertIn(f"--source-{source}-border:", css)
+            self.assertIn(f"src-badge-{source}", css)
+        self.assertIn("route-src-${sourceKind}", html)
+        self.assertNotIn("srcBadge.style.background", html)
+        for badge_id in ("hotspot-source-badge", "best-flow-source-badge",
+                         "health-source-badge", "coverage-source-badge"):
+            self.assertIn(badge_id, dashboard)
+
+    def test_best_flow_title_handles_all_heavy_snapshot(self):
+        dashboard=(Path(__file__).parent/"web"/"dashboard.js").read_text(encoding="utf-8")
+        self.assertIn("best.every(road => trafficLevel(road.traffic_level) === 'Heavy')", dashboard)
+        self.assertIn("'Best Available Flow'", dashboard)
+
 
 if __name__ == "__main__": unittest.main()

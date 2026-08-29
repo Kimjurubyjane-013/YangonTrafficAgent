@@ -282,6 +282,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "traffic_adjusted_eta": traffic_eta,
             "free_flow_eta": free_flow_eta,
             "traffic": level,
+            "overall_traffic": level,
             "segment_traffic": segment_traffic,
             "segment_sources": effective["segment_sources"],
             "geometry": route["geometry"],
@@ -306,6 +307,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "traffic_data_available": has_real_traffic,
             "traffic_model_available": True,  # Always true now — inferred is always computed
             "traffic_snapshot_id": traffic_snapshot.snapshot_id,
+            "provider_coverage": effective["provider_coverage_percent"],
             "traffic_score": effective["traffic_score"] if effective["traffic_score"] is not None else model_state.get("average_score"),
             "heavy_segments": (
                 sum(str(item).lower() == "heavy" for item in segment_traffic)
@@ -314,6 +316,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "cumulative_traffic_impact": route.get("cumulative_traffic_impact", model_state["cumulative_traffic_impact"]),
             "average_congestion_pressure": route.get("average_congestion_pressure", model_state["average_congestion_pressure"]),
             "retrieved_at": route.get("retrieved_at"),
+            "segment_diagnostics": model_state.get("segment_diagnostics", []),
             "segments": model_segments,
         })
     if not candidates:
@@ -338,7 +341,20 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "rejected_candidates":[item["decision"] for item in evaluated],"routing_mode":"real-world-only"}
     options = eligible[:4]
     recommendation_reason = _recommendation_reason(options[0], options[1:])
-    for item in options:
+    for index, item in enumerate(options):
+        item["route_id"] = str(item.get("candidate_id"))
+        item["route_cost"] = item.get("decision", {}).get("route_cost")
+        item["recommendation_reason"] = (
+            recommendation_reason if index == 0 else {
+                "primary_reason": "provider_alternative",
+                "explanation": "A distinct real-road alternative returned by the routing provider.",
+            }
+        )
+        item["direction_summary"] = {
+            "origin": start, "destination": destination,
+            "major_roads": list(item.get("road_names", [])),
+            "provider_geometry_is_direction_specific": True,
+        }
         item.pop("segments", None); item.pop("candidate_id", None)
     best, alternatives = options[0], options[1:]
     reason = ", ".join(best["decision"]["reasons"]) or "lowest real-road travel cost"
@@ -359,6 +375,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         "traffic_geometry":best.get("traffic_geometry"),
         "road_names":best["road_names"],"distance":best["distance"],"time":best["time"],
         "traffic":best["traffic"],"segment_traffic":best["segment_traffic"],
+        "overall_traffic":best.get("overall_traffic",best["traffic"]),
         "segment_sources":best.get("segment_sources",[]),"alternatives":alternatives,
         "eta_basis":best["eta_basis"],"route_source":best["route_source"],
         "traffic_adjusted_eta":best.get("traffic_adjusted_eta",best["time"]),
@@ -374,6 +391,10 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         "traffic_data_available":best.get("traffic_data_available",False),
         "traffic_model_available":best.get("traffic_model_available",True),
         "traffic_snapshot_id":best.get("traffic_snapshot_id"),
+        "provider_coverage":best.get("provider_coverage"),
+        "route_id":best.get("route_id"),"route_cost":best.get("route_cost"),
+        "segment_diagnostics":best.get("segment_diagnostics",[]),
+        "direction_summary":best.get("direction_summary"),
         "traffic_score":best.get("traffic_score"),
         "route_duration_seconds":best.get("route_duration_seconds"),
         "base_duration_seconds":best.get("base_duration_seconds"),

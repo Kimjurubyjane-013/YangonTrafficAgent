@@ -22,7 +22,9 @@ from app.traffic_config import (
     CRITICAL_CONGESTION_SCORE, DETERMINISTIC_VARIATION_LIMIT,
     HEALTH_LABELS, HOTSPOT_WEIGHTS, JUNCTION_DENSITY_EFFECT,
     MAX_CONGESTION_PRESSURE, MINIMUM_TRAFFIC_SPEED_KMH, ROAD_IMPORTANCE,
-    ROAD_TYPES, RUSH_HOUR_PERIODS, RUSH_HOUR_SCORE_EFFECT, SCORE_SPREAD_FACTOR,
+    MAX_PRESSURE_OVERLOAD_SCORE, PRESSURE_OVERLOAD_START,
+    PRESSURE_OVERLOAD_WEIGHT, ROAD_TYPES, RUSH_HOUR_PERIODS,
+    RUSH_HOUR_SCORE_EFFECT, SCORE_SPREAD_FACTOR,
     SNAPSHOT_MINUTES, TIME_DENSITY_EFFECT, TIME_PERIODS, TIME_SCORE_EFFECT,
     TRAFFIC_SPEED_MULTIPLIERS, TREND_STABLE_THRESHOLD,
     VEHICLE_DENSITY_WEIGHT,
@@ -159,15 +161,21 @@ class TrafficEngine:
         density = clamp(road.base_congestion + time_demand + context_demand + capacity_density + variation)
         pressure = min(MAX_CONGESTION_PRESSURE, density / road.capacity)
         pressure_percent = clamp(pressure / MAX_CONGESTION_PRESSURE * 100.0)
-        context_score = (context_demand * 0.10) + defaults.score_effect
-        raw_score = clamp(
-            road.base_congestion * BASE_CONGESTION_WEIGHT
-            + density * VEHICLE_DENSITY_WEIGHT
-            + pressure_percent * CONGESTION_PRESSURE_WEIGHT
-            + TIME_SCORE_EFFECT[period]
-            + (RUSH_HOUR_SCORE_EFFECT if rush else 0.0)
-            + context_score
+        overload_score = min(
+            MAX_PRESSURE_OVERLOAD_SCORE,
+            max(0.0, pressure - PRESSURE_OVERLOAD_START) * PRESSURE_OVERLOAD_WEIGHT,
         )
+        components = {
+            "base_congestion": road.base_congestion * BASE_CONGESTION_WEIGHT,
+            "vehicle_density": density * VEHICLE_DENSITY_WEIGHT,
+            "capacity_pressure": pressure_percent * CONGESTION_PRESSURE_WEIGHT,
+            "time_period": TIME_SCORE_EFFECT[period],
+            "rush_hour": RUSH_HOUR_SCORE_EFFECT if rush else 0.0,
+            "road_context": defaults.score_effect,
+            "capacity_overload": overload_score,
+            "deterministic_variation": variation,
+        }
+        raw_score = clamp(sum(value for key, value in components.items() if key != "deterministic_variation"))
         score = clamp(50.0 + (raw_score - 50.0) * SCORE_SPREAD_FACTOR)
         level = classify_traffic(score)
         average_speed = max(MINIMUM_TRAFFIC_SPEED_KMH, road.base_speed_kmh * TRAFFIC_SPEED_MULTIPLIERS[level])
@@ -190,6 +198,16 @@ class TrafficEngine:
             time_period=period, rush_hour=rush, source="academic_simulation",
             score_change=0.0, trend="stable", reasons=tuple(reasons),
             summary_reason=self._summary_reason(road.road_name, level, reasons),
+            score_components={
+                **{key: round(value, 2) for key, value in components.items()},
+                "base_congestion_value": round(road.base_congestion, 2),
+                "capacity_value": round(float(road.capacity), 2),
+                "vehicle_density_value": round(density, 2),
+                "capacity_pressure_value": round(pressure, 3),
+                "context_demand_value": round(context_demand, 2),
+                "raw_score": round(raw_score, 2),
+                "final_score": round(score, 2),
+            },
         )
 
     @staticmethod
@@ -309,6 +327,12 @@ class TrafficEngine:
             "traffic_level": route_level, "segment_traffic": [state.traffic_level for state in states],
             "segment_distances": [self.repository.by_id[state.road_id].distance_km for state in states],
             "road_ids": [state.road_id for state in states],
+            "segment_diagnostics": [{
+                "road_id": state.road_id, "road_name": state.road_name,
+                "road_type": state.road_type, "traffic_level": state.traffic_level,
+                "traffic_score": state.traffic_score,
+                "score_components": dict(state.score_components),
+            } for state in states],
             "average_score": route_score,
             "estimated_delay_minutes": round(sum(state.estimated_delay_minutes for state in states), 2),
             "heavy_segments": sum(state.traffic_level == "Heavy" for state in states),

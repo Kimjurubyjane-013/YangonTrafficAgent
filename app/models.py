@@ -64,6 +64,7 @@ class RoadTrafficState:
     trend: str
     reasons: tuple[str, ...]
     summary_reason: str
+    score_components: Mapping[str, float] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         data = dict(self.__dict__)

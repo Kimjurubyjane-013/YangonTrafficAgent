@@ -211,15 +211,20 @@
         // Hotspots and best flowing
         const hotspots = data.hotspots || data.most_congested || [];
         const best = data.best_flowing || [];
+        const bestAreHeavy = best.length > 0 && best.every(road => trafficLevel(road.traffic_level) === 'Heavy');
+        setText('best-flow-title', bestAreHeavy ? 'Best Available Flow' : 'Best Flowing Roads');
         renderRoadList('hotspot-list', hotspots, 'hotspot');
         renderRoadList('best-flow-list', best, 'best');
 
         // Source badges on card heads
         const srcBadgeText = mode === 'Real-Time' ? 'HERE' : mode === 'Mixed' ? 'MIXED' : mode === 'Unknown' ? 'UNKNOWN' : 'INFERRED';
-        const hotspotBadge = byId('hotspot-source-badge');
-        const bestBadge = byId('best-flow-source-badge');
-        if (hotspotBadge) { hotspotBadge.textContent = srcBadgeText; hotspotBadge.className = `source-badge src-badge-${srcBadgeText.toLowerCase()}`; }
-        if (bestBadge) { bestBadge.textContent = srcBadgeText; bestBadge.className = `source-badge src-badge-${srcBadgeText.toLowerCase()}`; }
+        ['hotspot-source-badge', 'best-flow-source-badge', 'health-source-badge', 'coverage-source-badge'].forEach(id => {
+            const sourceBadge = byId(id);
+            if (sourceBadge) {
+                sourceBadge.textContent = srcBadgeText;
+                sourceBadge.className = `source-badge src-badge-${srcBadgeText.toLowerCase()}`;
+            }
+        });
 
         // Coverage bars
         renderCoverageBars(data);
