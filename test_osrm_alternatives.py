@@ -2,7 +2,8 @@ import unittest
 from unittest.mock import patch
 import requests
 
-from services.osrm_service import RoadRoutingUnavailable, _CACHE, _decode_polyline6, _is_diverse, _request, fetch_real_routes
+from services.osrm_service import (RoadRoutingUnavailable, _CACHE, _REVERSE_CORRIDOR_CHECKED,
+                                   _decode_polyline6, _is_diverse, _request, fetch_real_routes)
 
 
 def raw(points, distance=10000, duration=900, name="Main Road"):
@@ -36,6 +37,7 @@ class OsrmAlternativeTests(unittest.TestCase):
 
     def setUp(self):
         _CACHE.clear()
+        _REVERSE_CORRIDOR_CHECKED.clear()
 
     def test_duplicate_native_geometry_is_removed_without_inventing_routes(self):
         primary=raw([(16.80,96.10),(16.80,96.15),(16.80,96.20)])
@@ -65,6 +67,21 @@ class OsrmAlternativeTests(unittest.TestCase):
         self.assertNotEqual(first[0]["geometry"],list(reversed(second[0]["geometry"])))
         self.assertNotEqual(first[0]["distance"],second[0]["distance"])
         self.assertNotEqual(first[0]["duration"],second[0]["duration"])
+
+    def test_reverse_discovered_corridor_is_re_requested_in_forward_direction(self):
+        start, destination = (16.80,96.10), (16.82,96.20)
+        forward=raw([start,(16.81,96.15),destination],9000,800,"Forward Road")
+        reverse=raw([destination,(16.79,96.15),start],10500,950,"Reverse Road")
+        validated=raw([start,(16.79,96.15),destination],10800,930,"Validated Road")
+        with patch("services.osrm_service._request",side_effect=[[forward],[reverse],[validated]]) as request:
+            fetch_real_routes(start,destination)
+            fetch_real_routes(destination,start)
+            enriched=fetch_real_routes(start,destination)
+        self.assertEqual(request.call_count,3)
+        self.assertEqual(len(enriched),2)
+        self.assertEqual(enriched[1]["source"],"osrm-validated-corridor")
+        self.assertEqual(enriched[1]["geometry"][0],list(start))
+        self.assertEqual(enriched[1]["geometry"][-1],list(destination))
 
     def test_excessive_detour_is_rejected(self):
         primary=raw([(16.80,96.10),(16.80,96.20)])

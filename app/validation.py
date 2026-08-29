@@ -6,9 +6,10 @@ from algorithms.graph import LOCATION_COORDS
 from algorithms.vehicle import VEHICLE_SPEED
 from app.models import RouteRequest, ValidationError
 
-ALLOWED_CONDITIONS = {"time_band", "weather", "incident", "closed_road"}
+ALLOWED_CONDITIONS = {"time_band", "traffic_scenario", "weather", "incident", "closed_road"}
 CONDITION_VALUES = {
     "time_band": {"peak", "off_peak"},
+    "traffic_scenario": {"current", "peak", "off_peak"},
     "weather": {"clear", "rain", "storm"},
     "incident": {"none", "minor", "major"},
 }

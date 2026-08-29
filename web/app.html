@@ -515,8 +515,9 @@
             <summary>Journey Conditions <span>Optional</span></summary>
             <label for="scenario-mode">Demonstration Scenario</label>
             <select id="scenario-mode">
-                <option value="normal">Normal journey</option>
-                <option value="peak">Peak-hour congestion</option>
+                <option value="current">Current Conditions</option>
+                <option value="off_peak">Off-Peak Scenario</option>
+                <option value="peak">Peak-Hour Scenario</option>
                 <option value="incident">Major traffic incident</option>
                 <option value="closure">Road closure rerouting</option>
                 <option value="emergency">Emergency response</option>
@@ -542,7 +543,7 @@
             <span class="traffic-light"></span> Light
             <span class="traffic-moderate"></span> Moderate
             <span class="traffic-heavy"></span> Heavy
-            <span class="traffic-unknown"></span> No Data
+            <span id="unknown-legend-item" hidden><i class="traffic-unknown"></i> Unknown</span>
         </div>
     </div>
 
@@ -612,6 +613,7 @@
         <p id="r-distance">Distance: -</p>
         <p id="r-time">Estimated Time: -</p>
         <p id="r-traffic">Traffic: -</p>
+        <p id="r-scenario">Traffic Scenario: Current Conditions</p>
         <p id="r-traffic-source">Traffic Source: -</p>
         <div class="route-why" id="route-why" hidden><strong>Why This Route?</strong><span></span></div>
         <div class="route-provenance" id="route-provenance" hidden></div>
@@ -1229,7 +1231,9 @@
 
     function updateRouteResultDetails(opt) {
         const srcLabel = trafficSourceLabel(opt);
-        document.getElementById('r-traffic-source').textContent = `Traffic Source: ${trafficSourceSummary(opt)}`;
+        document.getElementById('r-traffic-source').textContent = `Traffic Source: ${srcLabel}`;
+        const scenario = String(opt.traffic_scenario || 'current').replace('_', '-');
+        document.getElementById('r-scenario').textContent = `Traffic Scenario: ${scenario === 'current' ? 'Current Conditions' : scenario.replace(/\b\w/g, letter => letter.toUpperCase())}`;
         const trafficResult = document.getElementById('r-traffic');
         const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
         const color = YangonTrafficColors.getTrafficColor(level);
@@ -1365,7 +1369,8 @@
             : opt.traffic === 'Moderate'
                 ? ' Some traffic delay is included in the estimate.'
                 : ' Traffic conditions are currently favorable for this journey.');
-        document.getElementById('ai-text').textContent = `${recommendation}${roadPhrase}${trafficNote} Estimated arrival time is ${formatDuration(opt.time)}.`;
+        const scenarioNote = opt.scenario_explanation ? ` ${opt.scenario_explanation}` : '';
+        document.getElementById('ai-text').textContent = `${recommendation}${roadPhrase}${trafficNote}${scenarioNote} Estimated arrival time is ${formatDuration(opt.time)}.`;
 
         const decision = opt.decision || {};
         const reasons = Array.isArray(decision.reasons) && decision.reasons.length
@@ -1832,6 +1837,7 @@
         const sourceNames = {
             'osrm-native': 'OSRM / OpenStreetMap',
             'osrm-via-corridor': 'OSRM / OpenStreetMap',
+            'osrm-validated-corridor': 'OSRM / OpenStreetMap',
             'valhalla': 'Valhalla / OpenStreetMap',
             'here-traffic': 'HERE traffic-aware routing'
         };
@@ -1841,11 +1847,8 @@
     function renderRouteTrustSummary(result, retrievedAt) {
         const provenance = document.getElementById('route-provenance');
         const comparison = document.getElementById('route-comparison');
-        const source = routeSourceLabel(result.route_source);
-        const providerTime = result.retrieved_at ? new Date(result.retrieved_at) : retrievedAt;
-        const trafficSource = trafficSourceSummary(result);
-        provenance.textContent = `Route Geometry: ${source} · Traffic Data: ${trafficSource} · Retrieved ${providerTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-        provenance.hidden = false;
+        provenance.replaceChildren();
+        provenance.hidden = true;
         comparison.replaceChildren();
 
         if (allOptionsData.length < 2) {
@@ -2060,6 +2063,8 @@
             traffic_data_available: result.traffic_data_available,
             traffic_model_available: result.traffic_model_available,
             traffic_snapshot_id: result.traffic_snapshot_id,
+            traffic_scenario: result.traffic_scenario,
+            scenario_explanation: result.scenario_explanation,
             traffic_score: result.traffic_score,
             retrieved_at: result.retrieved_at,
             decision: result.decision,
@@ -2068,6 +2073,9 @@
 
         allOptionsData = [bestRouteData, ...(result.alternatives || [])];
         activeOptionIndex = 0;
+        document.getElementById('unknown-legend-item').hidden = !allOptionsData.some(option =>
+            YangonTrafficColors.normalize(option.traffic) === 'Unknown' ||
+            (option.segment_traffic || []).some(level => YangonTrafficColors.normalize(level) === 'Unknown'));
 
         renderRouteOptions();
         renderRouteTrustSummary(result, new Date());
@@ -2089,10 +2097,14 @@
 
     function getJourneyConditions() {
         const conditions = {};
+        const mode = document.getElementById('scenario-mode').value;
         const timeBand = document.getElementById('departure-band').value;
         const incident = document.getElementById('incident-level').value;
         const closedRoad = document.getElementById('closed-road').value.trim();
         if (timeBand) conditions.time_band = timeBand;
+        conditions.traffic_scenario = ['current', 'off_peak', 'peak'].includes(mode)
+            ? mode
+            : (timeBand || 'current');
         if (incident) conditions.incident = incident;
         if (closedRoad) conditions.closed_road = closedRoad;
         return conditions;
@@ -2112,12 +2124,14 @@
         document.getElementById('r-traffic').innerText = 'Traffic: -';
         delete document.getElementById('r-traffic').dataset.level;
         document.querySelector('.result').style.removeProperty('--route-traffic-color');
+        document.getElementById('r-scenario').innerText = 'Traffic Scenario: Current Conditions';
         document.getElementById('r-traffic-source').innerText = 'Traffic Source: -';
         document.getElementById('route-why').hidden = true;
         document.getElementById('route-provenance').hidden = true;
         document.getElementById('route-provenance').textContent = '';
         document.getElementById('route-comparison').hidden = true;
         document.getElementById('route-comparison').replaceChildren();
+        document.getElementById('unknown-legend-item').hidden = true;
         document.getElementById('nav-hud-2d').classList.remove('visible');
         document.getElementById('sim-btn').disabled = true;
         document.getElementById('status').innerText = '❌ ' + message;
@@ -2147,12 +2161,14 @@
         document.getElementById('r-time').innerText = 'Estimated Time: -';
         document.getElementById('r-traffic').innerText = 'Traffic: -';
         delete document.getElementById('r-traffic').dataset.level;
+        document.getElementById('r-scenario').innerText = 'Traffic Scenario: Current Conditions';
         document.getElementById('r-traffic-source').innerText = 'Traffic Source: -';
         document.getElementById('route-why').hidden = true;
         document.getElementById('route-provenance').hidden = true;
         document.getElementById('route-provenance').textContent = '';
         document.getElementById('route-comparison').hidden = true;
         document.getElementById('route-comparison').replaceChildren();
+        document.getElementById('unknown-legend-item').hidden = true;
         document.getElementById('ai-text').innerText = 'Tell me where you want to go, and I’ll explain the route I recommend.';
         document.getElementById('decision-details-text').innerText = 'Route evidence will appear after a search.';
         document.getElementById('analysis-route').innerText = 'No Route Selected';

@@ -30,8 +30,9 @@ TIME_PERIODS = (
     ("NIGHT", time(19, 30), time(5, 0)),
 )
 RUSH_HOUR_PERIODS = frozenset({"MORNING_RUSH", "EVENING_RUSH"})
-TIME_DENSITY_EFFECT = {"EARLY_MORNING":-14.0,"MORNING_RUSH":10.0,"DAYTIME":0.0,"EVENING_RUSH":12.0,"NIGHT":-20.0}
-TIME_SCORE_EFFECT = {"EARLY_MORNING":-5.0,"MORNING_RUSH":3.0,"DAYTIME":0.0,"EVENING_RUSH":4.0,"NIGHT":-5.0}
+TIME_DENSITY_EFFECT = {"EARLY_MORNING":-14.0,"MORNING_RUSH":10.0,"DAYTIME":0.0,"EVENING_RUSH":12.0,"NIGHT":-20.0,"OFF_PEAK":-10.0,"PEAK":11.0}
+TIME_SCORE_EFFECT = {"EARLY_MORNING":-5.0,"MORNING_RUSH":3.0,"DAYTIME":0.0,"EVENING_RUSH":4.0,"NIGHT":-5.0,"OFF_PEAK":-4.0,"PEAK":3.5}
+SCENARIO_ETA_MULTIPLIERS = {"current": 1.0, "off_peak": 0.94, "peak": 1.18}
 # Time and road context already affect density. The direct period adjustment is
 # deliberately small so the same demand is not counted a second time.
 RUSH_HOUR_SCORE_EFFECT = 0.0
@@ -56,6 +57,8 @@ CONTEXT_DENSITY_EFFECTS = {
     "DAYTIME": {"commercial":7.0,"downtown":6.0,"university":3.0,"airport":4.0},
     "EVENING_RUSH": {"commercial":8.0,"downtown":9.0,"university":7.0,"airport":7.0},
     "NIGHT": {"commercial":2.0,"downtown":2.0,"university":0.0,"airport":6.0},
+    "OFF_PEAK": {"commercial":3.0,"downtown":2.0,"university":2.0,"airport":4.0},
+    "PEAK": {"commercial":6.0,"downtown":8.0,"university":8.0,"airport":6.0},
 }
 JUNCTION_DENSITY_EFFECT = 3.0
 HOTSPOT_WEIGHTS = {"impact":0.55,"score":0.30,"pressure":0.15}

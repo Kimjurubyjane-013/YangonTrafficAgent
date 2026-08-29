@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from threading import RLock
 
 from app.models import RoadTrafficState, TrafficSnapshot
-from app.runtime_config import yangon_now
+from app.runtime_config import traffic_mode, yangon_now
 from app.traffic_config import (
     BASE_CONGESTION_WEIGHT, BEST_FLOW_WEIGHTS, CAPACITY_DENSITY_WEIGHT,
     CONGESTION_PRESSURE_WEIGHT, CONTEXT_DENSITY_EFFECTS,
@@ -100,33 +100,38 @@ class TrafficEngine:
         self._graph_cache = self._build_graph()
 
     @staticmethod
-    def _snapshot_key(at: datetime) -> str:
+    def _snapshot_key(at: datetime, scenario: str = "current") -> str:
         minute = at.minute - at.minute % SNAPSHOT_MINUTES
-        return at.replace(minute=minute, second=0, microsecond=0).isoformat(timespec="minutes")
+        window = at.replace(minute=minute, second=0, microsecond=0).isoformat(timespec="minutes")
+        return f"{window}|{traffic_mode()}|{scenario}"
 
-    def get_snapshot(self, at: datetime | None = None, force: bool = False) -> TrafficSnapshot:
+    def get_snapshot(self, at: datetime | None = None, force: bool = False,
+                     scenario: str = "current") -> TrafficSnapshot:
         at = yangon_now(at)
-        key = self._snapshot_key(at)
+        scenario = scenario if scenario in {"current", "off_peak", "peak"} else "current"
+        period = {"off_peak": "OFF_PEAK", "peak": "PEAK"}.get(scenario, get_time_period(at))
+        analysis_period = period if scenario != "current" else None
+        key = self._snapshot_key(at, scenario)
         with self._lock:
             if not force and key in self._snapshots:
                 return self._snapshots[key]
             previous_at = at - timedelta(minutes=SNAPSHOT_MINUTES)
-            previous_key = self._snapshot_key(previous_at)
-            previous = {road.id: self._analyze(road.id, previous_at, previous_key) for road in self.repository.roads}
+            previous_key = self._snapshot_key(previous_at, scenario)
+            previous = {road.id: self._analyze(road.id, previous_at, previous_key, analysis_period) for road in self.repository.roads}
             states = {}
             for road in self.repository.roads:
-                current = self._analyze(road.id, at, key)
+                current = self._analyze(road.id, at, key, analysis_period)
                 change = round(current.traffic_score - previous[road.id].traffic_score, 1)
                 trend = "worsening" if change > TREND_STABLE_THRESHOLD else "improving" if change < -TREND_STABLE_THRESHOLD else "stable"
                 states[road.id] = replace(current, score_change=change, trend=trend)
-            period = get_time_period(at)
             snapshot = TrafficSnapshot(
                 snapshot_id=key, generated_at=at.isoformat(timespec="seconds"),
                 time_period=period, rush_hour=period in RUSH_HOUR_PERIODS,
-                roads=states,
+                roads=states, scenario=scenario,
             )
-            # Retain current and deterministic previous windows only.
-            self._snapshots = {key: snapshot}
+            self._snapshots[key] = snapshot
+            while len(self._snapshots) > 8:
+                self._snapshots.pop(next(iter(self._snapshots)))
             return snapshot
 
     def analyze_road(self, road_id: str, at: datetime | None = None) -> RoadTrafficState:
@@ -136,12 +141,13 @@ class TrafficEngine:
     def _unknown_road(road_id):
         raise KeyError(f"Unknown road id: {road_id}")
 
-    def _analyze(self, road_id: str, at: datetime, snapshot_key: str) -> RoadTrafficState:
+    def _analyze(self, road_id: str, at: datetime, snapshot_key: str,
+                 period_override: str | None = None) -> RoadTrafficState:
         road = self.repository.by_id.get(str(road_id))
         if road is None:
             raise KeyError(f"Unknown road id: {road_id}")
-        period = get_time_period(at)
-        rush = period in RUSH_HOUR_PERIODS
+        period = period_override or get_time_period(at)
+        rush = period in RUSH_HOUR_PERIODS or period == "PEAK"
         defaults = ROAD_TYPES[road.road_type]
         digest = hashlib.sha256(f"{road.id}|{snapshot_key}".encode("utf-8")).digest()
         normalized = int.from_bytes(digest[:4], "big") / 0xFFFFFFFF
@@ -165,11 +171,13 @@ class TrafficEngine:
             MAX_PRESSURE_OVERLOAD_SCORE,
             max(0.0, pressure - PRESSURE_OVERLOAD_START) * PRESSURE_OVERLOAD_WEIGHT,
         )
+        scenario_effect = TIME_SCORE_EFFECT[period] if period in {"OFF_PEAK", "PEAK"} else 0.0
         components = {
             "base_congestion": road.base_congestion * BASE_CONGESTION_WEIGHT,
             "vehicle_density": density * VEHICLE_DENSITY_WEIGHT,
             "capacity_pressure": pressure_percent * CONGESTION_PRESSURE_WEIGHT,
-            "time_period": TIME_SCORE_EFFECT[period],
+            "time_period": 0.0 if scenario_effect else TIME_SCORE_EFFECT[period],
+            "journey_scenario": scenario_effect,
             "rush_hour": RUSH_HOUR_SCORE_EFFECT if rush else 0.0,
             "road_context": defaults.score_effect,
             "capacity_overload": overload_score,
@@ -285,7 +293,8 @@ class TrafficEngine:
         return {
             "snapshot_id": snapshot.snapshot_id, "snapshot_time": snapshot.generated_at,
             "generated_at": snapshot.generated_at, "time_period": snapshot.time_period,
-            "rush_hour": snapshot.rush_hour, "model_type": "academic_simulation",
+            "rush_hour": snapshot.rush_hour, "traffic_scenario": snapshot.scenario,
+            "model_type": "academic_simulation",
             "source": "academic_simulation", "trend_type": "simulated_adjacent_window",
             "traffic_health_score": health, "traffic_health_label": traffic_health_label(health),
             "total_roads": len(roads), "light_count": counts["Light"],

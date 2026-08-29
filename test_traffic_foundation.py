@@ -50,7 +50,7 @@ class TrafficFoundationTests(unittest.TestCase):
             self.assertTrue(state.reasons)
             self.assertEqual(classify_traffic(state.traffic_score), state.traffic_level)
             for component in ("base_congestion", "vehicle_density", "capacity_pressure",
-                              "time_period", "rush_hour", "road_context", "capacity_overload",
+                              "time_period", "journey_scenario", "rush_hour", "road_context", "capacity_overload",
                               "raw_score", "final_score"):
                 self.assertIn(component, state.score_components)
 
@@ -106,6 +106,19 @@ class TrafficFoundationTests(unittest.TestCase):
         self.assertEqual(route["snapshot_id"], first.snapshot_id)
         for diagnostic in route["segment_diagnostics"]:
             self.assertEqual(diagnostic["traffic_level"], first.roads[diagnostic["road_id"]].traffic_level)
+
+    def test_journey_scenarios_have_independent_repeatable_snapshots(self):
+        off_peak = self.engine.get_snapshot(self.daytime, scenario="off_peak")
+        off_peak_again = self.engine.get_snapshot(self.daytime, scenario="off_peak")
+        peak = self.engine.get_snapshot(self.daytime, scenario="peak")
+        current = self.engine.get_snapshot(self.daytime, scenario="current")
+        self.assertIs(off_peak, off_peak_again)
+        self.assertEqual({off_peak.scenario, peak.scenario, current.scenario}, {"off_peak", "peak", "current"})
+        self.assertEqual(len({off_peak.snapshot_id, peak.snapshot_id, current.snapshot_id}), 3)
+        average = lambda snapshot: sum(state.traffic_score for state in snapshot.roads.values()) / len(snapshot.roads)
+        self.assertLess(average(off_peak), average(peak))
+        self.assertGreater(sum(state.traffic_level != "Light" for state in off_peak.roads.values()), 0)
+        self.assertTrue(all("journey_scenario" in state.score_components for state in peak.roads.values()))
 
     def test_dashboard_and_route_planner_share_effective_snapshot_states(self):
         snapshot=self.engine.get_snapshot(self.daytime)

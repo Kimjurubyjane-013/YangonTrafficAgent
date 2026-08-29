@@ -90,6 +90,36 @@ class RealWorldPipelineTests(unittest.TestCase):
         # Notice mentions HERE unavailability
         self.assertIn("here", result["provider_notice"].lower())
 
+    def test_peak_and_off_peak_change_traffic_eta_and_cache_identity(self):
+        engine = RouteDecisionEngine(False)
+        off_peak = run_real_world_agent("Hledan Centre", "Junction Square", "Car",
+            {"traffic_scenario": "off_peak"}, route_provider=fake_provider, decision_engine=engine)
+        peak = run_real_world_agent("Hledan Centre", "Junction Square", "Car",
+            {"traffic_scenario": "peak"}, route_provider=fake_provider, decision_engine=engine)
+        self.assertEqual(off_peak["traffic_scenario"], "off_peak")
+        self.assertEqual(peak["traffic_scenario"], "peak")
+        self.assertNotEqual(off_peak["traffic_snapshot_id"], peak["traffic_snapshot_id"])
+        self.assertLess(off_peak["time"], peak["time"])
+        self.assertEqual(off_peak["traffic_source_label"], "INFERRED")
+        self.assertEqual(peak["traffic_source_label"], "INFERRED")
+        self.assertIn("scenario", peak["provider_notice"].lower())
+        for result in (off_peak, peak):
+            self.assertAlmostEqual(result["traffic_adjusted_eta"] - result["free_flow_eta"],
+                                   result["traffic_delay"], places=2)
+            self.assertGreaterEqual(result["traffic_delay"], 0)
+            self.assertLessEqual(result["traffic_delay"], result["traffic_adjusted_eta"])
+
+    def test_hypothetical_scenario_does_not_claim_provider_traffic(self):
+        def provider(*_args, **_kwargs):
+            route = fake_provider(None, None)[0]
+            return [{**route, "traffic_data_available": True,
+                     "segment_traffic": ["Light"], "segment_sources": ["HERE"]}]
+        result = run_real_world_agent("Hledan Centre", "Junction Square", "Car",
+            {"traffic_scenario": "peak"}, route_provider=provider,
+            decision_engine=RouteDecisionEngine(False))
+        self.assertFalse(result["traffic_data_available"])
+        self.assertEqual(result["traffic_source_label"], "INFERRED")
+
     def test_internal_provider_labels_are_not_displayed_as_roads(self):
         result=run_real_world_agent("Hledan Centre","Myanmar Plaza","Car",route_provider=fake_provider,decision_engine=RouteDecisionEngine(False))
         displayed=" ".join(result["display_route"])

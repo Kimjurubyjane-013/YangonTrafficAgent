@@ -5,6 +5,7 @@ import re
 from algorithms.graph import LOCATION_COORDS
 from algorithms.vehicle import VEHICLE_SPEED, calculate_real_route_time
 from app.runtime_config import traffic_mode, yangon_now
+from app.traffic_config import SCENARIO_ETA_MULTIPLIERS
 from services.here_traffic_service import fetch_traffic_aware_routes
 from services.osrm_service import fetch_real_routes
 from services.route_decision_engine import RouteDecisionEngine
@@ -14,6 +15,15 @@ _ENGINE = None
 _GENERIC_ROAD_WORDS = {"road", "street", "avenue", "lane", "highway", "route"}
 _TRAFFIC_SCORE = {"Light": 25.0, "Moderate": 55.0, "Heavy": 85.0}
 _VALID_TRAFFIC = frozenset(_TRAFFIC_SCORE)
+
+
+def _scenario_explanation(scenario, road_names, level):
+    road = road_names[0] if road_names else "the mapped roads"
+    if scenario == "off_peak":
+        return f"Off-Peak conditions reduce inferred demand on {road}, resulting in {level} traffic and a scenario-adjusted ETA."
+    if scenario == "peak":
+        return f"Peak-Hour conditions increase inferred demand on {road}, resulting in {level} traffic and a scenario-adjusted ETA."
+    return "Current Conditions use the active Asia/Yangon time window and the best available traffic evidence."
 
 
 def _format_minutes(value):
@@ -147,11 +157,12 @@ def _weighted_level(levels, traffic_geometry=None, segment_weights=None):
     return level, round(score, 1)
 
 
-def _effective_route_traffic(route, model_state):
+def _effective_route_traffic(route, model_state, allow_provider=True):
     """Merge provider sections with inference and retain honest provenance."""
-    provider_levels = list(route.get("segment_traffic") or ())
-    provider_sources = [str(value).upper() for value in (route.get("segment_sources") or ())]
-    complete_provider_response = bool(route.get("traffic_data_available") and not provider_sources)
+    provider_levels = list(route.get("segment_traffic") or ()) if allow_provider else []
+    provider_sources = ([str(value).upper() for value in (route.get("segment_sources") or ())]
+                        if allow_provider else [])
+    complete_provider_response = bool(allow_provider and route.get("traffic_data_available") and not provider_sources)
     if complete_provider_response:
         provider_sources = ["HERE"] * max(1, len(provider_levels))
     inferred_levels = list(model_state.get("segment_traffic") or ())
@@ -191,21 +202,27 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         return {"error": "Unknown location."}
     if vehicle not in VEHICLE_SPEED:
         return {"error": "Unknown vehicle type."}
+    scenario = str(conditions.get("traffic_scenario") or conditions.get("time_band") or "current").lower()
+    if scenario not in {"current", "off_peak", "peak"}:
+        scenario = "current"
+    hypothetical = scenario != "current"
     try:
-        provider = route_provider or _real_route_provider
+        # HERE represents present conditions only. Hypothetical scenarios use
+        # mapped-road geometry plus our explicitly labelled inference model.
+        provider = route_provider or (fetch_real_routes if hypothetical else _real_route_provider)
         routes = provider(LOCATION_COORDS[start], LOCATION_COORDS[destination], alternatives=3)
     except Exception as exc:
         return {"error": str(exc), "routing_mode": "real-world-only"}
 
-    conditions["time_band"] = _time_band(conditions)
+    conditions["traffic_scenario"] = scenario
+    conditions["time_band"] = scenario if hypothetical else _time_band(conditions)
     conditions.setdefault("weather", "clear")
     conditions.setdefault("incident", "none")
-    mode = traffic_mode()
     traffic_engine = traffic_engine or TRAFFIC_ENGINE
     # Always obtain inferred traffic snapshot — used as fallback for segments
     # without provider coverage, regardless of traffic mode setting.
-    if traffic_snapshot is None:
-        traffic_snapshot = traffic_engine.get_snapshot()
+    if traffic_snapshot is None or getattr(traffic_snapshot, "scenario", "current") != scenario:
+        traffic_snapshot = traffic_engine.get_snapshot(scenario=scenario)
     candidates = []
     closure_rejections = []
     closed_road = conditions.get("closed_road", "").strip()
@@ -220,7 +237,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             continue
         road_label = route["road_names"][0] if route["road_names"] else "Mapped road route"
         road_summary = route["road_names"]
-        has_real_traffic = bool(route.get("traffic_data_available"))
+        has_real_traffic = bool(route.get("traffic_data_available")) and not hypothetical
 
         # Always compute inferred model state — used as segment fallback even
         # when HERE provides the route-level traffic.
@@ -228,15 +245,25 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             start, destination, route.get("road_names", ()), traffic_snapshot, route.get("geometry", ())
         )
 
-        effective = _effective_route_traffic(route, model_state)
+        effective = _effective_route_traffic(route, model_state, allow_provider=not hypothetical)
         level = effective["traffic"]
         segment_traffic = effective["segment_traffic"]
         traffic_source_label = effective["traffic_source_label"]
         traffic_source_full = effective["traffic_source"]
-        provider_notice = None if traffic_source_label == "HERE" else (
+        segment_diagnostics = []
+        for index, diagnostic in enumerate(model_state.get("segment_diagnostics", [])):
+            provider_road = road_summary[min(index, len(road_summary) - 1)] if road_summary else None
+            segment_diagnostics.append({
+                **diagnostic,
+                "road_name": provider_road or diagnostic.get("road_name"),
+                "model_reference_road": (diagnostic.get("road_name")
+                                         if provider_road and provider_road != diagnostic.get("road_name") else None),
+            })
+        provider_notice = (f"{scenario.replace('_', '-').title()} scenario uses inferred traffic conditions."
+                           if hypothetical else None if traffic_source_label == "HERE" else (
             "Some traffic sections use inferred estimates." if traffic_source_label == "MIXED"
             else "HERE traffic is unavailable; traffic is estimated from the inferred traffic model."
-        )
+        ))
         eta_basis = ("HERE traffic-aware duration adjusted for the selected vehicle" if traffic_source_label == "HERE"
                      else "Road duration adjusted by effective segment traffic and vehicle type")
 
@@ -262,6 +289,8 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             route["duration"], route["distance"], vehicle,
             "Light" if has_real_traffic else level,
         )
+        if hypothetical:
+            traffic_eta = round(traffic_eta * SCENARIO_ETA_MULTIPLIERS[scenario], 2)
         if has_real_traffic:
             provider_delay = max(0.0, float(route["duration"]) - float(route.get("base_duration", route["duration"])))
             effective_delay = round(min(traffic_eta, provider_delay), 2)
@@ -316,7 +345,9 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "cumulative_traffic_impact": route.get("cumulative_traffic_impact", model_state["cumulative_traffic_impact"]),
             "average_congestion_pressure": route.get("average_congestion_pressure", model_state["average_congestion_pressure"]),
             "retrieved_at": route.get("retrieved_at"),
-            "segment_diagnostics": model_state.get("segment_diagnostics", []),
+            "segment_diagnostics": segment_diagnostics,
+            "traffic_scenario": scenario,
+            "scenario_explanation": _scenario_explanation(scenario, road_summary, level),
             "segments": model_segments,
         })
     if not candidates:
@@ -391,6 +422,8 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         "traffic_data_available":best.get("traffic_data_available",False),
         "traffic_model_available":best.get("traffic_model_available",True),
         "traffic_snapshot_id":best.get("traffic_snapshot_id"),
+        "traffic_scenario": scenario,
+        "scenario_explanation": best.get("scenario_explanation"),
         "provider_coverage":best.get("provider_coverage"),
         "route_id":best.get("route_id"),"route_cost":best.get("route_cost"),
         "segment_diagnostics":best.get("segment_diagnostics",[]),

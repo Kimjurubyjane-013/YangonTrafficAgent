@@ -76,7 +76,9 @@
             const mode = scenario.value;
             closureField.hidden = mode !== 'closure';
             if (mode !== 'closure') document.getElementById('closed-road').value = '';
-            document.getElementById('departure-band').value = ['peak','incident','emergency'].includes(mode) ? 'peak' : '';
+            document.getElementById('departure-band').value = mode === 'off_peak'
+                ? 'off_peak'
+                : ['peak','incident','emergency'].includes(mode) ? 'peak' : '';
             document.getElementById('incident-level').value = ['incident','closure','emergency'].includes(mode) ? 'major' : 'none';
             if (mode === 'emergency') document.getElementById('vehicle').value = 'Ambulance';
         });

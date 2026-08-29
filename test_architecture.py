@@ -43,6 +43,9 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIsNone(error); self.assertEqual(request.conditions["closed_road"],"Pyay Road")
         self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Inya Lake",{"closed_road":"\u4e2d\u6587"})[1])
         self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Inya Lake",{"time_band":"tomorrow"})[1])
+        request,error=validate_route_request("Car","Hledan Centre","Inya Lake",{"traffic_scenario":"off_peak"})
+        self.assertIsNone(error); self.assertEqual(request.conditions["traffic_scenario"],"off_peak")
+        self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Inya Lake",{"traffic_scenario":"weekend"})[1])
 
     def test_best_and_alternative_contracts_match(self):
         api=Api(FakeRouteService()); result=api.find_route("Car","Hledan Centre","Inya Lake")
@@ -177,6 +180,18 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn(".traffic-stat>span,.traffic-stat>strong,.traffic-stat>small{display:block", css)
         self.assertIn(".traffic-dashboard{margin-inline:auto", css)
         self.assertIn("setState('', 'ready')", (root/"web"/"dashboard.js").read_text(encoding="utf-8"))
+
+    def test_scenario_and_normal_result_ui_are_truthful_and_clean(self):
+        html=(Path(__file__).parent/"web"/"app.html").read_text(encoding="utf-8")
+        self.assertIn('<option value="current">Current Conditions</option>', html)
+        self.assertIn('<option value="off_peak">Off-Peak Scenario</option>', html)
+        self.assertIn('conditions.traffic_scenario', html)
+        self.assertIn('id="r-scenario"', html)
+        self.assertIn('id="unknown-legend-item" hidden', html)
+        self.assertIn("document.getElementById('unknown-legend-item').hidden", html)
+        self.assertIn("provenance.hidden = true", html)
+        self.assertIn("`Traffic Source: ${srcLabel}`", html)
+        self.assertNotIn("provenance.hidden = false", html)
 
     def test_source_badges_have_central_light_and_dark_contrast_styles(self):
         root=Path(__file__).parent

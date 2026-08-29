@@ -20,6 +20,7 @@ TARGET_ROUTE_COUNT = 3
 CACHE_TTL_SECONDS = 600
 DEFAULT_SEARCH_BUDGET_SECONDS = 6.5
 _CACHE, _CACHE_LOCK = {}, RLock()
+_REVERSE_CORRIDOR_CHECKED = set()
 
 
 class RoadRoutingUnavailable(RuntimeError):
@@ -185,12 +186,57 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
     return accepted[:TARGET_ROUTE_COUNT]
 
 
+def _validate_reverse_discovered_corridor(start_coord, destination_coord, reverse_routes,
+                                          accepted, timeout):
+    """Ask OSRM to validate a reverse-discovered corridor in this direction.
+
+    Reverse geometry is never copied or reversed: the midpoint is only a hint
+    for a new same-direction routing request, so one-way restrictions remain
+    the routing provider's responsibility.
+    """
+    for reverse in reverse_routes:
+        geometry = reverse.get("geometry") or []
+        if len(geometry) < 3:
+            continue
+        midpoint = geometry[len(geometry) // 2]
+        if _km(start_coord, midpoint) < 0.1 or _km(midpoint, destination_coord) < 0.1:
+            continue
+        try:
+            raw_routes = _request([start_coord, midpoint, destination_coord], False, timeout)
+            record = _route_record(raw_routes[0], len(accepted), "Validated alternate corridor",
+                                   "osrm-validated-corridor")
+        except (RoadRoutingUnavailable, IndexError, KeyError, TypeError, ValueError):
+            continue
+        if record and _is_diverse(record, accepted):
+            return record
+    return None
+
+
 def fetch_real_routes(start_coord,destination_coord,alternatives=3,timeout=DEFAULT_SEARCH_BUDGET_SECONDS):
     key=(tuple(start_coord),tuple(destination_coord),int(alternatives))
+    reverse_key=(tuple(destination_coord),tuple(start_coord),int(alternatives))
     now=time.monotonic()
     with _CACHE_LOCK:
         cached=_CACHE.get(key)
-        if cached and now-cached[0]<CACHE_TTL_SECONDS: return deepcopy(cached[1])
-    routes=_fetch_real_routes_uncached(start_coord,destination_coord,alternatives,timeout)
+        routes = deepcopy(cached[1]) if cached and now-cached[0]<CACHE_TTL_SECONDS else None
+        reverse_cached = _CACHE.get(reverse_key)
+        reverse_routes = (deepcopy(reverse_cached[1]) if reverse_cached and
+                          now-reverse_cached[0]<CACHE_TTL_SECONDS else None)
+        # Enrich only on a later cached read. The initial forward and reverse
+        # requests remain independent and fast; a subsequent read may validate
+        # a corridor learned from the opposite direction.
+        should_check_reverse = bool(routes is not None and reverse_routes and
+                                    key not in _REVERSE_CORRIDOR_CHECKED)
+        if should_check_reverse:
+            _REVERSE_CORRIDOR_CHECKED.add(key)
+    if routes is None:
+        routes=_fetch_real_routes_uncached(start_coord,destination_coord,alternatives,timeout)
+    if should_check_reverse and len(routes) < min(TARGET_ROUTE_COUNT, int(alternatives)):
+        candidate = _validate_reverse_discovered_corridor(
+            start_coord, destination_coord, reverse_routes, routes, min(1.8, float(timeout))
+        )
+        if candidate:
+            routes.append(candidate)
+    routes = routes[:TARGET_ROUTE_COUNT]
     with _CACHE_LOCK: _CACHE[key]=(time.monotonic(),deepcopy(routes))
     return routes

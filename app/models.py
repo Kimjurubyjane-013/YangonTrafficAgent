@@ -80,6 +80,7 @@ class TrafficSnapshot:
     time_period: str
     rush_hour: bool
     roads: Mapping[str, RoadTrafficState]
+    scenario: str = "current"
 
     def road(self, road_id: str) -> RoadTrafficState | None:
         return self.roads.get(road_id)
