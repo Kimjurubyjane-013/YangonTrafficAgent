@@ -354,7 +354,7 @@
 
 <main class="traffic-dashboard" id="dashboard-view" hidden>
     <section class="dashboard-head">
-        <div><div class="panel-kicker">Citywide Traffic Monitoring</div><h1>Yangon Traffic Intelligence</h1><p>Live traffic conditions and citywide congestion insights.</p></div>
+        <div><div class="panel-kicker">Citywide Traffic Monitoring</div><h1>Yangon Traffic Intelligence</h1><p id="dashboard-subtitle">Real-time traffic insights and smart route recommendations.</p></div>
         <button type="button" id="refresh-traffic" class="dashboard-refresh"><span aria-hidden="true">↻</span> Refresh Traffic</button>
     </section>
     <div class="traffic-context" id="traffic-context" aria-live="polite">
@@ -366,30 +366,25 @@
         <span class="traffic-source-chip"><small>Traffic Source</small><strong id="context-source">—</strong></span>
     </div>
     <div class="dashboard-state" id="dashboard-state" role="status">Loading current traffic intelligence…</div>
-    <section class="traffic-summary-grid" aria-label="Traffic summary">
+    <section class="traffic-unavailable" id="traffic-unavailable" hidden>
+        <div class="unavailable-icon" aria-hidden="true">!</div>
+        <div><h2>Real-Time Traffic Unavailable</h2><p>We could not retrieve live traffic conditions right now. Route planning is still available using base road geometry.</p><dl><div><dt>Yangon Time</dt><dd id="unavailable-time">—</dd></div><div><dt>Traffic Provider</dt><dd id="unavailable-provider">—</dd></div><div><dt>Status</dt><dd>Unavailable</dd></div></dl></div>
+        <button type="button" id="retry-traffic" class="dashboard-retry">Retry Traffic</button>
+    </section>
+    <div id="dashboard-available" hidden>
+    <section class="traffic-summary-grid" aria-label="Traffic Status Summary">
         <article class="health-card"><div class="health-card-copy"><span>Traffic Health</span><strong><b id="health-score">—</b><small>/ 100</small></strong><em id="health-label">Loading</em><p id="health-explanation">Checking monitored roads…</p></div><div class="health-gauge" aria-hidden="true"><i id="health-meter-fill"></i><span></span></div><small id="health-period">Current Traffic Period</small></article>
         <div class="traffic-metric-grid">
             <article class="traffic-stat light"><span><i aria-hidden="true"></i>Light Roads</span><strong id="light-count">—</strong><small>Free flowing</small></article>
             <article class="traffic-stat moderate"><span><i aria-hidden="true"></i>Moderate Roads</span><strong id="moderate-count">—</strong><small>Congestion developing</small></article>
             <article class="traffic-stat heavy"><span><i aria-hidden="true"></i>Heavy Roads</span><strong id="heavy-count">—</strong><small>High congestion</small></article>
-            <article class="traffic-stat neutral"><span><i aria-hidden="true"></i>Average Score</span><strong id="average-score">—</strong><small>Matched monitored roads</small></article>
         </div>
-    </section>
-    <section class="dashboard-overview-grid">
-        <article class="dashboard-card traffic-map-card">
-            <div class="dashboard-card-head"><div><span>Network View</span><h2>Traffic Overview</h2></div><small>Matched monitored roads</small></div>
-            <div class="dashboard-map-wrap"><div id="dashboard-traffic-map" aria-label="Map of monitored Yangon roads by traffic condition"></div><div id="dashboard-map-empty" class="dashboard-map-empty" hidden>Traffic geometry is unavailable for this refresh.</div><div class="dashboard-map-legend" aria-label="Traffic Conditions legend"><strong>Traffic Conditions</strong><span><i class="light"></i>Light</span><span><i class="moderate"></i>Moderate</span><span><i class="heavy"></i>Heavy</span><span><i class="unknown"></i>No Data</span></div></div>
-        </article>
-        <article class="dashboard-card city-insight-card">
-            <div class="dashboard-card-head"><div><span>At A Glance</span><h2>City Traffic Insight</h2></div></div>
-            <div class="city-insight-body"><div class="insight-symbol" aria-hidden="true">YGN</div><p id="city-insight">Waiting for current traffic evidence.</p><dl><div><dt>Roads Matched</dt><dd id="matched-road-count">—</dd></div><div><dt>Provider Records</dt><dd id="flow-record-count">—</dd></div></dl></div>
-        </article>
     </section>
     <section class="dashboard-lists">
         <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Priority Monitoring</span><h2>Congestion Hotspots</h2></div></div><div id="hotspot-list" class="ranked-road-list"></div></article>
         <article class="dashboard-card"><div class="dashboard-card-head"><div><span>Network Performance</span><h2>Best Flowing Roads</h2></div></div><div id="best-flow-list" class="ranked-road-list"></div></article>
-        <article class="dashboard-card trend-card"><div class="dashboard-card-head"><div><span>Traffic Evidence</span><h2>Traffic Trends</h2></div></div><div id="trend-summary" class="trend-summary"></div><small class="model-note">Provider-backed traffic evidence refreshes with the current snapshot.</small></article>
     </section>
+    </div>
 </main>
 
 <main class="home-view" id="home-view">
@@ -500,6 +495,7 @@
             <span class="traffic-light"></span> Light
             <span class="traffic-moderate"></span> Moderate
             <span class="traffic-heavy"></span> Heavy
+            <span class="traffic-unknown"></span> No Data
         </div>
     </div>
 
@@ -1100,9 +1096,10 @@
             const traffic = segmentTraffic[i] || selected.option.traffic || 'Unavailable';
             const color = YangonTrafficColors.css(traffic);
 
-            // Outer glow line for a modern nav-app feel
+            // Neutral casing keeps every traffic color readable over map detail.
             const glow = L.polyline(legCoords, {
-                color, weight: 12, opacity: 0.25
+                color: '#26343d', weight: 11, opacity: 0.46,
+                lineCap: 'round', lineJoin: 'round', interactive: false
             }).addTo(map);
             routeLayers.push(glow);
 
@@ -1160,8 +1157,14 @@
     function updateRouteResultDetails(opt) {
         document.getElementById('r-traffic-source').textContent = `Traffic Source: ${trafficSourceSummary(opt)}`;
         const trafficResult = document.getElementById('r-traffic');
-        trafficResult.dataset.level = YangonTrafficColors.normalize(opt.traffic) || '';
-        trafficResult.style.setProperty('--route-traffic-color', YangonTrafficColors.css(opt.traffic));
+        const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
+        const color = YangonTrafficColors.getTrafficColor(level);
+        trafficResult.dataset.level = level;
+        trafficResult.style.setProperty('--route-traffic-color', color);
+        const etaResult = document.getElementById('r-time');
+        etaResult.dataset.level = level;
+        etaResult.style.setProperty('--route-traffic-color', color);
+        document.querySelector('.result').style.setProperty('--route-traffic-color', color);
         const why = document.getElementById('route-why');
         const reason = opt.recommendation_reason?.explanation;
         why.hidden = !reason;
@@ -1183,7 +1186,10 @@
             });
 
             const label = index === 0 ? '⭐ Recommended real route' : `Real alternative ${index}`;
-            const color = YangonTrafficColors.css(opt.traffic);
+            const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
+            const color = YangonTrafficColors.getTrafficColor(level);
+            div.dataset.level = level;
+            div.style.setProperty('--route-traffic-color', color);
 
             const title = document.createElement('b'); title.textContent = label;
             const routeText = document.createElement('span'); routeText.textContent = (opt.display_route || opt.route).join(' → ');
@@ -1196,7 +1202,7 @@
             const badge = document.createElement('span');
             badge.className = 'badge';
             badge.style.background = trafficAvailable ? color : '#60717d';
-            badge.textContent = trafficAvailable ? opt.traffic : 'Standard ETA';
+            badge.textContent = trafficAvailable ? opt.traffic : 'Unavailable';
             badge.title = opt.traffic_data_available
                 ? `${opt.traffic} Provider Traffic`
                 : opt.traffic_model_available ? `${opt.traffic} Simulated Traffic` : 'Estimate Based On Standard Mapped-Road Speeds';
@@ -1214,7 +1220,7 @@
 
         const badge = document.getElementById('hud-traffic');
         const trafficAvailable = hasTrafficEvidence(opt);
-        badge.innerText = trafficAvailable ? opt.traffic : 'Standard ETA';
+        badge.innerText = trafficAvailable ? opt.traffic : 'Unavailable';
         badge.style.background = trafficAvailable ? YangonTrafficColors.css(opt.traffic) : '#60717d';
 
         hud.classList.add('visible');
@@ -1911,6 +1917,7 @@
             route: result.route,
             display_route: result.display_route,
             geometry: result.geometry,
+            traffic_geometry: result.traffic_geometry,
             road_names: result.road_names,
             distance: result.distance,
             time: result.time,
@@ -1974,8 +1981,10 @@
         document.getElementById('r-route').innerText = 'Route: -';
         document.getElementById('r-distance').innerText = 'Distance: -';
         document.getElementById('r-time').innerText = 'Estimated Time: -';
+        delete document.getElementById('r-time').dataset.level;
         document.getElementById('r-traffic').innerText = 'Traffic: -';
         delete document.getElementById('r-traffic').dataset.level;
+        document.querySelector('.result').style.removeProperty('--route-traffic-color');
         document.getElementById('r-traffic-source').innerText = 'Traffic Source: -';
         document.getElementById('route-why').hidden = true;
         document.getElementById('route-provenance').hidden = true;

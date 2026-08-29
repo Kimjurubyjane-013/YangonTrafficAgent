@@ -61,7 +61,7 @@ class ArchitectureTests(unittest.TestCase):
             "scenario-mode","departure-band","incident-level","closed-road","analysis-view","analysis-btn",
             "analysis-back","route-provenance","route-comparison","nav-dashboard","dashboard-view",
             "health-score","hotspot-list","best-flow-list","r-traffic-source","route-why",
-            "trend-summary","refresh-traffic"):
+            "traffic-unavailable","dashboard-available","retry-traffic","refresh-traffic"):
             self.assertIn(f'id="{element_id}"',html)
         for removed_id in ("nav-traffic","nav-simulation","traffic-map-view","dashboard-map","legacy-home-view"):
             self.assertNotIn(f'id="{removed_id}"',html)
@@ -82,12 +82,19 @@ class ArchitectureTests(unittest.TestCase):
     def test_dashboard_uses_the_shared_backend_snapshot(self):
         root=Path(__file__).parent
         dashboard=(root/"web"/"dashboard.js").read_text(encoding="utf-8")
+        html=(root/"web"/"app.html").read_text(encoding="utf-8")
+        css=(root/"web"/"styles.css").read_text(encoding="utf-8")
         self.assertIn("YangonApi.trafficOverview()",dashboard)
         self.assertIn("data.roads",dashboard)
         self.assertNotIn("Math.random",dashboard)
-        self.assertIn("L.map('dashboard-traffic-map'",dashboard)
-        self.assertIn("getTrafficColor(trafficLevel(road.traffic_level))",dashboard)
-        self.assertIn("graphRoads()",dashboard)
+        self.assertNotIn("L.map",dashboard)
+        self.assertNotIn("dashboard-traffic-map",dashboard)
+        self.assertNotIn("dashboard-traffic-map",html)
+        self.assertNotIn("dashboard-map-wrap",css)
+        self.assertNotIn("dashboard-map-legend",css)
+        self.assertIn('id="traffic-unavailable"',html)
+        self.assertIn("byId('dashboard-available').hidden = true",dashboard)
+        self.assertIn("byId('traffic-unavailable').hidden = true",dashboard)
 
     def test_browser_transport_and_vercel_entrypoint_are_present(self):
         root=Path(__file__).parent
@@ -143,6 +150,8 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("YangonTrafficColors.css(traffic)", html)
         self.assertIn("segmentTraffic = selected.levels", html)
         self.assertIn("currentSegmentTraffic = segmentTraffic", html)
+        self.assertIn("traffic_geometry: result.traffic_geometry", html)
+        self.assertIn("YangonTrafficColors.getTrafficColor(level)", html)
         self.assertIn("YangonTrafficColors.three(traffic[index])", simulation)
         self.assertNotIn("Light: 0x2ecc71", simulation)
 
