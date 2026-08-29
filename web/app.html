@@ -1250,7 +1250,7 @@
 
         allOptionsData.forEach((opt, index) => {
             const div = document.createElement('div');
-            div.className = 'route-option' + (index === activeOptionIndex ? ' active' : '');
+            div.className = 'route-option' + (index === activeOptionIndex ? ' active' : '') + (index === 0 ? ' recommended' : '');
             div.setAttribute('role', 'button');
             div.tabIndex = 0;
             div.addEventListener('click', () => selectOption(index));
@@ -1258,19 +1258,33 @@
                 if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectOption(index); }
             });
 
-            const label = index === 0 ? '⭐ Recommended real route' : `Real alternative ${index}`;
+            const label = index === 0 ? 'Recommended Route' : `Alternative ${index}`;
             const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
             const color = YangonTrafficColors.getTrafficColor(level);
             div.dataset.level = level;
             div.style.setProperty('--route-traffic-color', color);
 
+            const header = document.createElement('div'); header.className = 'route-option-header';
+            const star = document.createElement('span'); star.className = 'route-recommendation-star'; star.textContent = index === 0 ? '★' : String(index + 1).padStart(2, '0');
             const title = document.createElement('b'); title.textContent = label;
-            const routeText = document.createElement('span'); routeText.textContent = (opt.display_route || opt.route).join(' → ');
-            const metrics = document.createElement('span'); metrics.textContent = `${opt.distance} km · ${formatDuration(opt.time)}`;
+            header.append(star, title);
+
+            const routePath = document.createElement('ol'); routePath.className = 'route-option-path';
+            (opt.display_route || opt.route).forEach(name => {
+                const item = document.createElement('li'); item.textContent = name; routePath.appendChild(item);
+            });
+
+            const metrics = document.createElement('div'); metrics.className = 'route-option-metrics';
+            const addMetric = (name, value, extraClass = '') => {
+                const item = document.createElement('span'); item.className = extraClass;
+                const valueNode = document.createElement('strong'); valueNode.textContent = value;
+                const labelNode = document.createElement('small'); labelNode.textContent = name;
+                item.append(valueNode, labelNode); metrics.appendChild(item);
+            };
+            addMetric('Distance', `${opt.distance} km`);
+            addMetric('ETA', formatDuration(opt.time));
             const delay = Number(opt.traffic_delay || 0);
-            if (delay > 0) {
-                metrics.textContent += ` · +${formatDuration(delay)}`;
-            }
+            if (delay > 0) addMetric('Traffic Delay', `+${formatDuration(delay)}`, 'delay');
             const badge = document.createElement('span');
             badge.className = 'badge';
             badge.style.background = color;
@@ -1283,7 +1297,33 @@
             srcBadge.textContent = trafficSourceLabel(opt);
             srcBadge.title = trafficSourceSummary(opt);
 
-            div.append(title, document.createElement('br'), routeText, document.createElement('br'), metrics, badge, srcBadge);
+            const badgeRow = document.createElement('div'); badgeRow.className = 'route-option-badges';
+            const sourceGroup = document.createElement('span'); sourceGroup.className = 'route-option-badge-group';
+            const sourceLabel = document.createElement('small'); sourceLabel.textContent = 'Traffic Source';
+            sourceGroup.append(sourceLabel, srcBadge);
+            const trafficGroup = document.createElement('span'); trafficGroup.className = 'route-option-badge-group';
+            const trafficLabel = document.createElement('small'); trafficLabel.textContent = 'Traffic';
+            trafficGroup.append(trafficLabel, badge);
+            badgeRow.append(sourceGroup, trafficGroup);
+            div.append(header, routePath, metrics);
+            if (index > 0 && allOptionsData[0]) {
+                const best = allOptionsData[0];
+                const etaDifference = Number(opt.time) - Number(best.time);
+                const distanceDifference = Number(opt.distance) - Number(best.distance);
+                const comparison = document.createElement('p'); comparison.className = 'route-option-difference';
+                const severity = { Light: 0, Moderate: 1, Heavy: 2, Unknown: 3 };
+                if (etaDifference > 0.01 && severity[level] < severity[YangonTrafficColors.normalize(best.traffic) || 'Unknown']) {
+                    comparison.textContent = `${formatDuration(etaDifference)} slower, with lighter traffic.`;
+                } else if (etaDifference > 0.01) {
+                    comparison.textContent = `${formatDuration(etaDifference)} slower than the recommended route.`;
+                } else if (distanceDifference > 0.01) {
+                    comparison.textContent = `${distanceDifference.toFixed(2)} km longer.`;
+                } else {
+                    comparison.textContent = 'A different real-road approach.';
+                }
+                div.appendChild(comparison);
+            }
+            div.appendChild(badgeRow);
 
             container.appendChild(div);
         });
@@ -1996,6 +2036,8 @@
             road_names: result.road_names,
             distance: result.distance,
             time: result.time,
+            traffic_adjusted_eta: result.traffic_adjusted_eta,
+            free_flow_eta: result.free_flow_eta,
             traffic: result.traffic,
             segment_traffic: result.segment_traffic,
             segment_sources: result.segment_sources,

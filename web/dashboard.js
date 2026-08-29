@@ -233,6 +233,7 @@
             : mode === 'Mixed'
                 ? 'Traffic conditions from HERE provider and inferred model.'
                 : 'Traffic conditions estimated by inferred traffic model — not live provider data.');
+        setState('', 'ready');
     }
 
     function renderError(message) {

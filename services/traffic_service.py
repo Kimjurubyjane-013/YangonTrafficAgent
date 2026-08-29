@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import heapq
+import math
 import re
 from dataclasses import replace
 from datetime import datetime, timedelta
@@ -21,7 +22,7 @@ from app.traffic_config import (
     CRITICAL_CONGESTION_SCORE, DETERMINISTIC_VARIATION_LIMIT,
     HEALTH_LABELS, HOTSPOT_WEIGHTS, JUNCTION_DENSITY_EFFECT,
     MAX_CONGESTION_PRESSURE, MINIMUM_TRAFFIC_SPEED_KMH, ROAD_IMPORTANCE,
-    ROAD_TYPES, RUSH_HOUR_PERIODS, RUSH_HOUR_SCORE_EFFECT,
+    ROAD_TYPES, RUSH_HOUR_PERIODS, RUSH_HOUR_SCORE_EFFECT, SCORE_SPREAD_FACTOR,
     SNAPSHOT_MINUTES, TIME_DENSITY_EFFECT, TIME_PERIODS, TIME_SCORE_EFFECT,
     TRAFFIC_SPEED_MULTIPLIERS, TREND_STABLE_THRESHOLD,
     VEHICLE_DENSITY_WEIGHT,
@@ -159,7 +160,7 @@ class TrafficEngine:
         pressure = min(MAX_CONGESTION_PRESSURE, density / road.capacity)
         pressure_percent = clamp(pressure / MAX_CONGESTION_PRESSURE * 100.0)
         context_score = (context_demand * 0.10) + defaults.score_effect
-        score = clamp(
+        raw_score = clamp(
             road.base_congestion * BASE_CONGESTION_WEIGHT
             + density * VEHICLE_DENSITY_WEIGHT
             + pressure_percent * CONGESTION_PRESSURE_WEIGHT
@@ -167,6 +168,7 @@ class TrafficEngine:
             + (RUSH_HOUR_SCORE_EFFECT if rush else 0.0)
             + context_score
         )
+        score = clamp(50.0 + (raw_score - 50.0) * SCORE_SPREAD_FACTOR)
         level = classify_traffic(score)
         average_speed = max(MINIMUM_TRAFFIC_SPEED_KMH, road.base_speed_kmh * TRAFFIC_SPEED_MULTIPLIERS[level])
         free_flow_minutes = road.distance_km / road.base_speed_kmh * 60.0
@@ -276,7 +278,8 @@ class TrafficEngine:
             "hotspots": hotspots, "roads": roads,
         }
 
-    def route_state(self, start: str, destination: str, road_names=(), snapshot: TrafficSnapshot | None = None) -> dict:
+    def route_state(self, start: str, destination: str, road_names=(), snapshot: TrafficSnapshot | None = None,
+                    geometry=()) -> dict:
         snapshot = snapshot or self.get_snapshot()
         path = self._shortest_path(start, destination)
         states = []
@@ -285,6 +288,15 @@ class TrafficEngine:
             if road and road.id in snapshot.roads: states.append(snapshot.roads[road.id])
         requested_names = {_road_name_key(name) for name in road_names if name}
         named = [state for state in snapshot.roads.values() if _road_name_key(state.road_name) in requested_names]
+        if named and geometry:
+            # A road name can occur on several disconnected records. Keep only
+            # records geographically close to this provider route.
+            def route_distance(state):
+                midpoint = ((state.coordinates[0][0] + state.coordinates[1][0]) / 2,
+                            (state.coordinates[0][1] + state.coordinates[1][1]) / 2)
+                return min(self._coordinate_distance_km(midpoint, point) for point in geometry)
+            nearby = [state for state in named if route_distance(state) <= 0.65]
+            named = sorted(nearby, key=route_distance)
         if named: states = named
         if not states:
             return {"traffic_level":"Moderate","segment_traffic":["Moderate"],"road_ids":[],
@@ -295,6 +307,7 @@ class TrafficEngine:
         route_score, route_level = classify_route_traffic(states, self.repository)
         return {
             "traffic_level": route_level, "segment_traffic": [state.traffic_level for state in states],
+            "segment_distances": [self.repository.by_id[state.road_id].distance_km for state in states],
             "road_ids": [state.road_id for state in states],
             "average_score": route_score,
             "estimated_delay_minutes": round(sum(state.estimated_delay_minutes for state in states), 2),
@@ -304,6 +317,13 @@ class TrafficEngine:
             "average_congestion_pressure": round(sum(state.congestion_pressure for state in states) / len(states), 3),
             "snapshot_id": snapshot.snapshot_id, "source":"academic_simulation",
         }
+
+    @staticmethod
+    def _coordinate_distance_km(first, second):
+        latitude = (float(first[0]) + float(second[0])) / 2
+        longitude_scale = max(0.2, math.cos(math.radians(latitude)))
+        return ((float(first[0]) - float(second[0])) ** 2 * 111.0 ** 2
+                + (float(first[1]) - float(second[1])) ** 2 * (111.0 * longitude_scale) ** 2) ** 0.5
 
     def _build_graph(self):
         graph = {name: {} for name in self.repository.locations}

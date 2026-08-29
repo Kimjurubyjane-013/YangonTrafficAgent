@@ -182,5 +182,14 @@ class RealWorldPipelineTests(unittest.TestCase):
         self.assertEqual(result["inferred_coverage_percent"], 50.0)
         self.assertEqual(result["unknown_coverage_percent"], 0.0)
 
+    def test_displayed_delay_never_exceeds_adjusted_eta(self):
+        result = run_real_world_agent("Hledan Centre", "Myanmar Plaza", "Car",
+            route_provider=fake_provider, decision_engine=RouteDecisionEngine(False))
+        for option in [result, *result["alternatives"]]:
+            self.assertGreaterEqual(option["traffic_delay"], 0)
+            self.assertLessEqual(option["traffic_delay"], option["traffic_adjusted_eta"])
+            self.assertAlmostEqual(option["traffic_delay"],
+                max(0, option["traffic_adjusted_eta"] - option["free_flow_eta"]), places=2)
+
 
 if __name__ == "__main__": unittest.main()

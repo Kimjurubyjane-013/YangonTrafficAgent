@@ -133,14 +133,15 @@ def _coverage_from_sources(sources):
     return provider, inferred, round(max(0.0, 100.0 - provider - inferred), 1)
 
 
-def _weighted_level(levels, traffic_geometry=None):
+def _weighted_level(levels, traffic_geometry=None, segment_weights=None):
     valid = [(index, level) for index, level in enumerate(levels) if level in _VALID_TRAFFIC]
     if not valid:
         return "Unknown", None
     weights = []
     for index, _level in valid:
         geometry = traffic_geometry[index] if traffic_geometry and index < len(traffic_geometry) else ()
-        weights.append(max(0.001, _polyline_length(geometry)))
+        fallback = segment_weights[index] if segment_weights and index < len(segment_weights) else 1.0
+        weights.append(max(0.001, _polyline_length(geometry) or fallback))
     score = sum(_TRAFFIC_SCORE[level] * weight for (_, level), weight in zip(valid, weights)) / sum(weights)
     level = "Light" if score <= 35 else "Moderate" if score <= 70 else "Heavy"
     return level, round(score, 1)
@@ -169,7 +170,7 @@ def _effective_route_traffic(route, model_state):
             levels.append(inferred_level); sources.append("INFERRED")
         else:
             levels.append("Unknown"); sources.append("UNKNOWN")
-    level, score = _weighted_level(levels, route.get("traffic_geometry"))
+    level, score = _weighted_level(levels, route.get("traffic_geometry"), model_state.get("segment_distances"))
     provider, inferred, unknown = _coverage_from_sources(sources)
     label = "HERE" if provider == 100 else "INFERRED" if inferred == 100 else "UNKNOWN" if unknown == 100 else "MIXED"
     description = {"HERE": "HERE Real-Time Traffic", "INFERRED": "Inferred Traffic Model", "MIXED": "Mixed Traffic Data", "UNKNOWN": "Traffic Data Unavailable"}[label]
@@ -224,7 +225,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         # Always compute inferred model state — used as segment fallback even
         # when HERE provides the route-level traffic.
         model_state = traffic_engine.route_state(
-            start, destination, route.get("road_names", ()), traffic_snapshot
+            start, destination, route.get("road_names", ()), traffic_snapshot, route.get("geometry", ())
         )
 
         effective = _effective_route_traffic(route, model_state)
@@ -257,6 +258,19 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             model_segments = [{"index":0,"name":road_label,"road_class":"arterial",
                 "traffic":str(level).lower() if level in {"Light", "Moderate", "Heavy"} else "light",
                 "preferred":False,"one_way_ok":True}]
+        traffic_eta = calculate_real_route_time(
+            route["duration"], route["distance"], vehicle,
+            "Light" if has_real_traffic else level,
+        )
+        if has_real_traffic:
+            provider_delay = max(0.0, float(route["duration"]) - float(route.get("base_duration", route["duration"])))
+            effective_delay = round(min(traffic_eta, provider_delay), 2)
+            free_flow_eta = round(max(0.0, traffic_eta - effective_delay), 2)
+        else:
+            free_flow_eta = calculate_real_route_time(
+                route.get("base_duration", route["duration"]), route["distance"], vehicle, "Light"
+            )
+            effective_delay = round(max(0.0, traffic_eta - free_flow_eta), 2)
         candidates.append({
             "candidate_id": route["provider_id"], "route": [start, destination],
             # Provider/corridor labels are internal metadata, not road names.
@@ -264,10 +278,9 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "distance": route["distance"],
             # HERE duration already includes traffic. For inferred traffic, apply
             # the inferred level multiplier; vehicle characteristics also apply.
-            "time": calculate_real_route_time(
-                route["duration"], route["distance"], vehicle,
-                "Light" if has_real_traffic else level,
-            ),
+            "time": traffic_eta,
+            "traffic_adjusted_eta": traffic_eta,
+            "free_flow_eta": free_flow_eta,
             "traffic": level,
             "segment_traffic": segment_traffic,
             "segment_sources": effective["segment_sources"],
@@ -278,10 +291,10 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "route_source": route.get("source", "unknown-real-road-provider"),
             "base_duration": route.get("base_duration", route.get("duration")),
             "traffic_time": route.get("duration") if has_real_traffic else None,
-            "traffic_delay": route.get("traffic_delay") if has_real_traffic else model_state["estimated_delay_minutes"],
+            "traffic_delay": effective_delay,
             "route_duration_seconds": route.get("route_duration_seconds", round(float(route["duration"]) * 60)),
             "base_duration_seconds": route.get("base_duration_seconds", round(float(route.get("base_duration", route["duration"])) * 60)),
-            "traffic_delay_seconds": route.get("traffic_delay_seconds") if has_real_traffic else None,
+            "traffic_delay_seconds": round(effective_delay * 60),
             "provider": route.get("provider", route.get("source")),
             "provider_timestamp": route.get("provider_timestamp", route.get("retrieved_at")),
             "traffic_source": traffic_source_full,
@@ -348,6 +361,8 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         "traffic":best["traffic"],"segment_traffic":best["segment_traffic"],
         "segment_sources":best.get("segment_sources",[]),"alternatives":alternatives,
         "eta_basis":best["eta_basis"],"route_source":best["route_source"],
+        "traffic_adjusted_eta":best.get("traffic_adjusted_eta",best["time"]),
+        "free_flow_eta":best.get("free_flow_eta"),
         "base_duration":best.get("base_duration"),"traffic_delay":best.get("traffic_delay"),
         "traffic_time":best.get("traffic_time"),
         "traffic_source":best.get("traffic_source"),

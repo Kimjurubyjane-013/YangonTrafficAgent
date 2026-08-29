@@ -167,5 +167,16 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("for (let i = 0; i < legs.length; i++)", html)
         self.assertIn("routeLayers.forEach(l => map.removeLayer(l))", html)
 
+    def test_route_cards_have_structured_readable_metadata(self):
+        root=Path(__file__).parent
+        html=(root/"web"/"app.html").read_text(encoding="utf-8")
+        css=(root/"web"/"styles.css").read_text(encoding="utf-8")
+        for token in ("route-option-header", "route-option-path", "route-option-metrics",
+                      "route-option-badges", "Traffic Delay", "traffic_adjusted_eta", "free_flow_eta"):
+            self.assertIn(token, html)
+        self.assertIn(".traffic-stat>span,.traffic-stat>strong,.traffic-stat>small{display:block", css)
+        self.assertIn(".traffic-dashboard{margin-inline:auto", css)
+        self.assertIn("setState('', 'ready')", (root/"web"/"dashboard.js").read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__": unittest.main()

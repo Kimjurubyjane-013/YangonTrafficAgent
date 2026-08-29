@@ -1,7 +1,7 @@
 from copy import deepcopy
 from typing import Any
 
-ROUTE_FIELDS = ("route", "display_route", "geometry", "traffic_geometry", "road_names", "route_source", "distance", "time", "traffic", "segment_traffic", "segment_sources", "eta_basis", "base_duration", "traffic_time", "traffic_delay", "route_duration_seconds", "base_duration_seconds", "traffic_delay_seconds", "provider", "provider_timestamp", "traffic_source", "traffic_source_label", "provider_coverage_percent", "inferred_coverage_percent", "unknown_coverage_percent", "provider_notice", "traffic_data_available", "traffic_model_available", "traffic_snapshot_id", "traffic_score", "retrieved_at", "decision")
+ROUTE_FIELDS = ("route", "display_route", "geometry", "traffic_geometry", "road_names", "route_source", "distance", "time", "traffic_adjusted_eta", "free_flow_eta", "traffic", "segment_traffic", "segment_sources", "eta_basis", "base_duration", "traffic_time", "traffic_delay", "route_duration_seconds", "base_duration_seconds", "traffic_delay_seconds", "provider", "provider_timestamp", "traffic_source", "traffic_source_label", "provider_coverage_percent", "inferred_coverage_percent", "unknown_coverage_percent", "provider_notice", "traffic_data_available", "traffic_model_available", "traffic_snapshot_id", "traffic_score", "retrieved_at", "decision")
 
 
 def _option(value: dict[str, Any]) -> dict[str, Any]:

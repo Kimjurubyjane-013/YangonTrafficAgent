@@ -4,7 +4,6 @@ from __future__ import annotations
 import math
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from threading import RLock
 
@@ -15,8 +14,6 @@ OSRM_URLS = (
     "https://routing.openstreetmap.de/routed-car/route/v1/driving",
 )
 VALHALLA_URL = "https://valhalla.openstreetmap.de/route"
-MAX_DETOUR_DISTANCE_RATIO = 1.75
-MAX_DETOUR_DURATION_RATIO = 1.85
 MAX_GEOMETRY_OVERLAP = 0.92
 NEAR_POINT_KM = 0.025
 TARGET_ROUTE_COUNT = 3
@@ -165,35 +162,6 @@ def _is_diverse(candidate, accepted):
     return True
 
 
-def _corridor_points(start, destination):
-    mid_lat=(start[0]+destination[0])/2; mid_lon=(start[1]+destination[1])/2
-    cos_lat=max(0.2,math.cos(math.radians(mid_lat)))
-    north=destination[0]-start[0]; east=(destination[1]-start[1])*cos_lat
-    length=max(1e-9,math.hypot(north,east)); straight_km=_km(start,destination)
-    # Short urban journeys need nearby parallel streets, not a waypoint more
-    # than half a kilometre away. Longer journeys can use wider corridors.
-    offset_km=min(1.4,max(0.10,straight_km*0.20)); degrees=offset_km/111
-    perp_lat=east/length; perp_lon=-north/(length*cos_lat)
-    variants=[]
-    for sign in (1,-1):
-        for scale in (1.0,1.45):
-            via=(mid_lat+sign*perp_lat*degrees*scale,mid_lon+sign*perp_lon*degrees*scale)
-            delta_lat=via[0]-mid_lat; delta_east=(via[1]-mid_lon)*cos_lat
-            if abs(delta_lat)>=abs(delta_east): direction="Northern" if delta_lat>0 else "Southern"
-            else: direction="Eastern" if delta_east>0 else "Western"
-            descriptor=f"{direction} road corridor" if scale==1.0 else f"Outer {direction.lower()} road corridor"
-            variants.append((via,descriptor))
-    return variants
-
-
-def _detour_limits(primary_distance):
-    if primary_distance < 1.0:
-        return 3.5, 3.5
-    if primary_distance < 3.0:
-        return 2.4, 2.6
-    return MAX_DETOUR_DISTANCE_RATIO, MAX_DETOUR_DURATION_RATIO
-
-
 def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, timeout=DEFAULT_SEARCH_BUDGET_SECONDS):
     deadline = time.monotonic() + max(2.0, float(timeout))
     native_timeout = min(3.2, max(1.4, float(timeout) * 0.68))
@@ -211,26 +179,9 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
     if not accepted:
         raise RoadRoutingUnavailable("OSRM returned routes without usable geometry.")
 
-    primary=accepted[0]
-    if len(accepted)<TARGET_ROUTE_COUNT:
-        remaining = max(0.7, deadline - time.monotonic())
-        # One corridor on each side is more reliable with public services than
-        # four simultaneous requests, which commonly trigger throttling.
-        all_corridors = _corridor_points(start_coord,destination_coord)
-        corridors = [all_corridors[0], all_corridors[2]]
-        distance_ratio, duration_ratio = _detour_limits(primary["distance"])
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            futures={pool.submit(_request,[start_coord,via,destination_coord],False,remaining):(label,via)
-                for via,label in corridors}
-            for future in as_completed(futures):
-                if len(accepted)>=TARGET_ROUTE_COUNT: break
-                label,_=futures[future]
-                try: raw=future.result()[0]; record=_route_record(raw,len(accepted),label,"osrm-via-corridor")
-                except (RoadRoutingUnavailable,IndexError): continue
-                if not record: continue
-                if record["distance"]>primary["distance"]*distance_ratio: continue
-                if record["duration"]>primary["duration"]*duration_ratio: continue
-                if _is_diverse(record,accepted): accepted.append(record)
+    # Only expose alternatives returned natively by the routing provider.
+    # We deliberately do not manufacture extra options with arbitrary via
+    # points merely to fill the sidebar.
     return accepted[:TARGET_ROUTE_COUNT]
 
 

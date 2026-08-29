@@ -69,6 +69,16 @@ class TrafficFoundationTests(unittest.TestCase):
         self.assertGreater(average(snapshots["morning_rush"]), average(snapshots["early"]))
         self.assertGreater(average(snapshots["evening_rush"]), average(snapshots["night"]))
 
+        counts = {name: {level: sum(state.traffic_level == level for state in snapshot.roads.values())
+            for level in ("Light", "Moderate", "Heavy")} for name, snapshot in snapshots.items()}
+        self.assertGreater(counts["early"]["Light"], counts["early"]["Moderate"])
+        self.assertGreater(counts["night"]["Light"], counts["night"]["Moderate"])
+        self.assertGreater(counts["morning_rush"]["Heavy"], counts["early"]["Heavy"])
+        self.assertGreater(counts["evening_rush"]["Heavy"], counts["night"]["Heavy"])
+        self.assertGreater(counts["daytime"]["Light"], 0)
+        self.assertGreater(counts["daytime"]["Heavy"], 0)
+        self.assertTrue(all(values["Moderate"] < len(ROAD_REPOSITORY.roads) for values in counts.values()))
+
     def test_route_classification_is_distance_weighted(self):
         repository = SimpleNamespace(by_id={
             "clear": SimpleNamespace(distance_km=8.0),

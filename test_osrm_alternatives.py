@@ -37,17 +37,34 @@ class OsrmAlternativeTests(unittest.TestCase):
     def setUp(self):
         _CACHE.clear()
 
-    def test_duplicate_native_geometry_is_removed_and_real_via_routes_fill_gap(self):
+    def test_duplicate_native_geometry_is_removed_without_inventing_routes(self):
         primary=raw([(16.80,96.10),(16.80,96.15),(16.80,96.20)])
         duplicate=raw([(16.80,96.10),(16.80,96.15),(16.80,96.20)],10100,910)
         north=raw([(16.80,96.10),(16.82,96.15),(16.80,96.20)],12000,1050,"North Road")
         south=raw([(16.80,96.10),(16.78,96.15),(16.80,96.20)],12500,1100,"South Road")
         with patch("services.osrm_service._request",side_effect=[[primary,duplicate],[north],[south],[north],[south]]):
             routes=fetch_real_routes((16.80,96.10),(16.80,96.20))
-        self.assertEqual(len(routes),3)
+        self.assertEqual(len(routes),1)
         self.assertEqual(routes[0]["source"],"osrm-native")
-        self.assertTrue(all(route["source"]=="osrm-via-corridor" for route in routes[1:]))
-        self.assertNotEqual(routes[1]["variant_label"],routes[2]["variant_label"])
+
+    def test_native_provider_alternatives_are_parsed_when_distinct(self):
+        primary=raw([(16.80,96.10),(16.80,96.15),(16.80,96.20)],name="Main Road")
+        alternative=raw([(16.80,96.10),(16.83,96.15),(16.80,96.20)],12000,1050,"North Road")
+        with patch("services.osrm_service._request",return_value=[primary,alternative]):
+            routes=fetch_real_routes((16.80,96.10),(16.80,96.20))
+        self.assertEqual(len(routes),2)
+        self.assertEqual([route["road_names"] for route in routes],[["Main Road"],["North Road"]])
+
+    def test_forward_and_reverse_are_requested_and_cached_independently(self):
+        forward=raw([(16.80,96.10),(16.81,96.15),(16.82,96.20)],9000,800,"Forward Road")
+        reverse=raw([(16.82,96.20),(16.79,96.15),(16.80,96.10)],10500,950,"Reverse Road")
+        with patch("services.osrm_service._request",side_effect=[[forward],[reverse]]) as request:
+            first=fetch_real_routes((16.80,96.10),(16.82,96.20))
+            second=fetch_real_routes((16.82,96.20),(16.80,96.10))
+        self.assertEqual(request.call_count,2)
+        self.assertNotEqual(first[0]["geometry"],list(reversed(second[0]["geometry"])))
+        self.assertNotEqual(first[0]["distance"],second[0]["distance"])
+        self.assertNotEqual(first[0]["duration"],second[0]["duration"])
 
     def test_excessive_detour_is_rejected(self):
         primary=raw([(16.80,96.10),(16.80,96.20)])
@@ -71,12 +88,6 @@ class OsrmAlternativeTests(unittest.TestCase):
                 _request([(16.8,96.1),(16.9,96.2)],3,2)
         self.assertNotIn("secret",str(raised.exception))
         self.assertIn("temporarily unavailable",str(raised.exception))
-
-    def test_short_route_corridors_stay_near_the_trip(self):
-        from services.osrm_service import _corridor_points, _km
-        start,destination=(16.8200,96.1300),(16.8230,96.1320)
-        midpoint=((start[0]+destination[0])/2,(start[1]+destination[1])/2)
-        self.assertTrue(all(_km(midpoint,via)<0.25 for via,_ in _corridor_points(start,destination)))
 
     def test_road_and_rd_names_are_deduplicated(self):
         from services.osrm_service import _english_road_names

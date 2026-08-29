@@ -273,3 +273,48 @@ body[data-theme=dark] .road-src-badge.road-src-inferred,.dark .src-badge-inferre
 
 /* Responsive: coverage card on mobile */
 @media(max-width:760px){.coverage-bars{grid-template-columns:1fr}.coverage-card{padding:16px}}
+
+/* Dashboard alignment and stable metric hierarchy */
+.traffic-dashboard{margin-inline:auto;padding-inline:0}
+#dashboard-available{display:grid;gap:16px}
+#dashboard-available[hidden]{display:none}
+.traffic-summary-grid,.dashboard-lists,.coverage-card{width:100%;margin-inline:0}
+.traffic-summary-grid,.dashboard-lists{margin-bottom:0}
+.coverage-card{margin-top:0}
+.traffic-stat{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.traffic-stat>span,.traffic-stat>strong,.traffic-stat>small{display:block;margin:0}
+.traffic-stat>span{display:flex}
+.traffic-stat>strong{margin-top:auto;line-height:1.05}
+.traffic-stat>small{line-height:1.35}
+
+/* Route option cards: recommendation and traffic are separate concepts. */
+#route-options{display:grid;gap:12px;padding:2px 2px 18px}
+.route-option{display:grid;gap:12px;margin:0!important;padding:15px!important;overflow:visible!important}
+.route-option.recommended{background:color-mix(in srgb,var(--accent) 6%,var(--surface))!important}
+.route-option-header{display:flex;align-items:center;gap:9px;min-width:0}
+.route-option-header b{margin:0!important;color:var(--text-primary);font-size:13px}
+.route-recommendation-star{display:grid;place-items:center;flex:0 0 24px;width:24px;height:24px;border-radius:50%;background:var(--surface-soft);color:var(--text-muted);font-size:10px;font-weight:800}
+.route-option.recommended .route-recommendation-star{color:#a76b00;background:#fff2ce}
+.route-option-path{display:grid;gap:5px;margin:0;padding:0;list-style:none;color:var(--text-secondary);font-size:12px;line-height:1.35}
+.route-option-path li{position:relative;padding-left:17px;overflow-wrap:anywhere}
+.route-option-path li::before{content:"";position:absolute;left:2px;top:.45em;width:6px;height:6px;border:2px solid var(--route-traffic-color);border-radius:50%}
+.route-option-path li:not(:last-child)::after{content:"";position:absolute;left:5px;top:1em;bottom:-7px;width:1px;background:var(--border)}
+.route-option-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding-top:11px;border-top:1px solid var(--border-soft)}
+.route-option-metrics>span{display:flex;min-width:0;flex-direction:column;gap:3px}
+.route-option-metrics>span.delay{grid-column:1/-1}
+.route-option-metrics strong{margin:0!important;color:var(--text-primary);font-size:12px;line-height:1.25;overflow-wrap:anywhere}
+.route-option-metrics small{color:var(--text-muted);font-size:9px;text-transform:uppercase;letter-spacing:.04em}
+.route-option-badges{display:flex;align-items:end;justify-content:space-between;gap:10px;min-height:24px;padding-top:2px}
+.route-option-badge-group{display:grid;gap:4px}
+.route-option-badge-group small{color:var(--text-muted);font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+.route-option-badge-group:last-child{justify-items:end;text-align:right}
+.route-option-badges .badge{position:static;float:none!important;margin:0!important;padding:4px 8px!important;line-height:1.25}
+.route-option-difference{margin:0!important;padding:9px 10px!important;border:0!important;border-radius:6px!important;background:var(--surface-soft)!important;color:var(--text-secondary)!important;font-size:10px!important;line-height:1.45!important}
+.result{scrollbar-width:thin;scrollbar-color:var(--text-muted) transparent;padding-bottom:20px!important}
+.result::-webkit-scrollbar{width:8px}.result::-webkit-scrollbar-track{background:transparent}.result::-webkit-scrollbar-thumb{background:var(--text-muted);border:2px solid transparent;border-radius:8px;background-clip:padding-box}
+#analysis-btn{margin-top:4px!important;margin-bottom:12px!important}
+body[data-theme=dark] .route-option.recommended{background:color-mix(in srgb,var(--accent) 10%,var(--surface))!important}
+body[data-theme=dark] .route-option.recommended .route-recommendation-star{background:#45391f;color:#f1c867}
+body[data-theme=dark] .route-option-difference{background:var(--surface-soft)!important;color:var(--text-secondary)!important}
+@media(max-width:760px){.traffic-dashboard{width:min(100% - 24px,1380px)}.dashboard-head{flex-direction:column}.route-option-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.route-option-metrics>span.delay{grid-column:auto}}
+@media(max-width:420px){.route-option-metrics{grid-template-columns:1fr 1fr}.route-option-metrics>span.delay{grid-column:1/-1}}
