@@ -1,314 +1,190 @@
-# Yangon Smart Traffic Management Agent
+# Yangon Traffic Intelligence
 
-An AI-based Traffic Management Agent developed using Python and Prolog.
+Yangon Traffic Intelligence is an explainable route-planning and city-traffic analysis project. It combines real OpenStreetMap road geometry, optional HERE traffic observations, a deterministic traffic-inference model, numeric route ranking, and SWI-Prolog rules. The same application logic serves the pywebview desktop client and FastAPI web deployment.
 
-## Technologies
+## Capabilities
 
-- Python
-- SWI-Prolog
-- pywebview
-- Leaflet
-- Three.js
+- Finds provider-validated road routes between verified Yangon landmarks.
+- Requests directional alternatives and rejects duplicate or materially identical geometry.
+- Ranks routes by traffic-adjusted ETA, severe congestion exposure, vehicle suitability, distance, and rule preferences.
+- Supports Car, Bus, Taxi, Ambulance, Fire Truck, and Police profiles.
+- Shows Light, Moderate, and Heavy consistently on route lines, cards, legends, analysis, and navigation.
+- Provides Current, Off-Peak, Peak-Hour, closure, and emergency scenarios without presenting hypothetical output as live telemetry.
+- Exposes a city dashboard using the same cached traffic snapshot as routing.
+- Explains recommendations without using an LLM for the core decision.
 
-## Team
+## Architecture
 
-University AI Agent Project
+```text
+Desktop:  main.py -> app.startup -> pywebview -> Api -> RouteService
+Web:      web_api.py -> FastAPI -> Api -> RouteService
+Routing:  RouteService -> real_world_agent -> OSRM/HERE road providers
+Traffic:  traffic_backend -> HERE observations or traffic_service inference
+Decision: RouteDecisionEngine -> SWI-Prolog, with deterministic Python fallback
+UI:       app.html + styles.css + app.js + api.js + state.js
+          + dashboard.js + simulation3d.js + traffic-colors.js
+```
 
-## Run the desktop application
+Canonical landmark and modeled-road data live in `data/locations.json` and `data/roads.json`. `algorithms.graph` and `algorithms.road_metadata` are derived compatibility views, not separate sources.
+
+Every successful option follows one contract. Important fields include `route_id`, `route_type`, `geometry`, `traffic_geometry`, `major_roads`, `distance_km`, `free_flow_eta`, `traffic_adjusted_eta`, second-based ETA aliases, `traffic_delay`, segment traffic/source arrays, provider coverage, decision score, recommendation reason, and a backend-generated comparison to the recommended route.
+
+## Traffic truth model
+
+The interface distinguishes evidence instead of silently substituting sources:
+
+- **HERE**: provider-backed traffic evidence is available.
+- **Inferred**: deterministic estimate using road metadata, Yangon time, context, and scenario.
+- **Mixed**: the route contains provider-backed and inferred segments.
+- **Unknown**: neither provider evidence nor a valid estimate is available.
+
+`TRAFFIC_MODE` controls behavior:
+
+- `real`: provider evidence when available, with truthful missing-evidence states.
+- `simulation`: deterministic inferred data for demonstrations and tests.
+- `real_with_simulation_fallback`: provider first, then visibly labelled inference.
+
+The application remains usable without a HERE key: OSRM supplies real mapped-road geometry and the model supplies clearly labelled estimates. Missing optional credentials never crash startup.
+
+### Deterministic model
+
+Snapshots use `Asia/Yangon` time, a 15-minute bucket, traffic mode, and scenario in their cache identity. Time periods are early morning, morning rush, daytime, evening rush, and night. Off-Peak and Peak are explicit hypothetical scenarios with separate snapshot identities.
+
+The model computes density from base congestion, road-type-sensitive time effects, context, capacity pressure, and seeded local variation. The centralized score configuration is in `app/traffic_config.py`:
+
+```text
+raw_score = 0.30 * base_congestion
+          + 0.22 * vehicle_density
+          + 0.10 * normalized_pressure
+          + bounded_overload
+          + time_effect + context_effect + road_type_effect
+
+traffic_score = clamp(0, 100, 50 + 1.40 * (raw_score - 50))
+```
+
+Public classification is Light (`0-35`), Moderate (`36-70`), or Heavy (`71-100`). Route traffic is distance-weighted from segments. Average speed uses centralized factors `0.90`, `0.65`, and `0.40` with a 4 km/h floor. Delay is exact and nonnegative:
+
+```text
+traffic_delay = max(0, traffic_adjusted_eta - free_flow_eta)
+```
+
+## Routing and decision logic
+
+OSRM/OpenStreetMap supplies mapped geometry and directional alternatives. HERE routing can provide traffic-aware duration when configured. Alternatives must be geometrically distinct; the application never fabricates one merely to fill the panel.
+
+Provider road duration is authoritative for motor vehicles. Transparent vehicle profiles then apply operating differences, so a Bus is slower than a Car and emergency vehicles can be faster. Walking and Bicycle retain physical speed floors internally, although the UI exposes the six motor profiles above.
+
+The lower-is-better score in `services/route_ranking.py` is:
+
+```text
+route_cost = traffic_adjusted_eta
+           + severe_congestion_exposure
+           + min(0.50, 0.08 * traffic_delay)
+           + min(0.50, 0.002 * cumulative_traffic_impact)
+           + 0.20 * vehicle_restriction_penalty
+           + 0.02 * distance_km
+           + bounded_preferred_road_adjustment
+```
+
+Severe-congestion weights are smaller for emergency vehicles. A dominance guard prevents a route that is both slower and longer from winning unless it has a documented material traffic/safety advantage. Ties are deterministic.
+
+SWI-Prolog evaluates eligibility, restrictions, suitability, penalties, and reasons. Request facts are allowlisted and cleared after evaluation. If SWI-Prolog or PySwip is unavailable, the engine reports `python-fallback` and uses the same deterministic scoring contract; it never claims Prolog was used.
+
+## Run locally
+
+### Web
 
 ```powershell
-cd "C:\Users\Lenovo\Documents\Codex\YangonTrafficAgent"
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m uvicorn web_api:app --host 127.0.0.1 --port 8000
+```
+
+Open `http://127.0.0.1:8000`; API documentation is at `/docs`.
+
+### Desktop
+
+```powershell
+python -m venv .venv-desktop
+.\.venv-desktop\Scripts\Activate.ps1
 python -m pip install -r requirements-desktop.txt
-$env:HERE_API_KEY = "your-here-api-key"
-$env:TRAFFIC_MODE = "real"
 python main.py
 ```
 
-## Run the web application
+Desktop startup is guarded by `if __name__ == "__main__"`; importing FastAPI never creates a window or requires a graphical display.
 
-The browser version uses the same validation, route service, real-road routing,
-traffic calculations, serialization, and decision engine as the desktop app.
-Only the transport changes from pywebview calls to HTTP/JSON.
+### Optional settings
 
-```powershell
-cd "C:\Users\Lenovo\Documents\Codex\YangonTrafficAgent"
-python -m venv .venv-web
-.\.venv-web\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-$env:HERE_API_KEY = "your-here-api-key"
-$env:TRAFFIC_MODE = "real"
-python -m uvicorn web_api:app --reload
+Use server/deployment environment variables; never put provider keys in frontend code.
+
+```text
+HERE_API_KEY=optional-server-side-key
+TRAFFIC_MODE=real_with_simulation_fallback
+TRAFFIC_CACHE_SECONDS=60
+APP_TIMEZONE=Asia/Yangon
 ```
 
-Open `http://127.0.0.1:8000`. API documentation is available at
-`http://127.0.0.1:8000/docs`.
+For Prolog mode, install SWI-Prolog and `pyswip`, then confirm `swipl --version`. Otherwise deterministic fallback is automatic and non-fatal.
 
-HTTP endpoints:
+## HTTP API
 
-- `GET /api/health`
-- `GET /health` (production platform health probe)
-- `GET /api/locations`
-- `GET /api/vehicles`
-- `GET /api/graph`
+- `GET /health` and `GET /api/health`
+- `GET /api/locations`, `/api/vehicles`, and `/api/graph`
 - `GET /api/traffic`
 - `GET /api/traffic/hotspots?limit=8`
 - `GET /api/traffic/best-flowing?limit=8`
 - `GET /api/traffic/{road_id}`
 - `POST /api/route`
 
-## Deploy to Railway
+Inputs are validated server-side. Errors use structured codes and user-safe messages.
 
-Railway runs the FastAPI browser/API entry point independently from the
-pywebview desktop entry point. The repository-level `railway.json` supplies the
-production command:
+## Deployment
+
+### Railway
+
+`railway.json` starts the real ASGI entry point on Railway's assigned port:
 
 ```text
 uvicorn web_api:app --host 0.0.0.0 --port $PORT
 ```
 
-Use the repository root as the Railway service root. Railway provides `PORT`;
-do not replace it with a fixed port. The configured health check is `GET
-/health`. `main.py` remains exclusively for `python main.py` desktop startup
-and is never imported by the Railway server.
+The health probe is `/health`. Remove any stale dashboard override such as `main:app`; `main.py` is desktop-only.
 
-The committed configuration overrides the old dashboard command for each new
-deployment. Remove any stale dashboard Start Command such as `main:app` as
-housekeeping so the service settings are not misleading. `HERE_API_KEY` is
-required for live traffic. Without it, real OSRM/OpenStreetMap road geometry
-remains available, but traffic is reported as unavailable. SWI-Prolog is
-optional because the
-deterministic Python decision fallback is used when its runtime is absent.
+### Vercel
 
-## Deploy to Vercel
+Import the repository with Framework Preset **Other**. `vercel.json` sends API requests to `web_api.py` and static assets to `web/`. Vercel generally lacks native SWI-Prolog, so it truthfully reports `python-fallback`. Add `HERE_API_KEY` only as a server-side environment variable if provider traffic is required.
 
-1. Push the repository to GitHub.
-2. Import the repository in Vercel.
-3. Use the repository root as the Root Directory.
-4. Leave Framework Preset as **Other**.
-5. Do not set a custom Build Command or Output Directory.
-6. In **Project Settings → Environment Variables**, add `HERE_API_KEY` for
-   Production, Preview, and Development. Never put this key in frontend code.
-7. Deploy. `vercel.json` directs API and static browser requests to the
-   top-level FastAPI `app` exported by `web_api.py`; desktop `main.py` is not
-   treated as the web entry point.
-
-The frontend uses relative `/api/*` paths, so no localhost URL or production
-API environment variable is required for the same-origin Vercel deployment.
-
-Vercel does not provide the native SWI-Prolog runtime. The decision engine
-therefore reports `python-fallback` and uses the existing deterministic Python
-implementation of the same scoring contract. Nothing is mocked. Deploy the
-backend to a container/VPS with SWI-Prolog installed if Prolog execution is a
-hard production requirement.
-
-HERE Routing supplies traffic-aware route duration when configured. HERE
-Traffic API v7 supplies the city dashboard flow snapshot, mapped geographically
-to modeled roads. Without `HERE_API_KEY`, or when HERE is unavailable, the app
-keeps real OSRM/OpenStreetMap road geometry and truthfully reports live traffic
-as unavailable. It does not silently substitute academic values.
-
-Traffic behavior is explicit through `TRAFFIC_MODE`:
-
-- `real` (default): provider traffic only; failures remain unavailable.
-- `simulation`: deterministic academic traffic for demonstrations.
-- `real_with_simulation_fallback`: try HERE first, then use the visibly labelled
-  academic simulation. This mode is opt-in and is not the production default.
-
-`TRAFFIC_CACHE_SECONDS` controls the HERE flow cache (default 60 seconds,
-bounded to 30-300). `APP_TIMEZONE` defaults to `Asia/Yangon`; request-time
-periods and dashboard timestamps use this zone rather than server-local time.
-
-For the complete HTTP test suite, install `requirements-dev.txt` and run:
+## Verification
 
 ```powershell
 python -m pip install -r requirements-dev.txt
-python -m unittest discover -p "test_*.py" -v
+python -m pytest -q
+python -m compileall -q .
+node --check web/app.js
+node --check web/api.js
+node --check web/state.js
+node --check web/dashboard.js
+node --check web/simulation3d.js
 ```
 
-## Route intelligence demonstrations
+Tests cover graph validation, provider routing/deduplication, traffic calibration/scenarios, all vehicles, ranking/dominance, Prolog/fallback, API serialization, evidence truthfulness, colors, simulation lifecycle contracts, deployment entry points, and repeated calls without fact leakage.
 
-Open **Journey conditions** in the route planner to compare normal, peak-hour,
-major-incident, road-closure, and emergency-response scenarios. Road closures
-are matched only against English road names returned by the real-road provider;
-the app explicitly says when no match was found instead of claiming a reroute.
+## Demonstration flow
 
-After a route search, **View decision evaluation** shows candidate counts, the
-decision engine, response time, closure evidence, and each option's score. The
-deterministic ranking formula is:
+1. Choose a vehicle and locations in **Route Planner**.
+2. Find a Current route and inspect segment colors and evidence labels.
+3. Select an alternative and verify map, card, ETA, and comparison update together.
+4. Compare Off-Peak and Peak-Hour snapshots.
+5. Open **Route Analysis** for the recommendation, evidence, ETA/delay, major roads, and rule-engine explanation.
+6. Start navigation, pause/restart it, and confirm the vehicle follows selected mapped geometry and segment traffic.
+7. Open the dashboard for city health, hotspots, best-flow roads, coverage, and provenance.
 
-```text
-route_cost = traffic_adjusted_eta_minutes
-           + 0.12 * heavy_segments
-           + 0.35 * critical_segments
-           + 0.08 * congestion_delay_minutes
-           + 0.002 * cumulative_traffic_impact
-           + 0.20 * vehicle_suitability_penalty
-           + 0.02 * distance_km
-           + 0.03 * preferred_road_adjustment
-```
+## Limitations
 
-Emergency vehicles use reduced Heavy and critical exposure weights (`0.05`
-and `0.15`) so ETA remains even more dominant. ETA already contains HERE
-traffic or the shared academic adjustment; congestion is not fully charged a
-second time. Delay and impact exposure each have a `0.5`-minute-equivalent cap,
-and preferred-road benefit is capped at `0.1`. A dominance guard prevents a route that is both slower and longer
-from ranking first unless it has a documented severe-traffic advantage.
-
-Live route traffic durations depend on HERE Routing. A HERE duration already includes
-traffic, so the application does not apply a second synthetic congestion
-multiplier. Base duration and traffic delay are preserved in the response. The
-OSRM fallback preserves real-road routing and its base ETA, but in normal
-production mode it does not invent traffic classification or delay.
-
-## Phase 2 traffic-intelligence foundation
-
-`data/locations.json` and `data/roads.json` are the canonical location and road
-sources. `algorithms.graph` and `algorithms.road_metadata` are compatibility
-views derived from those files; they no longer duplicate the network. Each road
-has an ID, endpoints, road name/type, distance, free-flow speed, academic base
-congestion, capacity, directionality, preference, and six compact road-context
-factors. The connected academic network contains 35 Yangon locations and 44
-segments spanning major corridors including Pyay Road, Kabar Aye Pagoda Road,
-University Avenue Road, Dhammazedi Road, Bogyoke Aung San Road, Anawrahta Road,
-Pansodan Road, Strand Road, Parami Road, Waizayantar Road, and Bayint Naung
-Road. Base congestion and context values are university-project simulation
-parameters, not measured live values or lane-level GIS claims.
-
-Central configuration is in `app/traffic_config.py`. Supported road types are
-`arterial`, `main`, `secondary`, and `local`. Traffic snapshots are generated by
-`services/traffic_service.py` and cached in 15-minute local-time buckets so the
-overview, route finder, explanations, map, and simulation can refer to the same
-state.
-
-Time periods use `Asia/Yangon` application time:
-
-- 05:00-07:00: `EARLY_MORNING`
-- 07:00-09:30: `MORNING_RUSH`
-- 09:30-16:00: `DAYTIME`
-- 16:00-19:30: `EVENING_RUSH`
-- 19:30-05:00: `NIGHT`
-
-Vehicle density is deterministic within a snapshot:
-
-```text
-density = base_congestion
-        + time_density_effect * road_type_sensitivity
-        + context_demand(commercial, downtown, university, airport, junction)
-        + max(0, 100 - capacity) * 0.08
-        + seeded_local_variation[-4, +4]
-
-congestion_pressure = min(1.5, vehicle_density / road_capacity)
-```
-
-The explainable traffic score is:
-
-```text
-score = clamp(0, 100,
-    0.42 * base_congestion
-  + 0.28 * vehicle_density
-  + 0.18 * normalized_congestion_pressure
-  + time_period_effect
-  + rush_hour_effect
-  + road_context_effect
-  + road_type_effect)
-```
-
-Classification is `0-35 Light`, `36-70 Moderate`, and `71-100 Heavy`.
-Average speed is the road's free-flow speed multiplied by the centralized level
-factor (`0.90`, `0.65`, or `0.40`) with a 4 km/h safety floor. Delay uses only
-travel-time physics:
-
-```text
-free_flow_minutes = distance_km / base_speed_kmh * 60
-congested_minutes = distance_km / average_speed_kmh * 60
-delay_minutes = max(0, congested_minutes - free_flow_minutes)
-```
-
-City traffic health is `100 - road-importance-weighted average traffic score`.
-Its labels are Excellent (85+), Good (70+), Moderate (50+), Poor (30+), and
-Severe (below 30). A score of 90+ also sets an internal critical-congestion
-signal without adding a confusing fourth public traffic category.
-
-Hotspots are ranked by `0.55 * traffic_impact + 0.30 * traffic_score + 0.15 *
-normalized_pressure`, where impact accounts for road importance and delay.
-Best-flowing roads use the lower-is-better formula `0.55 * traffic_score + 0.30
-* normalized_delay + 0.15 * speed_loss`. Adjacent deterministic 15-minute
-windows produce explicitly simulated `improving`, `stable`, or `worsening`
-trends; they are not represented as stored live history.
-
-`Api.get_traffic_overview()` analyzes every road without a route request.
-`Api.get_road_traffic(road_id)` validates the ID, while the hotspot and
-best-flow methods expose bounded rankings. Their HTTP equivalents are listed
-above. Each road response includes endpoints, score, level, density, pressure,
-speed, delay, impact, period, source, simulated trend, and condition-derived
-reasons. The route finder consumes the same cached snapshot. HERE telemetry is
-provider-derived when configured; otherwise the complete offline academic
-model remains available and is labelled `academic_simulation`.
-
-The active desktop entry point is `main.py`; window configuration lives in
-`app/config.py`, startup in `app/startup.py`, validation and serialization in
-`app/`, route orchestration in `services/route_service.py`, and real-road
-routing in `services/here_traffic_service.py`. Browser responsibilities are separated
-between `web/state.js`, `web/api.js`, `web/app.js`, `web/simulation3d.js`, and
-the compatibility map controller still hosted in `web/app.html`.
-
-Run checks with:
-
-```powershell
-python -m unittest discover -s . -p "test_*.py" -v
-node --check web\state.js
-node --check web\api.js
-node --check web\app.js
-node --check web\simulation3d.js
-```
-
-## Hybrid route-decision engine
-
-The active application uses a **real-world-only** route pipeline. Saved Yangon
-places supply start/end coordinates, while HERE returns traffic-aware road
-alternatives. Every candidate carries its exact mapped geometry, distance,
-traffic-inclusive duration, base duration, measured delay, English road names,
-source, and retrieval timestamp. The same geometry drives Leaflet and map
-navigation. The local graph and OSRM module remain only for legacy exercises
-and regression tests; they do not generate production UI routes.
-
-The provider may legitimately return only one route when no sufficiently
-distinct road alternative exists. The app does not fabricate an alternative.
-Internet access is required; `HERE_API_KEY` is optional but required for live
-traffic-aware ranking.
-
-Python normalizes the bounded provider alternatives and calculates the selected
-vehicle's ETA from HERE's traffic-inclusive car duration. SWI-Prolog evaluates
-one-way rules, prohibited vehicle/road combinations, congestion, peak time,
-weather, incidents, heavy-vehicle suitability, and preferred roads.
-
-The deterministic ranking formula is:
-
-Lower route costs win. Prolog still rejects prohibited and one-way routes and
-provides explainable policy signals. Python applies the centralized cost and
-dominance invariant consistently to Prolog and fallback results. Ties resolve
-deterministically by ETA, severe exposure, distance, route, and candidate ID.
-Invalid candidates are excluded.
-
-This means the shortest-distance route does not automatically win. A longer
-alternative can rank first when its real traffic ETA and rule penalties produce
-a lower total score. Provider traffic is not claimed to be a guarantee: it is a
-time-stamped estimate and depends on HERE coverage and freshness.
-
-### SWI-Prolog setup
-
-1. Install 64-bit SWI-Prolog from https://www.swi-prolog.org/download/stable.
-2. Ensure `swipl` is available on `PATH` and its architecture matches Python.
-3. Run `pip install -r requirements.txt` to install PySwip.
-4. Start the application normally with `python main.py`; no separate Prolog
-   server is required.
-
-If SWI-Prolog or PySwip cannot load, the application remains usable and reports
-`python-fallback`. The fallback implements the same restrictions, penalties,
-formula, explanation fields, and deterministic ordering.
-
-The rule base is `prolog/traffic_rules.pl`. Request facts are allowlisted,
-serialized only from normalized internal values, guarded by a lock, and removed
-after every evaluation to prevent cross-request state leakage.
+- Public routing and optional traffic providers need network access and may rate-limit or time out.
+- Provider coverage is not guaranteed on every Yangon road; Mixed and Inferred labels are intentional.
+- The deterministic model is an explainable university-project estimate, not transport-authority telemetry or safety-critical navigation.
+- Closure matching uses English provider road names and reports when no candidate matched.
+- ETA is an estimate, not a live-arrival guarantee.
+- Procedural visual elements are illustrative and do not claim building-level geographic accuracy.

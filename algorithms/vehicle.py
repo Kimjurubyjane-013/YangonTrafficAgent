@@ -36,8 +36,13 @@ def calculate_real_route_time(provider_minutes, distance_km, vehicle, traffic_le
     factor, fixed_minutes, per_km = REAL_ROUTE_TIME_PROFILE.get(vehicle, REAL_ROUTE_TIME_PROFILE["Car"])
     traffic_factor = TRAFFIC_TIME_MULTIPLIER.get(traffic_level, TRAFFIC_TIME_MULTIPLIER["Light"])
     vehicle_adjusted = float(provider_minutes) * factor + fixed_minutes + float(distance_km) * per_km
-    free_flow_floor = float(distance_km) / VEHICLE_SPEED.get(vehicle, VEHICLE_SPEED["Car"]) * 60
-    return round(max(0.5, free_flow_floor, vehicle_adjusted) * traffic_factor, 1)
+    # Provider road duration is authoritative for motor vehicles and may
+    # legitimately exceed the nominal city-speed profile. Human-powered modes
+    # retain a physical speed floor because provider driving time is not a
+    # meaningful baseline for them.
+    minimum_minutes = (float(distance_km) / VEHICLE_SPEED[vehicle] * 60
+                       if vehicle in {"Bicycle", "Walking"} else 0.5)
+    return round(max(minimum_minutes, vehicle_adjusted) * traffic_factor, 1)
 
 
 def calculate_time(distance, vehicle, traffic_multiplier=1.0):

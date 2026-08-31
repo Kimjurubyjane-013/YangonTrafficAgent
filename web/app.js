@@ -78,13 +78,12 @@
             if (mode !== 'closure') document.getElementById('closed-road').value = '';
             document.getElementById('departure-band').value = mode === 'off_peak'
                 ? 'off_peak'
-                : ['peak','incident','emergency'].includes(mode) ? 'peak' : '';
-            document.getElementById('incident-level').value = ['incident','closure','emergency'].includes(mode) ? 'major' : 'none';
+                : mode === 'peak' ? 'peak' : '';
             if (mode === 'emergency') document.getElementById('vehicle').value = 'Ambulance';
         });
         YangonAppState.subscribe(({ phase }) => {
             const busy = phase === YangonAppState.phases.LOADING || phase === YangonAppState.phases.SIMULATING || phase === YangonAppState.phases.PAUSED;
-            ['find-btn','start','destination','vehicle','swap-route','scenario-mode','departure-band','incident-level','closed-road'].forEach(id => { document.getElementById(id).disabled = busy; });
+            ['find-btn','start','destination','vehicle','swap-route','scenario-mode','closed-road'].forEach(id => { document.getElementById(id).disabled = busy; });
             document.body.dataset.phase = phase;
             document.getElementById('find-btn').setAttribute('aria-busy', String(phase === YangonAppState.phases.LOADING));
         });

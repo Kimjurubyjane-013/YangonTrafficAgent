@@ -62,7 +62,7 @@ class ArchitectureTests(unittest.TestCase):
         html=(root/"web"/"app.html").read_text(encoding="utf-8")
         css=(root/"web"/"styles.css").read_text(encoding="utf-8")
         for element_id in ("home-view","planner-view","home-plan-route","theme-toggle","ai-text","decision-details-text",
-            "scenario-mode","departure-band","incident-level","closed-road","analysis-view","analysis-btn",
+            "scenario-mode","departure-band","closed-road","analysis-view","analysis-btn",
             "analysis-back","route-provenance","route-comparison","nav-dashboard","dashboard-view",
             "health-score","hotspot-list","best-flow-list","r-traffic-source","route-why",
             "dashboard-available","dashboard-error-row","retry-traffic","refresh-traffic",
@@ -169,6 +169,14 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("const legs = splitPolylineForTraffic(option.geometry, effective.length)", html)
         self.assertIn("for (let i = 0; i < legs.length; i++)", html)
         self.assertIn("routeLayers.forEach(l => map.removeLayer(l))", html)
+
+    def test_route_comparisons_and_simulation_traffic_use_backend_contract(self):
+        html=(Path(__file__).parent/"web"/"app.html").read_text(encoding="utf-8")
+        self.assertIn("opt.comparison_to_recommended?.explanation", html)
+        self.assertNotIn("const etaDifference = Number(opt.time)", html)
+        self.assertIn("function trafficAtMapDistance(distanceKm, segmentBreaks)", html)
+        self.assertIn("simulation.segmentBreaks", html)
+        self.assertIn("currentRouteLegs || []", html)
 
     def test_route_cards_have_structured_readable_metadata(self):
         root=Path(__file__).parent

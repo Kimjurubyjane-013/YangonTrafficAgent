@@ -80,6 +80,29 @@ def _recommendation_reason(best, alternatives):
     }
 
 
+def _comparison_to_recommended(best, alternative):
+    """Build the user-facing comparison once from ranked backend metrics."""
+    eta_delta = round(float(alternative["time"]) - float(best["time"]), 2)
+    distance_delta = round(float(alternative["distance"]) - float(best["distance"]), 2)
+    heavy_delta = int(alternative.get("heavy_segments", 0)) - int(best.get("heavy_segments", 0))
+    parts = []
+    if abs(eta_delta) > 0.01:
+        parts.append(f"{_format_minutes(eta_delta)} {'slower' if eta_delta > 0 else 'faster'}")
+    if abs(distance_delta) > 0.01:
+        parts.append(f"{abs(distance_delta):.2f} km {'longer' if distance_delta > 0 else 'shorter'}")
+    explanation = " and ".join(parts).capitalize() + "." if parts else "A different provider-validated road corridor."
+    if heavy_delta < 0:
+        explanation = explanation.rstrip(".") + f", but avoids {abs(heavy_delta)} Heavy segment(s)."
+    elif heavy_delta > 0:
+        explanation = explanation.rstrip(".") + f" and includes {heavy_delta} additional Heavy segment(s)."
+    return {
+        "eta_difference_minutes": eta_delta,
+        "distance_difference_km": distance_delta,
+        "heavy_segment_difference": heavy_delta,
+        "explanation": explanation,
+    }
+
+
 def _road_key(value):
     text = str(value or "").casefold()
     text = re.sub(r"\brd\b", "road", text)
@@ -291,15 +314,11 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         )
         if hypothetical:
             traffic_eta = round(traffic_eta * SCENARIO_ETA_MULTIPLIERS[scenario], 2)
-        if has_real_traffic:
-            provider_delay = max(0.0, float(route["duration"]) - float(route.get("base_duration", route["duration"])))
-            effective_delay = round(min(traffic_eta, provider_delay), 2)
-            free_flow_eta = round(max(0.0, traffic_eta - effective_delay), 2)
-        else:
-            free_flow_eta = calculate_real_route_time(
-                route.get("base_duration", route["duration"]), route["distance"], vehicle, "Light"
-            )
-            effective_delay = round(max(0.0, traffic_eta - free_flow_eta), 2)
+        calculated_free_flow = calculate_real_route_time(
+            route.get("base_duration", route["duration"]), route["distance"], vehicle, "Light"
+        )
+        free_flow_eta = round(min(traffic_eta, calculated_free_flow), 2)
+        effective_delay = round(max(0.0, traffic_eta - free_flow_eta), 2)
         candidates.append({
             "candidate_id": route["provider_id"], "route": [start, destination],
             # Provider/corridor labels are internal metadata, not road names.
@@ -372,9 +391,16 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "rejected_candidates":[item["decision"] for item in evaluated],"routing_mode":"real-world-only"}
     options = eligible[:4]
     recommendation_reason = _recommendation_reason(options[0], options[1:])
+    recommended = options[0]
     for index, item in enumerate(options):
         item["route_id"] = str(item.get("candidate_id"))
+        item["route_type"] = "recommended" if index == 0 else "alternative"
+        item["major_roads"] = list(item.get("road_names", []))
+        item["distance_km"] = item["distance"]
+        item["free_flow_eta_seconds"] = round(float(item.get("free_flow_eta") or 0) * 60)
+        item["traffic_adjusted_eta_seconds"] = round(float(item.get("traffic_adjusted_eta") or item["time"]) * 60)
         item["route_cost"] = item.get("decision", {}).get("route_cost")
+        item["comparison_to_recommended"] = None if index == 0 else _comparison_to_recommended(recommended, item)
         item["recommendation_reason"] = (
             recommendation_reason if index == 0 else {
                 "primary_reason": "provider_alternative",
@@ -426,6 +452,11 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         "scenario_explanation": best.get("scenario_explanation"),
         "provider_coverage":best.get("provider_coverage"),
         "route_id":best.get("route_id"),"route_cost":best.get("route_cost"),
+        "route_type":best.get("route_type"),"major_roads":best.get("major_roads",[]),
+        "distance_km":best.get("distance_km"),
+        "free_flow_eta_seconds":best.get("free_flow_eta_seconds"),
+        "traffic_adjusted_eta_seconds":best.get("traffic_adjusted_eta_seconds"),
+        "comparison_to_recommended":best.get("comparison_to_recommended"),
         "segment_diagnostics":best.get("segment_diagnostics",[]),
         "direction_summary":best.get("direction_summary"),
         "traffic_score":best.get("traffic_score"),

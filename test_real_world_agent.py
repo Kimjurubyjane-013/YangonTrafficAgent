@@ -224,14 +224,37 @@ class RealWorldPipelineTests(unittest.TestCase):
     def test_best_and_alternatives_share_normalized_contract(self):
         result = run_real_world_agent("Hledan Centre", "Myanmar Plaza", "Car",
             route_provider=fake_provider, decision_engine=RouteDecisionEngine(False))
-        fields = {"route_id", "geometry", "road_names", "distance", "free_flow_eta",
+        fields = {"route_id", "route_type", "geometry", "road_names", "major_roads",
+                  "distance", "distance_km", "free_flow_eta", "free_flow_eta_seconds",
                   "traffic_adjusted_eta", "traffic_delay", "overall_traffic",
+                  "traffic_adjusted_eta_seconds", "comparison_to_recommended",
                   "segment_traffic", "traffic_source", "provider_coverage",
                   "route_cost", "recommendation_reason", "direction_summary"}
         for option in [result, *result["alternatives"]]:
             self.assertTrue(fields.issubset(option))
             self.assertEqual(option["overall_traffic"], option["traffic"])
             self.assertEqual(option["direction_summary"]["origin"], "Hledan Centre")
+
+        self.assertEqual(result["route_type"], "recommended")
+        self.assertIsNone(result["comparison_to_recommended"])
+        alternative = result["alternatives"][0]
+        self.assertEqual(alternative["route_type"], "alternative")
+        self.assertTrue(alternative["comparison_to_recommended"]["explanation"])
+        self.assertEqual(alternative["distance_km"], alternative["distance"])
+        self.assertEqual(alternative["free_flow_eta_seconds"], round(alternative["free_flow_eta"] * 60))
+        self.assertEqual(alternative["traffic_adjusted_eta_seconds"],
+                         round(alternative["traffic_adjusted_eta"] * 60))
+
+    def test_exact_delay_contract_for_every_supported_vehicle(self):
+        for vehicle in ("Car", "Bus", "Taxi", "Ambulance", "Fire Truck", "Police"):
+            with self.subTest(vehicle=vehicle):
+                result = run_real_world_agent("Hledan Centre", "Myanmar Plaza", vehicle,
+                    route_provider=fake_provider, decision_engine=RouteDecisionEngine(False))
+                for option in [result, *result["alternatives"]]:
+                    self.assertAlmostEqual(
+                        option["traffic_adjusted_eta"],
+                        option["free_flow_eta"] + option["traffic_delay"], places=2,
+                    )
 
 
 if __name__ == "__main__": unittest.main()
