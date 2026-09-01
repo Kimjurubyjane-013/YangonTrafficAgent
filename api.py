@@ -10,19 +10,17 @@ from services.route_service import RouteService
 from services.road_repository import ROAD_REPOSITORY
 from services.traffic_service import TRAFFIC_ENGINE
 from services.traffic_backend import TRAFFIC_BACKEND
-from services.weather_service import WEATHER_SERVICE, WeatherUnavailable
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Api:
-    def __init__(self, route_service=None, traffic_engine=None, traffic_backend=None, weather_service=None):
+    def __init__(self, route_service=None, traffic_engine=None, traffic_backend=None):
         self._last_result = None
         self._lock = RLock()
         self._traffic_engine = traffic_engine or TRAFFIC_ENGINE
         self._traffic_backend = traffic_backend or (None if traffic_engine is not None else TRAFFIC_BACKEND)
         self._route_service = route_service or RouteService(self._traffic_engine)
-        self._weather_service = weather_service or WEATHER_SERVICE
 
     def get_locations(self):
         return get_locations()
@@ -115,25 +113,6 @@ class Api:
         except Exception:
             LOGGER.exception("Road traffic lookup failed")
             return {"error": "Road traffic analysis failed.", "error_details": {"code": "traffic_analysis_error", "message": "Road traffic analysis failed."}}
-
-    def get_weather(self, force=False):
-        try:
-            return self._weather_service.current(force=bool(force))
-        except WeatherUnavailable:
-            LOGGER.info("Weather provider is temporarily unavailable")
-        except Exception:
-            LOGGER.exception("Unexpected weather lookup failure")
-        return {
-            "error": "Weather temporarily unavailable.",
-            "status": "unavailable",
-            "location": "Yangon",
-            "timezone": "Asia/Yangon",
-            "source": "Open-Meteo",
-            "error_details": {
-                "code": "weather_unavailable",
-                "message": "Weather temporarily unavailable.",
-            },
-        }
 
     def find_route(self, vehicle, start, destination, conditions=None):
         request, error = validate_route_request(vehicle, start, destination, conditions)

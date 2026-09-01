@@ -355,9 +355,9 @@
 <main class="traffic-dashboard" id="dashboard-view" hidden>
     <section class="dashboard-head">
         <div>
-            <div class="panel-kicker">City Operations / Network Status</div>
-            <h1>Yangon Traffic Command Center</h1>
-            <p id="dashboard-subtitle">A verified view of mapped-road conditions, flow quality, data coverage, and Yangon weather.</p>
+            <div class="panel-kicker">Citywide Traffic Monitoring</div>
+            <h1>Yangon Traffic Intelligence</h1>
+            <p id="dashboard-subtitle">Current traffic conditions and route insights.</p>
         </div>
         <button type="button" id="refresh-traffic" class="dashboard-refresh"><span aria-hidden="true">↻</span> Refresh</button>
     </section>
@@ -376,7 +376,7 @@
     <!-- Main dashboard content — always shown when data is available -->
     <div id="dashboard-available" hidden>
 
-    <!-- Compact network status -->
+    <!-- Traffic Health + Metric Cards -->
     <section class="traffic-summary-grid" aria-label="Traffic Status Summary">
         <article class="health-card">
             <div class="health-card-copy">
@@ -396,43 +396,8 @@
         </div>
     </section>
 
-    <section class="command-grid" aria-label="Yangon Traffic Command Center">
-        <article class="dashboard-card command-map-card">
-            <div class="dashboard-card-head">
-                <div><span>Mapped Network</span><h2>Yangon Traffic Map</h2></div>
-                <div class="command-map-legend" aria-label="Traffic severity legend">
-                    <i class="light"></i>Light <i class="moderate"></i>Moderate <i class="heavy"></i>Heavy <i class="unknown"></i>Unknown
-                </div>
-            </div>
-            <div id="dashboard-traffic-map" role="img" aria-label="Map of modeled Yangon roads colored by traffic severity"></div>
-        </article>
-
-        <aside class="command-side-stack">
-            <article class="dashboard-card weather-card" id="weather-card">
-                <div class="dashboard-card-head">
-                    <div><span>Live Observation</span><h2>Yangon Weather</h2></div>
-                    <small class="weather-live-badge" id="weather-status">Loading</small>
-                </div>
-                <div class="weather-content" id="weather-content" aria-live="polite">
-                    <div class="weather-primary"><strong id="weather-condition">Checking Weather</strong><b id="weather-temperature">â€”</b></div>
-                    <dl>
-                        <div><dt>Humidity</dt><dd id="weather-humidity">â€”</dd></div>
-                        <div><dt>Wind</dt><dd id="weather-wind">â€”</dd></div>
-                        <div><dt>Precipitation</dt><dd id="weather-precipitation">â€”</dd></div>
-                    </dl>
-                    <div class="weather-risk"><span>Traffic Impact</span><strong id="weather-risk">â€”</strong><p id="weather-reason">Waiting for a provider observation.</p></div>
-                    <footer><span id="weather-updated">â€”</span><b>Open-Meteo</b></footer>
-                </div>
-            </article>
-
-            <article class="dashboard-card distribution-card">
-                <div class="dashboard-card-head"><div><span>Network Composition</span><h2>Traffic Distribution</h2></div></div>
-                <div id="traffic-distribution" class="traffic-distribution" aria-label="Traffic severity distribution"></div>
-            </article>
-        </aside>
-    </section>
-
-    <section class="dashboard-lists command-lists">
+    <!-- Insights: Hotspots + Best Flowing -->
+    <section class="dashboard-lists">
         <article class="dashboard-card">
             <div class="dashboard-card-head">
                 <div><span>Priority Monitoring</span><h2>Congestion Hotspots</h2></div>
@@ -481,12 +446,6 @@
             </div>
             <div class="trust-row" aria-label="Route agent capabilities">
                 <span>Real road geometry</span><span>Traffic-aware ETA</span><span>Explainable decisions</span>
-            </div>
-            <div class="intelligence-flow" aria-label="How Yangon Traffic Intelligence works">
-                <span><b>01</b>Traffic Data</span><i>â†’</i>
-                <span><b>02</b>Traffic Intelligence</span><i>â†’</i>
-                <span><b>03</b>Prolog Reasoning</span><i>â†’</i>
-                <span><b>04</b>Route Recommendation</span>
             </div>
         </div>
         <div class="agent-scene" aria-label="Friendly Yangon route agent illustration">
@@ -563,9 +522,6 @@
                 <option value="emergency">Emergency response</option>
             </select>
             <input id="departure-band" type="hidden" value="">
-            <div class="route-weather-context" id="route-weather-context" role="status">
-                <strong>Yangon Weather</strong><span id="route-weather-note">Checking Open-Meteoâ€¦</span>
-            </div>
             <div id="closure-field" hidden>
                 <label for="closed-road">Closed Road Name</label>
                 <input id="closed-road" type="text" maxlength="80" placeholder="Example: Pyay Road" autocomplete="off">
@@ -707,16 +663,6 @@
     <section class="analysis-section">
         <h3>Why This Route</h3>
         <p id="analysis-reason">Find a route to see its recommendation.</p>
-    </section>
-    <section class="analysis-section">
-        <h3>Explain AI Decision</h3>
-        <div class="reasoning-flow" id="reasoning-flow">
-            <article><span>Input</span><strong id="reasoning-input">No route request</strong></article><i>â†’</i>
-            <article><span>Traffic Analysis</span><strong id="reasoning-traffic">No traffic evidence</strong></article><i>â†’</i>
-            <article><span>Weather Data</span><strong id="reasoning-weather">No weather observation</strong></article><i>â†’</i>
-            <article><span>Rule Engine</span><strong id="reasoning-rules">No rules evaluated</strong></article><i>â†’</i>
-            <article><span>Decision</span><strong id="reasoning-decision">No recommendation</strong></article>
-        </div>
     </section>
     <section class="analysis-section" id="analysis-alternatives-section" hidden>
         <h3>Other Available Routes</h3>
@@ -1396,8 +1342,8 @@
             ? ''
             : ' Traffic is estimated by inferred model — not live provider data.';
         const recommendation = optionIndex === 0
-            ? (opt.recommendation_reason?.explanation || `I recommend this ${opt.distance} km route because it has the lowest verified route cost.`)
-            : (opt.comparison_to_recommended?.explanation || `You are previewing provider Alternative ${optionIndex}.`);
+            ? `I recommend this ${opt.distance} km route because it offers the best balance of travel time and traffic conditions.`
+            : `You are previewing alternative ${optionIndex}. It is a real-road option that may be useful if you prefer a different approach.`;
         const trafficNote = srcNote + (opt.traffic === 'Heavy'
             ? ' Heavy traffic may cause meaningful delay; allow extra time.'
             : opt.traffic === 'Moderate'
@@ -1436,24 +1382,6 @@
         const routePosition = optionIndex === 0 ? 'This is the recommended route' : `This is Alternative ${optionIndex}`;
         const conditionReason = `It balances travel time with ${String(opt.traffic || 'moderate').toLowerCase()} traffic conditions (${trafficSourceSummary(opt)}).`;
         document.getElementById('analysis-reason').textContent = `${routePosition}. ${conditionReason}`;
-
-        const decision = opt.decision || {};
-        const firedRules = Array.isArray(decision.reasons) ? decision.reasons : [];
-        const weather = window.YangonWeatherSnapshot;
-        const prologActive = decision.engine === 'prolog';
-        document.getElementById('reasoning-input').textContent =
-            `${document.getElementById('vehicle').value} Â· ${(opt.route || [])[0] || 'Origin'} to ${(opt.route || []).at(-1) || 'Destination'} Â· ${scenarioLabel(opt.traffic_scenario)}`;
-        document.getElementById('reasoning-traffic').textContent =
-            `${levelText} Â· ${trafficLabel.toUpperCase()} Â· ${roads.slice(0, 2).join(' / ') || 'Mapped roads'}`;
-        document.getElementById('reasoning-weather').textContent = weather
-            ? `${weather.condition} Â· LIVE / Open-Meteo Â· ${weather.traffic_impact.risk} rule-based risk`
-            : 'Weather unavailable Â· no weather rule applied';
-        document.getElementById('reasoning-rules').textContent = prologActive
-            ? (firedRules.length ? firedRules.join(' Â· ') : 'Prolog completed; no penalty rule fired')
-            : `Prolog reasoning unavailable Â· Python fallback${firedRules.length ? `: ${firedRules.join(' Â· ')}` : ''}`;
-        document.getElementById('reasoning-decision').textContent = optionIndex === 0
-            ? `Recommended Â· cost ${decision.route_cost ?? decision.total_score ?? 'â€”'}`
-            : `Alternative ${optionIndex} Â· cost ${decision.route_cost ?? decision.total_score ?? 'â€”'}`;
 
         const alternatives = document.getElementById('analysis-alternatives');
         const alternativesSection = document.getElementById('analysis-alternatives-section');
@@ -2163,8 +2091,6 @@
             ? mode
             : (timeBand || 'current');
         if (closedRoad) conditions.closed_road = closedRoad;
-        const weather = window.YangonWeatherSnapshot?.traffic_impact?.prolog_weather;
-        if (mode === 'current' && ['clear', 'rain', 'storm'].includes(weather)) conditions.weather = weather;
         return conditions;
     }
 

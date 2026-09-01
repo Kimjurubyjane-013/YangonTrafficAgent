@@ -11,7 +11,6 @@ Yangon Traffic Intelligence is an explainable route-planning and city-traffic an
 - Shows Light, Moderate, and Heavy consistently on route lines, cards, legends, analysis, and navigation.
 - Provides Current, Off-Peak, Peak-Hour, closure, and emergency scenarios without presenting hypothetical output as live telemetry.
 - Exposes a city dashboard using the same cached traffic snapshot as routing.
-- Shows cached live Yangon weather from Open-Meteo with a separate rule-based traffic-risk interpretation.
 - Explains recommendations without using an LLM for the core decision.
 
 ## Architecture
@@ -21,7 +20,6 @@ Desktop:  main.py -> app.startup -> pywebview -> Api -> RouteService
 Web:      web_api.py -> FastAPI -> Api -> RouteService
 Routing:  RouteService -> real_world_agent -> OSRM/HERE road providers
 Traffic:  traffic_backend -> HERE observations or traffic_service inference
-Weather:  weather_service -> Open-Meteo -> normalized cached Yangon observation
 Decision: RouteDecisionEngine -> SWI-Prolog, with deterministic Python fallback
 UI:       app.html + styles.css + app.js + api.js + state.js
           + dashboard.js + simulation3d.js + traffic-colors.js
@@ -47,25 +45,6 @@ The interface distinguishes evidence instead of silently substituting sources:
 - `real_with_simulation_fallback`: provider first, then visibly labelled inference.
 
 The application remains usable without a HERE key: OSRM supplies real mapped-road geometry and the model supplies clearly labelled estimates. Missing optional credentials never crash startup.
-
-## Weather intelligence
-
-`services/weather_service.py` retrieves the following Open-Meteo current fields for Yangon: temperature, relative humidity, precipitation, rain, 10-metre wind speed, WMO weather code, and observation time. The request explicitly uses `Asia/Yangon`; normalized timestamps include Myanmar's UTC+06:30 offset. Valid observations are cached for ten minutes and provider calls have a four-second timeout.
-
-`GET /api/weather` returns one normalized snapshot used by the Dashboard and Route Planner. If Open-Meteo times out or returns malformed data, the endpoint returns a structured unavailable state and the rest of the application continues normally. No fallback weather value is invented.
-
-Weather observation and traffic interpretation are intentionally separate:
-
-```text
-LIVE / Open-Meteo observation
-        -> conservative weather classification
-        -> INFERRED / RULE-BASED traffic-risk fact
-        -> Prolog or deterministic Python rule evaluation
-```
-
-Clear/normal weather maps to `clear`; rain, drizzle, fog, or wet conditions map to `rain`; thunderstorm, at least 7.5 mm current precipitation, or at least 50 km/h wind maps to `storm`. These are transparent project rules, not a claim that Open-Meteo measured traffic. Weather adds only a small bounded rule cost (maximum `0.6`) and a fired-rule explanation. It does not apply an undocumented congestion percentage or change traffic provenance.
-
-**Real weather is not real traffic. Inferred traffic is not provider-measured traffic.**
 
 ### Deterministic model
 
@@ -103,7 +82,6 @@ route_cost = traffic_adjusted_eta
            + min(0.50, 0.08 * traffic_delay)
            + min(0.50, 0.002 * cumulative_traffic_impact)
            + 0.20 * vehicle_restriction_penalty
-           + min(0.60, 0.05 * weather_rule_penalty)
            + 0.02 * distance_km
            + bounded_preferred_road_adjustment
 ```
@@ -157,7 +135,6 @@ For Prolog mode, install SWI-Prolog and `pyswip`, then confirm `swipl --version`
 - `GET /api/traffic/hotspots?limit=8`
 - `GET /api/traffic/best-flowing?limit=8`
 - `GET /api/traffic/{road_id}`
-- `GET /api/weather`
 - `POST /api/route`
 
 Inputs are validated server-side. Errors use structured codes and user-safe messages.
@@ -196,17 +173,16 @@ Tests cover graph validation, provider routing/deduplication, traffic calibratio
 ## Demonstration flow
 
 1. Choose a vehicle and locations in **Route Planner**.
-2. Open the command-center Dashboard to inspect the real network map, severity distribution, evidence coverage, and live Yangon weather.
-3. Find a Current route and inspect segment colors, evidence labels, and the shared weather rule.
-4. Select an alternative and verify map, card, ETA, and comparison update together.
-5. Compare Off-Peak and Peak-Hour snapshots.
-6. Open **Route Analysis** for the Input â†’ Traffic â†’ Weather â†’ Rules â†’ Decision explanation.
-7. Start navigation, pause/restart it, and confirm the vehicle follows selected mapped geometry and segment traffic.
+2. Find a Current route and inspect segment colors and evidence labels.
+3. Select an alternative and verify map, card, ETA, and comparison update together.
+4. Compare Off-Peak and Peak-Hour snapshots.
+5. Open **Route Analysis** for the recommendation, evidence, ETA/delay, major roads, and rule-engine explanation.
+6. Start navigation, pause/restart it, and confirm the vehicle follows selected mapped geometry and segment traffic.
+7. Open the dashboard for city health, hotspots, best-flow roads, coverage, and provenance.
 
 ## Limitations
 
 - Public routing and optional traffic providers need network access and may rate-limit or time out.
-- Open-Meteo requires internet access; weather failure is isolated and never fabricates observations.
 - Provider coverage is not guaranteed on every Yangon road; Mixed and Inferred labels are intentional.
 - The deterministic model is an explainable university-project estimate, not transport-authority telemetry or safety-critical navigation.
 - Closure matching uses English provider road names and reports when no candidate matched.

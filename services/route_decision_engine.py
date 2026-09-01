@@ -58,8 +58,6 @@ def _python_rules(candidate, vehicle, conditions):
     if penalties["congestion"]: reasons.append("congestion_penalty")
     if penalties["vehicle_restriction"]: reasons.append("vehicle_road_suitability_penalty")
     if penalties["preference"] < 0: reasons.append("preferred_road_benefit")
-    if conditions["weather"] == "rain": reasons.append("weather_risk_rain")
-    if conditions["weather"] == "storm": reasons.append("weather_risk_storm")
     return penalties, sorted(set(rejection)), reasons
 
 

@@ -83,12 +83,6 @@ def road_traffic(road_id: str):
     return JSONResponse(status_code=404 if code == "unknown_road" else 400, content=result)
 
 
-@app.get("/api/weather")
-def weather(force: bool = False):
-    result = application_api.get_weather(force)
-    return JSONResponse(status_code=503, content=result) if result.get("error") else result
-
-
 @app.post("/api/route")
 def route(payload: RoutePayload):
     result = application_api.find_route(

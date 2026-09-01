@@ -97,29 +97,6 @@ class WebApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Yangon Traffic Agent", response.text)
 
-    def test_weather_endpoint_preserves_live_source_and_unavailable_state(self):
-        import web_api
-
-        live = {
-            "status": "live", "source": "Open-Meteo", "location": "Yangon",
-            "timezone": "Asia/Yangon", "temperature_c": 29.4,
-        }
-        stub = unittest.mock.Mock()
-        stub.get_weather.return_value = live
-        with patch.object(web_api, "application_api", stub):
-            response = self.client.get("/api/weather")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["source"], "Open-Meteo")
-
-        stub.get_weather.return_value = {
-            "error": "Weather temporarily unavailable.", "status": "unavailable",
-            "source": "Open-Meteo",
-        }
-        with patch.object(web_api, "application_api", stub):
-            response = self.client.get("/api/weather")
-        self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.json()["status"], "unavailable")
-
 
 if __name__ == "__main__":
     unittest.main()

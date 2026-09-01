@@ -28,15 +28,6 @@ class HybridDecisionTests(unittest.TestCase):
         peak=self.decide("A","D","Car",conditions={"time_band":"peak"})
         self.assertGreater(peak["decision"]["other_rule_penalties"]["time"], off["decision"]["other_rule_penalties"]["time"])
 
-    def test_weather_is_an_explainable_bounded_rule_cost(self):
-        clear=self.decide("A","D","Car",conditions={"weather":"clear"})
-        rain=self.decide("A","D","Car",conditions={"weather":"rain"})
-        storm=self.decide("A","D","Car",conditions={"weather":"storm"})
-        self.assertEqual(clear["decision"]["cost_components"]["weather_risk_cost"], 0)
-        self.assertLess(rain["decision"]["total_score"], storm["decision"]["total_score"])
-        self.assertIn("weather_risk_rain", rain["decision"]["reasons"])
-        self.assertLessEqual(storm["decision"]["cost_components"]["weather_risk_cost"], 0.6)
-
     def test_vehicle_suitability(self):
         metadata={("A","B"):{"road_class":"local"},("B","D"):{"road_class":"local"}}
         result=self.decide("A","D","Bus",road_metadata=metadata)
@@ -70,15 +61,6 @@ class HybridDecisionTests(unittest.TestCase):
         fixed={"segment_traffic":{e:"Light" for e in [("A","B"),("B","D"),("A","C"),("C","D")]}}
         self.assertEqual(self.decide("A","D","Car",conditions=fixed,road_metadata=blocked)["route"],["A","C","D"])
         self.assertEqual(self.decide("A","D","Car",conditions=fixed,road_metadata={})["route"],["A","B","D"])
-
-    def test_prolog_weather_rule_fires_when_runtime_is_available(self):
-        engine = RouteDecisionEngine(prefer_prolog=True)
-        if engine.engine_name != "prolog":
-            self.skipTest(engine.diagnostic)
-        result = run_traffic_agent("A", "D", "Car", graph=GRAPH, road_metadata={},
-            conditions={"weather": "rain"}, decision_engine=engine)
-        self.assertEqual(result["decision"]["engine"], "prolog")
-        self.assertIn("weather_risk_rain", result["decision"]["reasons"])
 
 
 if __name__ == "__main__":

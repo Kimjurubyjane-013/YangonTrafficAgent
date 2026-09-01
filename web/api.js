@@ -1,7 +1,5 @@
 (function () {
     'use strict';
-    let weatherPromise = null;
-    let weatherSnapshot = null;
 
     function desktopBackend() {
         return window.pywebview && window.pywebview.api ? window.pywebview.api : null;
@@ -22,17 +20,6 @@
         return payload;
     }
 
-    function weather(refresh = false) {
-        if (!refresh && weatherSnapshot) return Promise.resolve(weatherSnapshot);
-        if (weatherPromise) return weatherPromise;
-        const desktop = desktopBackend();
-        const operation = desktop?.get_weather(refresh) || request(`weather?force=${refresh ? 'true' : 'false'}`);
-        weatherPromise = Promise.resolve(operation)
-            .then(data => { weatherSnapshot = data; return data; })
-            .finally(() => { weatherPromise = null; });
-        return weatherPromise;
-    }
-
     window.YangonApi = Object.freeze({
         mode: () => desktopBackend() ? 'desktop' : 'http',
         locations: () => desktopBackend()?.get_locations() || request('locations'),
@@ -42,7 +29,6 @@
         trafficHotspots: (limit = 8) => desktopBackend()?.get_congestion_hotspots(limit) || request(`traffic/hotspots?limit=${encodeURIComponent(limit)}`),
         bestFlowingRoads: (limit = 8) => desktopBackend()?.get_best_flowing_roads(limit) || request(`traffic/best-flowing?limit=${encodeURIComponent(limit)}`),
         roadTraffic: roadId => desktopBackend()?.get_road_traffic(roadId) || request(`traffic/${encodeURIComponent(roadId)}`),
-        weather,
         findRoute: ({ vehicle, start, destination, conditions }) => {
             const desktop = desktopBackend();
             if (desktop) return desktop.find_route(vehicle, start, destination, conditions || {});

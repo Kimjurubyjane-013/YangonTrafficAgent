@@ -15,8 +15,6 @@ PREFERENCE_WEIGHT = 0.03
 MAX_DELAY_EXPOSURE_COST = 0.5
 MAX_TRAFFIC_IMPACT_COST = 0.5
 MAX_PREFERENCE_BENEFIT = 0.1
-WEATHER_RISK_WEIGHT = 0.05
-MAX_WEATHER_RISK_COST = 0.6
 EMERGENCY_VEHICLES = frozenset({"ambulance", "fire_truck", "police"})
 MEANINGFUL_SCORE_ADVANTAGE = 10.0
 EPSILON = 1e-9
@@ -87,7 +85,6 @@ def route_cost(candidate: Mapping, penalties: Mapping[str, float], vehicle: str)
         "delay_exposure_cost": min(MAX_DELAY_EXPOSURE_COST, metrics["traffic_delay_minutes"] * DELAY_EXPOSURE_WEIGHT),
         "traffic_impact_cost": min(MAX_TRAFFIC_IMPACT_COST, metrics["cumulative_traffic_impact"] * TRAFFIC_IMPACT_WEIGHT),
         "vehicle_suitability_cost": max(0.0, float(penalties.get("vehicle_restriction", 0.0))) * VEHICLE_SUITABILITY_WEIGHT,
-        "weather_risk_cost": min(MAX_WEATHER_RISK_COST, max(0.0, float(penalties.get("weather", 0.0))) * WEATHER_RISK_WEIGHT),
         "distance_tiebreak_cost": metrics["distance_km"] * DISTANCE_WEIGHT,
         "preference_tiebreak": max(-MAX_PREFERENCE_BENEFIT, float(penalties.get("preference", 0.0)) * PREFERENCE_WEIGHT),
     }
