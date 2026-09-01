@@ -89,11 +89,12 @@ def _english_road_names(route):
 
 def _request(coordinates, alternatives, timeout):
     coordinate_text = ";".join(f"{lon},{lat}" for lat, lon in coordinates)
+    alt_param = "true" if alternatives is True else "false" if alternatives is False else str(alternatives).lower()
     per_provider_timeout=max(0.65,float(timeout)/len(OSRM_URLS))
     for base_url in OSRM_URLS:
         try:
             response=requests.get(f"{base_url}/{coordinate_text}",params={
-                "alternatives":alternatives,"steps":"true","overview":"full","geometries":"geojson"
+                "alternatives":alt_param,"steps":"true","overview":"full","geometries":"geojson"
             },timeout=per_provider_timeout)
             response.raise_for_status(); payload=response.json()
             if payload.get("code")=="Ok" and payload.get("routes"):
@@ -191,8 +192,8 @@ def _is_practical_corridor(candidate, primary, start_coord, destination_coord):
     if _km(geometry[0], start_coord) > 0.2 or _km(geometry[-1], destination_coord) > 0.2:
         return False
     return (
-        float(candidate["distance"]) <= float(primary["distance"]) * MAX_CORRIDOR_DISTANCE_RATIO
-        and float(candidate["duration"]) <= float(primary["duration"]) * MAX_CORRIDOR_DURATION_RATIO
+        float(candidate["distance"]) <= float(primary["distance"]) * MAX_CORRIDOR_DISTANCE_RATIO + 1.5
+        and float(candidate["duration"]) <= float(primary["duration"]) * MAX_CORRIDOR_DURATION_RATIO + 4.5
     )
 
 

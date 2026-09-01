@@ -77,7 +77,19 @@
                 }
                 const labels = { now:'Current Traffic', plus_30:'+30 Min', plus_60:'+1 Hour', evening_rush:'Evening Rush' };
                 output.replaceChildren();
-                [[labels[period], traffic], ['Travel Time', window.formatRouteDuration(travelTime)], ['Expected Delay', `+${window.formatRouteDuration(expectedDelay)}`]].forEach(([label, value], index) => {
+
+                const periodLabel = document.createElement('div');
+                periodLabel.className = 'outlook-period';
+                periodLabel.style.fontWeight = 'bold';
+                periodLabel.style.marginBottom = '8px';
+                periodLabel.textContent = labels[period] || 'Traffic Outlook';
+                output.appendChild(periodLabel);
+
+                const metrics = [
+                    ['Expected Traffic', traffic],
+                    ['Travel Time', window.formatRouteDuration(travelTime)]
+                ];
+                metrics.forEach(([label, value], index) => {
                     const item = document.createElement('span');
                     if (index === 0) {
                         item.dataset.level = traffic;
@@ -87,8 +99,13 @@
                     const detail = document.createElement('strong'); detail.textContent = value;
                     item.append(heading, detail); output.appendChild(item);
                 });
+
                 if (period !== 'now' && typeof data.reason === 'string' && data.reason.trim()) {
-                    const reason = document.createElement('p'); reason.textContent = data.reason.trim(); output.appendChild(reason);
+                    const reasonBox = document.createElement('span');
+                    const rHeading = document.createElement('small'); rHeading.textContent = 'Reason';
+                    const rDetail = document.createElement('strong'); rDetail.style.fontWeight = 'normal'; rDetail.textContent = data.reason.trim();
+                    reasonBox.append(rHeading, rDetail);
+                    output.appendChild(reasonBox);
                 }
             } catch (error) { output.textContent = typeof error?.message === 'string' ? error.message : 'Traffic Outlook is temporarily unavailable.'; }
         }

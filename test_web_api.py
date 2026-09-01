@@ -92,6 +92,24 @@ class WebApiTests(unittest.TestCase):
         self.assertTrue(response.json()["ok"])
         self.assertEqual(response.json()["road_names"], ["Pyay Road"])
 
+    def test_route_outlook_returns_primitive_reason(self):
+        # Regression test to ensure the reason field is a primitive string
+        payload = {
+            "route": {
+                "time": 7.5,
+                "traffic": "Heavy",
+                "traffic_score": 85,
+                "traffic_delay": 2.5
+            },
+            "period": "evening_rush"
+        }
+        response = self.client.post("/api/traffic/route-outlook", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data.get("reason"), str)
+        self.assertIsInstance(data.get("traffic"), str)
+        self.assertNotIsInstance(data.get("expected_delay"), dict)
+
     def test_frontend_is_served(self):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
