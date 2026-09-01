@@ -104,10 +104,13 @@ def _recommendation_reason(best, alternatives):
         comparisons.append(f"{abs(distance_difference):.2f} km {'shorter' if distance_difference < 0 else 'longer'}")
     if traffic_improvement > 0:
         explanation = (
-            f"The recommended route is rated {best_level.lower()}, avoiding {alternative_level.lower()} congestion on Alternative 1."
+            f"The recommended route has lighter traffic ({best_level.lower()}) than Alternative 1 ({alternative_level.lower()})."
         )
         if abs(eta_advantage) > 0.01:
-            explanation += f" It is also {_format_minutes(eta_advantage)} {'faster' if eta_advantage > 0 else 'slower'}."
+            if eta_advantage < 0:
+                explanation += f" It requires only {_format_minutes(abs(eta_advantage))} of additional travel time."
+            else:
+                explanation += f" It is also {_format_minutes(eta_advantage)} faster."
     elif traffic_improvement < 0:
         explanation = (
             f"Alternative 1 has {alternative_level.lower()} traffic, but the recommended route is selected because "

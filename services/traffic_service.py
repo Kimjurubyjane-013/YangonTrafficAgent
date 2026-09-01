@@ -308,23 +308,36 @@ class TrafficEngine:
     def route_state(self, start: str, destination: str, road_names=(), snapshot: TrafficSnapshot | None = None,
                     geometry=()) -> dict:
         snapshot = snapshot or self.get_snapshot()
-        path = self._shortest_path(start, destination)
         states = []
-        for a, b in zip(path, path[1:]):
-            road = self.repository.by_edge.get((a, b))
-            if road and road.id in snapshot.roads: states.append(snapshot.roads[road.id])
-        requested_names = {_road_name_key(name) for name in road_names if name}
-        named = [state for state in snapshot.roads.values() if _road_name_key(state.road_name) in requested_names]
-        if named and geometry:
-            # A road name can occur on several disconnected records. Keep only
-            # records geographically close to this provider route.
+        
+        # If OSRM provides data, try to match by name and geometry
+        if road_names or geometry:
+            requested_names = {_road_name_key(name) for name in road_names if name}
+            named = [state for state in snapshot.roads.values() if _road_name_key(state.road_name) in requested_names]
+            
             def route_distance(state):
                 midpoint = ((state.coordinates[0][0] + state.coordinates[1][0]) / 2,
                             (state.coordinates[0][1] + state.coordinates[1][1]) / 2)
-                return min(self._coordinate_distance_km(midpoint, point) for point in geometry)
-            nearby = [state for state in named if route_distance(state) <= 0.65]
-            named = sorted(nearby, key=route_distance)
-        if named: states = named
+                return min(self._coordinate_distance_km(midpoint, point) for point in geometry) if geometry else 0
+
+            if named:
+                nearby = [state for state in named if route_distance(state) <= 0.65] if geometry else named
+                if nearby:
+                    states = sorted(nearby, key=route_distance) if geometry else named
+            
+            # If names failed but we have geometry, find any close segments
+            if not states and geometry:
+                all_nearby = [state for state in snapshot.roads.values() if route_distance(state) <= 0.35]
+                if all_nearby:
+                    states = sorted(all_nearby, key=route_distance)
+                    
+        # Only fallback to directional graph path if we still have absolutely nothing
+        if not states:
+            path = self._shortest_path(start, destination)
+            for a, b in zip(path, path[1:]):
+                road = self.repository.by_edge.get((a, b))
+                if road and road.id in snapshot.roads:
+                    states.append(snapshot.roads[road.id])
         if not states:
             return {"traffic_level":"Moderate","segment_traffic":["Moderate"],"road_ids":[],
                 "average_score":50.0,"estimated_delay_minutes":0.0,"heavy_segments":0,

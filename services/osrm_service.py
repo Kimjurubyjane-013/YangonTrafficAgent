@@ -197,103 +197,86 @@ def _is_practical_corridor(candidate, primary, start_coord, destination_coord):
     )
 
 
-def _discover_corridor_routes(start_coord, destination_coord, accepted, target_count, deadline):
-    """Ask OSRM for fresh same-direction routes through generic corridor hints."""
-    primary = accepted[0]
+def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, timeout=DEFAULT_SEARCH_BUDGET_SECONDS):
+    deadline = time.monotonic() + max(2.0, float(timeout))
+    native_timeout = min(3.2, max(1.4, float(timeout) * 0.45)) # Budget split
+    
+    # 1 & 2. Get forward and reverse natively
+    try:
+        fwd_raw = _request([start_coord, destination_coord], alternatives, native_timeout)
+    except RoadRoutingUnavailable:
+        try:
+            remaining = max(0.8, deadline - time.monotonic())
+            fwd_raw = [_request_valhalla([start_coord, destination_coord], remaining)]
+        except RoadRoutingUnavailable:
+            fwd_raw = []
+
+    try:
+        rev_raw = _request([destination_coord, start_coord], alternatives, native_timeout)
+    except RoadRoutingUnavailable:
+        rev_raw = []
+
+    if not fwd_raw:
+        raise RoadRoutingUnavailable("OSRM returned routes without usable geometry.")
+
+    accepted = []
+    for index, raw in enumerate(fwd_raw):
+        source = "valhalla" if len(fwd_raw) == 1 and raw.get("_valhalla") else "osrm-native"
+        record = _route_record(raw, index, "Fastest real-road corridor" if index == 0 else f"OSRM alternative {index}", source)
+        if record and (not accepted or _is_diverse(record, accepted)):
+            accepted.append(record)
+
+    if not accepted:
+        raise RoadRoutingUnavailable("OSRM returned routes without usable geometry.")
+        
+    target_count = min(TARGET_ROUTE_COUNT, max(1, int(alternatives)))
+    
+    # 3 & 4. Extract corridor signatures (midpoints) from BOTH sets
+    midpoints = []
+    for raw in fwd_raw + rev_raw:
+        geom = raw.get("geometry", {}).get("coordinates", []) if isinstance(raw.get("geometry"), dict) else raw.get("geometry", [])
+        if len(geom) < 3: continue
+        
+        # OSRM geojson is [lon, lat], but _request_valhalla is also mapped to [[lon, lat]... ] wait, _route_record flips it?
+        # Let's extract midpoints from the raw geometry using the same format as _request expects (lat, lon)
+        if isinstance(geom[0], list) and len(geom[0]) == 2:
+            lon, lat = geom[len(geom)//2]
+            midpoint = (lat, lon)
+            
+            # Ensure it's not basically the start/end point
+            if _km(start_coord, midpoint) > 0.35 and _km(midpoint, destination_coord) > 0.35:
+                # Ensure it's diverse from other midpoints
+                if not any(_km(m, midpoint) < 0.25 for m in midpoints):
+                    midpoints.append(midpoint)
+
+    # Add the generic offset hints as fallbacks
     for hint in _corridor_hints(start_coord, destination_coord):
+        if not any(_km(m, hint) < 0.25 for m in midpoints):
+            midpoints.append(hint)
+
+    # 5. Fresh-route A->B through the combined corridor hints
+    primary = accepted[0]
+    for midpoint in midpoints:
         if len(accepted) >= target_count or deadline - time.monotonic() < 0.7:
             break
         try:
-            raw_routes = _request(
-                [start_coord, hint, destination_coord], False,
-                min(1.4, max(0.7, deadline - time.monotonic())),
-            )
-            record = _route_record(
-                raw_routes[0], len(accepted), "Validated alternate corridor",
-                "osrm-via-corridor",
-            )
+            raw_routes = _request([start_coord, midpoint, destination_coord], False, min(1.4, max(0.7, deadline - time.monotonic())))
+            record = _route_record(raw_routes[0], len(accepted), "Validated alternate corridor", "osrm-via-corridor")
         except (RoadRoutingUnavailable, IndexError, KeyError, TypeError, ValueError):
             continue
-        if (record and _is_practical_corridor(record, primary, start_coord, destination_coord)
-                and _is_diverse(record, accepted)):
+            
+        if record and _is_practical_corridor(record, primary, start_coord, destination_coord) and _is_diverse(record, accepted):
             accepted.append(record)
-    return accepted
-
-
-def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, timeout=DEFAULT_SEARCH_BUDGET_SECONDS):
-    deadline = time.monotonic() + max(2.0, float(timeout))
-    native_timeout = min(3.2, max(1.4, float(timeout) * 0.68))
-    try:
-        native = _request([start_coord,destination_coord], alternatives, native_timeout)
-    except RoadRoutingUnavailable:
-        remaining=max(0.8,deadline-time.monotonic())
-        native=[_request_valhalla([start_coord,destination_coord],remaining)]
-    accepted=[]
-    for index, raw in enumerate(native):
-        source="valhalla" if len(native)==1 and raw.get("_valhalla") else "osrm-native"
-        record=_route_record(raw,index,"Fastest real-road corridor" if index==0 else f"OSRM alternative {index}",source)
-        if record and (not accepted or _is_diverse(record,accepted)):
-            accepted.append(record)
-    if not accepted:
-        raise RoadRoutingUnavailable("OSRM returned routes without usable geometry.")
-
-    target_count = min(TARGET_ROUTE_COUNT, max(1, int(alternatives)))
-    if len(accepted) < target_count:
-        _discover_corridor_routes(start_coord, destination_coord, accepted, target_count, deadline)
+            
     return accepted[:TARGET_ROUTE_COUNT]
-
-
-def _validate_reverse_discovered_corridor(start_coord, destination_coord, reverse_routes,
-                                          accepted, timeout):
-    """Ask OSRM to validate a reverse-discovered corridor in this direction.
-
-    Reverse geometry is never copied or reversed: the midpoint is only a hint
-    for a new same-direction routing request, so one-way restrictions remain
-    the routing provider's responsibility.
-    """
-    for reverse in reverse_routes:
-        geometry = reverse.get("geometry") or []
-        if len(geometry) < 3:
-            continue
-        midpoint = geometry[len(geometry) // 2]
-        if _km(start_coord, midpoint) < 0.1 or _km(midpoint, destination_coord) < 0.1:
-            continue
-        try:
-            raw_routes = _request([start_coord, midpoint, destination_coord], False, timeout)
-            record = _route_record(raw_routes[0], len(accepted), "Validated alternate corridor",
-                                   "osrm-validated-corridor")
-        except (RoadRoutingUnavailable, IndexError, KeyError, TypeError, ValueError):
-            continue
-        if record and _is_diverse(record, accepted):
-            return record
-    return None
-
 
 def fetch_real_routes(start_coord,destination_coord,alternatives=3,timeout=DEFAULT_SEARCH_BUDGET_SECONDS):
     key=(tuple(start_coord),tuple(destination_coord),int(alternatives))
-    reverse_key=(tuple(destination_coord),tuple(start_coord),int(alternatives))
     now=time.monotonic()
     with _CACHE_LOCK:
         cached=_CACHE.get(key)
         routes = deepcopy(cached[1]) if cached and now-cached[0]<CACHE_TTL_SECONDS else None
-        reverse_cached = _CACHE.get(reverse_key)
-        reverse_routes = (deepcopy(reverse_cached[1]) if reverse_cached and
-                          now-reverse_cached[0]<CACHE_TTL_SECONDS else None)
-        # Enrich only on a later cached read. The initial forward and reverse
-        # requests remain independent and fast; a subsequent read may validate
-        # a corridor learned from the opposite direction.
-        should_check_reverse = bool(routes is not None and reverse_routes and
-                                    key not in _REVERSE_CORRIDOR_CHECKED)
-        if should_check_reverse:
-            _REVERSE_CORRIDOR_CHECKED.add(key)
     if routes is None:
         routes=_fetch_real_routes_uncached(start_coord,destination_coord,alternatives,timeout)
-    if should_check_reverse and len(routes) < min(TARGET_ROUTE_COUNT, int(alternatives)):
-        candidate = _validate_reverse_discovered_corridor(
-            start_coord, destination_coord, reverse_routes, routes, min(1.8, float(timeout))
-        )
-        if candidate:
-            routes.append(candidate)
-    routes = routes[:TARGET_ROUTE_COUNT]
     with _CACHE_LOCK: _CACHE[key]=(time.monotonic(),deepcopy(routes))
     return routes

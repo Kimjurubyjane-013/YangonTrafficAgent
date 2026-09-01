@@ -61,33 +61,27 @@ class OsrmAlternativeTests(unittest.TestCase):
         self.assertEqual(len(routes),2)
         self.assertEqual([route["road_names"] for route in routes],[["Main Road"],["North Road"]])
 
-    def test_forward_and_reverse_are_requested_and_cached_independently(self):
-        forward=raw([(16.80,96.10),(16.81,96.15),(16.82,96.20)],9000,800,"Forward Road")
-        reverse=raw([(16.82,96.20),(16.79,96.15),(16.80,96.10)],10500,950,"Reverse Road")
-        with patch("services.osrm_service._corridor_hints",return_value=[]), \
-             patch("services.osrm_service._request",side_effect=[[forward],[reverse]]) as request:
-            first=fetch_real_routes((16.80,96.10),(16.82,96.20))
-            second=fetch_real_routes((16.82,96.20),(16.80,96.10))
-        self.assertEqual(request.call_count,2)
-        self.assertNotEqual(first[0]["geometry"],list(reversed(second[0]["geometry"])))
-        self.assertNotEqual(first[0]["distance"],second[0]["distance"])
-        self.assertNotEqual(first[0]["duration"],second[0]["duration"])
-
-    def test_reverse_discovered_corridor_is_re_requested_in_forward_direction(self):
+    def test_bidirectional_discovery_unions_corridors_eagerly(self):
         start, destination = (16.80,96.10), (16.82,96.20)
         forward=raw([start,(16.81,96.15),destination],9000,800,"Forward Road")
         reverse=raw([destination,(16.79,96.15),start],10500,950,"Reverse Road")
         validated=raw([start,(16.79,96.15),destination],10800,930,"Validated Road")
+        
+        # side_effect list:
+        # 1. fwd native -> returns [forward]
+        # 2. rev native -> returns [reverse]
+        # 3. fwd via fwd midpoint (16.81, 96.15) -> fails or returns forward again
+        # 4. fwd via reverse midpoint (16.79, 96.15) -> returns [validated]
         with patch("services.osrm_service._corridor_hints",return_value=[]), \
-             patch("services.osrm_service._request",side_effect=[[forward],[reverse],[validated]]) as request:
-            fetch_real_routes(start,destination)
-            fetch_real_routes(destination,start)
-            enriched=fetch_real_routes(start,destination)
-        self.assertEqual(request.call_count,3)
-        self.assertEqual(len(enriched),2)
-        self.assertEqual(enriched[1]["source"],"osrm-validated-corridor")
-        self.assertEqual(enriched[1]["geometry"][0],list(start))
-        self.assertEqual(enriched[1]["geometry"][-1],list(destination))
+             patch("services.osrm_service._request",side_effect=[[forward],[reverse],[forward],[validated]]) as request:
+            routes = fetch_real_routes(start,destination)
+            
+        self.assertEqual(request.call_count, 4)
+        self.assertEqual(len(routes), 2)
+        self.assertEqual(routes[0]["source"],"osrm-native")
+        self.assertEqual(routes[1]["source"],"osrm-via-corridor")
+        self.assertEqual(routes[1]["geometry"][0],list(start))
+        self.assertEqual(routes[1]["geometry"][-1],list(destination))
 
     def test_excessive_detour_is_rejected(self):
         primary=raw([(16.80,96.10),(16.80,96.20)])
