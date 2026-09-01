@@ -1,4 +1,4 @@
-"""Traffic-aware route ranking with explicit lower-is-better semantics."""
+"""Practical traffic-avoidance ranking with explicit lower-is-better semantics."""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -6,6 +6,11 @@ from collections.abc import Mapping
 
 ETA_WEIGHT = 1.0
 DISTANCE_WEIGHT = 0.02
+MODERATE_EXPOSURE_COST = 1.2
+HEAVY_EXPOSURE_COST = 4.0
+CONGESTION_POLICY_WEIGHT = 0.10
+MAX_CONGESTION_POLICY_COST = 1.5
+DETOUR_POLICY_WEIGHT = 0.5
 HEAVY_SEGMENT_WEIGHT = 0.12
 CRITICAL_SEGMENT_WEIGHT = 0.35
 DELAY_EXPOSURE_WEIGHT = 0.08
@@ -25,6 +30,8 @@ def candidate_metrics(candidate: Mapping) -> dict:
     if not segment_levels:
         segment_levels = [str(candidate.get("traffic", "moderate")).strip().lower()]
     heavy_segments = int(candidate.get("heavy_segments", segment_levels.count("heavy")))
+    moderate_segments = segment_levels.count("moderate")
+    segment_count = max(1, len(segment_levels))
     critical_segments = int(candidate.get("critical_segments", 0))
     delay = max(0.0, float(candidate.get("traffic_delay") or 0.0))
     impact = max(0.0, float(candidate.get("cumulative_traffic_impact") or 0.0))
@@ -34,6 +41,8 @@ def candidate_metrics(candidate: Mapping) -> dict:
         "eta_minutes": max(0.0, float(candidate.get("time") or 0.0)),
         "distance_km": max(0.0, float(candidate.get("distance") or 0.0)),
         "heavy_segments": heavy_segments,
+        "moderate_segments": moderate_segments,
+        "segment_count": segment_count,
         "critical_segments": critical_segments,
         "traffic_delay_minutes": delay,
         "cumulative_traffic_impact": impact,
@@ -78,6 +87,15 @@ def route_cost(candidate: Mapping, penalties: Mapping[str, float], vehicle: str)
     critical_weight = 0.15 if emergency else CRITICAL_SEGMENT_WEIGHT
     components = {
         "eta_cost": metrics["eta_minutes"] * ETA_WEIGHT,
+        "traffic_avoidance_cost": (
+            metrics["heavy_segments"] * HEAVY_EXPOSURE_COST
+            + metrics["moderate_segments"] * MODERATE_EXPOSURE_COST
+        ) / metrics["segment_count"],
+        "congestion_policy_cost": min(
+            MAX_CONGESTION_POLICY_COST,
+            max(0.0, float(penalties.get("congestion", 0.0))) * CONGESTION_POLICY_WEIGHT,
+        ),
+        "detour_policy_cost": max(0.0, float(penalties.get("detour", 0.0))) * DETOUR_POLICY_WEIGHT,
         "severe_congestion_cost": (
             metrics["heavy_segments"] * heavy_weight
             + metrics["critical_segments"] * critical_weight

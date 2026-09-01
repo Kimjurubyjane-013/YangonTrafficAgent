@@ -39,15 +39,19 @@ class OsrmAlternativeTests(unittest.TestCase):
         _CACHE.clear()
         _REVERSE_CORRIDOR_CHECKED.clear()
 
-    def test_duplicate_native_geometry_is_removed_without_inventing_routes(self):
+    def test_duplicate_native_is_removed_and_fresh_corridors_are_validated(self):
         primary=raw([(16.80,96.10),(16.80,96.15),(16.80,96.20)])
         duplicate=raw([(16.80,96.10),(16.80,96.15),(16.80,96.20)],10100,910)
         north=raw([(16.80,96.10),(16.82,96.15),(16.80,96.20)],12000,1050,"North Road")
         south=raw([(16.80,96.10),(16.78,96.15),(16.80,96.20)],12500,1100,"South Road")
         with patch("services.osrm_service._request",side_effect=[[primary,duplicate],[north],[south],[north],[south]]):
             routes=fetch_real_routes((16.80,96.10),(16.80,96.20))
-        self.assertEqual(len(routes),1)
+        self.assertEqual(len(routes),3)
         self.assertEqual(routes[0]["source"],"osrm-native")
+        self.assertEqual({route["source"] for route in routes[1:]},{"osrm-via-corridor"})
+        for route in routes:
+            self.assertEqual(route["geometry"][0],[16.80,96.10])
+            self.assertEqual(route["geometry"][-1],[16.80,96.20])
 
     def test_native_provider_alternatives_are_parsed_when_distinct(self):
         primary=raw([(16.80,96.10),(16.80,96.15),(16.80,96.20)],name="Main Road")
@@ -60,7 +64,8 @@ class OsrmAlternativeTests(unittest.TestCase):
     def test_forward_and_reverse_are_requested_and_cached_independently(self):
         forward=raw([(16.80,96.10),(16.81,96.15),(16.82,96.20)],9000,800,"Forward Road")
         reverse=raw([(16.82,96.20),(16.79,96.15),(16.80,96.10)],10500,950,"Reverse Road")
-        with patch("services.osrm_service._request",side_effect=[[forward],[reverse]]) as request:
+        with patch("services.osrm_service._corridor_hints",return_value=[]), \
+             patch("services.osrm_service._request",side_effect=[[forward],[reverse]]) as request:
             first=fetch_real_routes((16.80,96.10),(16.82,96.20))
             second=fetch_real_routes((16.82,96.20),(16.80,96.10))
         self.assertEqual(request.call_count,2)
@@ -73,7 +78,8 @@ class OsrmAlternativeTests(unittest.TestCase):
         forward=raw([start,(16.81,96.15),destination],9000,800,"Forward Road")
         reverse=raw([destination,(16.79,96.15),start],10500,950,"Reverse Road")
         validated=raw([start,(16.79,96.15),destination],10800,930,"Validated Road")
-        with patch("services.osrm_service._request",side_effect=[[forward],[reverse],[validated]]) as request:
+        with patch("services.osrm_service._corridor_hints",return_value=[]), \
+             patch("services.osrm_service._request",side_effect=[[forward],[reverse],[validated]]) as request:
             fetch_real_routes(start,destination)
             fetch_real_routes(destination,start)
             enriched=fetch_real_routes(start,destination)

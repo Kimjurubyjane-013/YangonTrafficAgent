@@ -16,6 +16,8 @@ OSRM_URLS = (
 VALHALLA_URL = "https://valhalla.openstreetmap.de/route"
 MAX_GEOMETRY_OVERLAP = 0.92
 NEAR_POINT_KM = 0.025
+MAX_CORRIDOR_DISTANCE_RATIO = 1.65
+MAX_CORRIDOR_DURATION_RATIO = 1.80
 TARGET_ROUTE_COUNT = 3
 CACHE_TTL_SECONDS = 600
 DEFAULT_SEARCH_BUDGET_SECONDS = 6.5
@@ -163,6 +165,60 @@ def _is_diverse(candidate, accepted):
     return True
 
 
+def _corridor_hints(start_coord, destination_coord):
+    """Return two generic side-corridor hints without claiming road geometry."""
+    direct = _km(start_coord, destination_coord)
+    if direct < 0.35:
+        return []
+    mid_lat = (start_coord[0] + destination_coord[0]) / 2
+    mid_lon = (start_coord[1] + destination_coord[1]) / 2
+    north = destination_coord[0] - start_coord[0]
+    east = (destination_coord[1] - start_coord[1]) * math.cos(math.radians(mid_lat))
+    length = max(1e-9, math.hypot(north, east))
+    offset_km = min(1.4, max(0.3, direct * 0.18))
+    lat_offset = (-east / length) * offset_km / 111.0
+    lon_offset = (north / length) * offset_km / (111.0 * math.cos(math.radians(mid_lat)))
+    return [
+        (mid_lat + lat_offset, mid_lon + lon_offset),
+        (mid_lat - lat_offset, mid_lon - lon_offset),
+    ]
+
+
+def _is_practical_corridor(candidate, primary, start_coord, destination_coord):
+    geometry = candidate.get("geometry") or []
+    if len(geometry) < 2:
+        return False
+    if _km(geometry[0], start_coord) > 0.2 or _km(geometry[-1], destination_coord) > 0.2:
+        return False
+    return (
+        float(candidate["distance"]) <= float(primary["distance"]) * MAX_CORRIDOR_DISTANCE_RATIO
+        and float(candidate["duration"]) <= float(primary["duration"]) * MAX_CORRIDOR_DURATION_RATIO
+    )
+
+
+def _discover_corridor_routes(start_coord, destination_coord, accepted, target_count, deadline):
+    """Ask OSRM for fresh same-direction routes through generic corridor hints."""
+    primary = accepted[0]
+    for hint in _corridor_hints(start_coord, destination_coord):
+        if len(accepted) >= target_count or deadline - time.monotonic() < 0.7:
+            break
+        try:
+            raw_routes = _request(
+                [start_coord, hint, destination_coord], False,
+                min(1.4, max(0.7, deadline - time.monotonic())),
+            )
+            record = _route_record(
+                raw_routes[0], len(accepted), "Validated alternate corridor",
+                "osrm-via-corridor",
+            )
+        except (RoadRoutingUnavailable, IndexError, KeyError, TypeError, ValueError):
+            continue
+        if (record and _is_practical_corridor(record, primary, start_coord, destination_coord)
+                and _is_diverse(record, accepted)):
+            accepted.append(record)
+    return accepted
+
+
 def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, timeout=DEFAULT_SEARCH_BUDGET_SECONDS):
     deadline = time.monotonic() + max(2.0, float(timeout))
     native_timeout = min(3.2, max(1.4, float(timeout) * 0.68))
@@ -180,9 +236,9 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
     if not accepted:
         raise RoadRoutingUnavailable("OSRM returned routes without usable geometry.")
 
-    # Only expose alternatives returned natively by the routing provider.
-    # We deliberately do not manufacture extra options with arbitrary via
-    # points merely to fill the sidebar.
+    target_count = min(TARGET_ROUTE_COUNT, max(1, int(alternatives)))
+    if len(accepted) < target_count:
+        _discover_corridor_routes(start_coord, destination_coord, accepted, target_count, deadline)
     return accepted[:TARGET_ROUTE_COUNT]
 
 

@@ -183,8 +183,9 @@ class ArchitectureTests(unittest.TestCase):
         html=(root/"web"/"app.html").read_text(encoding="utf-8")
         css=(root/"web"/"styles.css").read_text(encoding="utf-8")
         for token in ("route-option-header", "route-option-path", "route-option-metrics",
-                      "route-option-badges", "addMetric('Delay'", "traffic_adjusted_eta", "free_flow_eta"):
+                      "route-option-badges", "addMetric('Travel Time'", "traffic_adjusted_eta", "free_flow_eta"):
             self.assertIn(token, html)
+        self.assertNotIn("addMetric('Delay'", html)
         self.assertIn(".traffic-stat>span,.traffic-stat>strong,.traffic-stat>small{display:block", css)
         self.assertIn(".traffic-dashboard{margin-inline:auto", css)
         self.assertIn("setState('', 'ready')", (root/"web"/"dashboard.js").read_text(encoding="utf-8"))
@@ -216,6 +217,15 @@ class ArchitectureTests(unittest.TestCase):
         for badge_id in ("hotspot-source-badge", "best-flow-source-badge",
                          "health-source-badge", "coverage-source-badge"):
             self.assertIn(badge_id, dashboard)
+
+    def test_outlook_renders_structured_fields_without_object_stringification(self):
+        root = Path(__file__).parent
+        app = (root / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("typeof data !== 'object'", app)
+        self.assertIn("Number(data.estimated_eta)", app)
+        self.assertIn("Number(data.expected_delay)", app)
+        self.assertNotIn("JSON.stringify(data)", app)
+        self.assertNotIn("[object Object]", app)
 
     def test_best_flow_title_handles_all_heavy_snapshot(self):
         dashboard=(Path(__file__).parent/"web"/"dashboard.js").read_text(encoding="utf-8")

@@ -85,21 +85,34 @@ def _recommendation_reason(best, alternatives):
     alt_heavy = int(alternative.get("heavy_segments", alternative.get("segment_traffic", []).count("Heavy")))
     heavy_difference = best_heavy - alt_heavy
     delay_advantage = round(float(alternative.get("traffic_delay") or 0) - float(best.get("traffic_delay") or 0), 2)
-    if eta_advantage > 0:
-        primary = "lowest_traffic_adjusted_eta"
+    severity = {"Light": 0, "Moderate": 1, "Heavy": 2, "Unknown": 1}
+    best_level = str(best.get("traffic") or "Unknown")
+    alternative_level = str(alternative.get("traffic") or "Unknown")
+    traffic_improvement = severity.get(alternative_level, 1) - severity.get(best_level, 1)
+    if traffic_improvement > 0:
+        primary = "lower_congestion_with_practical_detour"
+    elif eta_advantage > 0:
+        primary = "lower_travel_time"
     elif heavy_difference < 0:
         primary = "lower_severe_congestion"
     else:
-        primary = "lower_route_cost"
+        primary = "best_practical_traffic_balance"
     comparisons = []
     if abs(eta_advantage) > 0.01:
         comparisons.append(f"{_format_minutes(eta_advantage)} {'faster' if eta_advantage > 0 else 'slower'}")
     if abs(distance_difference) > 0.01:
         comparisons.append(f"{abs(distance_difference):.2f} km {'shorter' if distance_difference < 0 else 'longer'}")
-    if comparisons:
+    if traffic_improvement > 0:
+        explanation = (
+            f"The recommended route avoids {alternative_level.lower()} traffic on Alternative 1 "
+            f"and is rated {best_level.lower()}."
+        )
+        if abs(eta_advantage) > 0.01:
+            explanation += f" It is {_format_minutes(eta_advantage)} {'faster' if eta_advantage > 0 else 'slower'}."
+    elif comparisons:
         explanation = f"The recommended route is {' and '.join(comparisons)} than Alternative 1."
     else:
-        explanation = "The recommended route has the lowest traffic-aware route cost among equivalent options."
+        explanation = "The recommended route offers the best practical balance of traffic, travel time, and distance."
     if heavy_difference < 0:
         explanation += f" It also contains {abs(heavy_difference)} fewer Heavy traffic segment(s)."
     return {
@@ -271,7 +284,9 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
 
     conditions["traffic_scenario"] = scenario
     conditions["time_band"] = scenario if hypothetical else _time_band(conditions)
-    conditions.setdefault("weather", "clear")
+    # Real weather is intentionally not part of normal routing.  Only the
+    # explicit Heavy Rain what-if scenario may activate a weather rule.
+    conditions["weather"] = "storm" if str(conditions.get("scenario_type") or "none") == "heavy_rain" else "clear"
     conditions.setdefault("incident", "none")
     scenario_type = str(conditions.get("scenario_type") or "none")
     if scenario_type == "rush_hour":
@@ -428,7 +443,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
                 "error": f"All available real-road routes use the closed road '{closed_road}'. Remove the closure or try another destination.",
                 "routing_mode": "real-world-only",
                 "evaluation": {
-                    "formula": "traffic_adjusted_eta + small safety/reliability exposure costs; lower is better",
+                    "formula": "travel_time + traffic_exposure + rule_penalties + bounded_detour_cost; lower is better",
                     "candidates_received": len(routes), "candidates_evaluated": 0,
                     "eligible_candidates": 0, "rejected_candidates": len(closure_rejections),
                     "closure": {"requested": closed_road, "matched_routes": len(closure_rejections),
@@ -470,7 +485,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
     best, alternatives = options[0], options[1:]
     reason = ", ".join(best["decision"]["reasons"]) or "lowest real-road travel cost"
     evaluation = {
-        "formula": "traffic_adjusted_eta + severe_congestion_exposure + delay_exposure + traffic_impact + vehicle_suitability + distance_tiebreak; lower is better",
+        "formula": "travel_time + traffic_exposure + rule_penalties + bounded_detour_cost; lower is better",
         "candidates_received": len(routes), "candidates_evaluated": len(evaluated),
         "eligible_candidates": len(eligible),
         "rejected_candidates": len(evaluated) - len(eligible) + len(closure_rejections),
@@ -529,6 +544,6 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         "evaluation": evaluation,"recommendation_reason":recommendation_reason,
         "routing_mode":"real-world-only","ai_message":
         f"Real-world Route Decision\n\nSelected roads: {' → '.join(best['display_route'])}\n"
-        f"Distance: {best['distance']} km\nEstimated time: {best['time']} min\n"
-        f"ETA basis: {best['eta_basis']}; it remains an estimate, not a guarantee.\nReason: {reason}.\n"
+        f"Distance: {best['distance']} km\nTravel time: {best['time']} min\n"
+        f"Travel-time basis: {best['eta_basis']}; it remains an estimate, not a guarantee.\nReason: {reason}.\n"
         f"Engine: {engine.engine_name}\nProvider: {best.get('traffic_source') or best.get('route_source')}."}

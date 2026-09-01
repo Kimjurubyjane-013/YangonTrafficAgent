@@ -67,19 +67,30 @@
             output.textContent = 'Updating Traffic Outlook...';
             try {
                 const data = await YangonApi.routeTrafficOutlook(route, period);
-                if (data.error) throw new Error(data.error);
+                if (!data || typeof data !== 'object') throw new Error('Traffic Outlook returned an invalid response.');
+                if (data.error) throw new Error(data.error_details?.message || (typeof data.error === 'string' ? data.error : 'Traffic Outlook is temporarily unavailable.'));
+                const traffic = YangonTrafficColors.normalize(data.traffic);
+                const travelTime = Number(data.estimated_eta);
+                const expectedDelay = Number(data.expected_delay);
+                if (!traffic || !Number.isFinite(travelTime) || !Number.isFinite(expectedDelay)) {
+                    throw new Error('Traffic Outlook returned incomplete route information.');
+                }
                 const labels = { now:'Current Traffic', plus_30:'+30 Min', plus_60:'+1 Hour', evening_rush:'Evening Rush' };
                 output.replaceChildren();
-                [[labels[period], data.traffic], ['Estimated ETA', window.formatRouteDuration(data.estimated_eta)], ['Expected Delay', `+${window.formatRouteDuration(data.expected_delay)}`]].forEach(([label, value]) => {
+                [[labels[period], traffic], ['Travel Time', window.formatRouteDuration(travelTime)], ['Expected Delay', `+${window.formatRouteDuration(expectedDelay)}`]].forEach(([label, value], index) => {
                     const item = document.createElement('span');
+                    if (index === 0) {
+                        item.dataset.level = traffic;
+                        item.style.setProperty('--route-traffic-color', YangonTrafficColors.css(traffic));
+                    }
                     const heading = document.createElement('small'); heading.textContent = label;
                     const detail = document.createElement('strong'); detail.textContent = value;
                     item.append(heading, detail); output.appendChild(item);
                 });
-                if (period !== 'now' && data.reason) {
-                    const reason = document.createElement('p'); reason.textContent = data.reason; output.appendChild(reason);
+                if (period !== 'now' && typeof data.reason === 'string' && data.reason.trim()) {
+                    const reason = document.createElement('p'); reason.textContent = data.reason.trim(); output.appendChild(reason);
                 }
-            } catch (error) { output.textContent = error.message || 'Traffic Outlook is temporarily unavailable.'; }
+            } catch (error) { output.textContent = typeof error?.message === 'string' ? error.message : 'Traffic Outlook is temporarily unavailable.'; }
         }
         document.getElementById('forecast-period').addEventListener('change', refreshRouteOutlook);
         window.refreshRouteOutlook = refreshRouteOutlook;

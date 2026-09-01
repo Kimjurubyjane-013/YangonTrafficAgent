@@ -64,6 +64,28 @@ class RouteRankingTests(unittest.TestCase):
         ranked = self.rank(candidate("heavy", 6, 10.0, "Heavy"), candidate("moderate", 6, 10.05, "Moderate"))
         self.assertEqual(ranked[0]["candidate_id"], "moderate")
 
+    def test_light_route_can_beat_slightly_faster_heavy_route(self):
+        ranked = self.rank(
+            candidate("heavy-fast", 6.0, 7.0, "Heavy", ["Heavy", "Heavy"]),
+            candidate("light-practical", 6.4, 8.0, "Light", ["Light", "Light"]),
+        )
+        self.assertEqual(ranked[0]["candidate_id"], "light-practical")
+
+    def test_extreme_low_traffic_detour_cannot_win(self):
+        ranked = self.rank(
+            candidate("moderate-practical", 7.0, 10.0, "Moderate", ["Moderate"]),
+            candidate("light-extreme", 24.0, 35.0, "Light", ["Light"]),
+        )
+        self.assertEqual(ranked[0]["candidate_id"], "moderate-practical")
+        self.assertIn("reject_excessive_detour", ranked[1]["decision"]["rules_fired"])
+
+    def test_equal_traffic_favors_faster_route(self):
+        ranked = self.rank(
+            candidate("slow", 6.0, 12.0, "Moderate"),
+            candidate("fast", 6.2, 9.0, "Moderate"),
+        )
+        self.assertEqual(ranked[0]["candidate_id"], "fast")
+
     def test_emergency_vehicle_still_rejects_dominated_route(self):
         ranked = self.rank(candidate("slow", 8, 12, "Heavy"), candidate("fast", 7, 10, "Heavy"), vehicle="Ambulance")
         self.assertEqual(ranked[0]["candidate_id"], "fast")
@@ -93,7 +115,7 @@ class RouteRankingTests(unittest.TestCase):
         )
         self.assertEqual(result["road_names"], ["Fast Road"])
         reason = result["recommendation_reason"]
-        self.assertEqual(reason["primary_reason"], "lowest_traffic_adjusted_eta")
+        self.assertEqual(reason["primary_reason"], "lower_travel_time")
         self.assertGreater(reason["eta_advantage_minutes"], 0)
         self.assertLess(reason["distance_difference_km"], 0)
         self.assertIn("faster", reason["explanation"])

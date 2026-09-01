@@ -445,7 +445,7 @@
                 <button type="button" class="text-action" id="home-dashboard">View Traffic Dashboard</button>
             </div>
             <div class="trust-row" aria-label="Route agent capabilities">
-                <span>Real road geometry</span><span>Traffic-aware ETA</span><span>Explainable decisions</span>
+                <span>Real road geometry</span><span>Traffic-aware travel time</span><span>Explainable decisions</span>
             </div>
         </div>
         <div class="agent-scene" aria-label="Friendly Yangon route agent illustration">
@@ -461,7 +461,7 @@
     </section>
     <section class="home-features" id="agent-method">
         <article><div class="feature-icon">01</div><h2>Traffic Analysis</h2><p>Understand current traffic conditions and where congestion is building.</p></article>
-        <article><div class="feature-icon">02</div><h2>Smart Route Recommendation</h2><p>Compare real-road routes using traffic conditions, ETA, and explainable rules.</p></article>
+        <article><div class="feature-icon">02</div><h2>Smart Route Recommendation</h2><p>Compare real-road routes using traffic conditions, travel time, and explainable rules.</p></article>
         <article><div class="feature-icon">03</div><h2>Traffic Simulation</h2><p>Visualize a selected journey after finding a route in the Route Planner.</p></article>
     </section>
 </main>
@@ -607,7 +607,7 @@
         <h2 class="primary-panel-title">Route Result</h2>
         <p id="r-route">Route: -</p>
         <p id="r-distance">Distance: -</p>
-        <p id="r-time">ETA: -</p>
+        <p id="r-time">Travel Time: -</p>
         <p id="r-traffic">Traffic: -</p>
         <p id="r-scenario" hidden></p>
         <div class="route-why" id="route-why" hidden><strong>Why This Route?</strong><span></span></div>
@@ -660,7 +660,7 @@
         <div><span>Destination</span><strong id="analysis-destination">—</strong></div>
         <div><span>Vehicle</span><strong id="analysis-vehicle">—</strong></div>
         <div><span>Distance</span><strong id="analysis-distance">—</strong></div>
-        <div><span>ETA</span><strong id="analysis-time">—</strong></div>
+        <div><span>Travel Time</span><strong id="analysis-time">—</strong></div>
         <div><span>Delay</span><strong id="analysis-delay">—</strong></div>
     </div>
     <section class="analysis-section">
@@ -1238,8 +1238,8 @@
     }
 
     function etaSourceLabel(opt) {
-        if (opt.traffic_data_available) return 'Traffic-adjusted ETA';
-        return 'Estimated ETA · Inferred conditions';
+        if (opt.traffic_data_available) return 'Traffic-adjusted travel time';
+        return 'Estimated travel time · Inferred conditions';
     }
 
     function updateRouteResultDetails(opt) {
@@ -1257,11 +1257,12 @@
         etaResult.style.setProperty('--route-traffic-color', color);
         document.querySelector('.result').style.setProperty('--route-traffic-color', color);
         const why = document.getElementById('route-why');
-        const alternative = allOptionsData.find(candidate => candidate !== opt);
         const reasons = [];
-        if (Array.isArray(opt.characteristics) && opt.characteristics.includes('FASTEST')) reasons.push(`Fastest option: ${formatDuration(opt.time)}`);
-        if (alternative && Number(alternative.time) > Number(opt.time)) reasons.push(`${formatDuration(Number(alternative.time) - Number(opt.time))} faster than ${alternative.route_label || 'the next route'}`);
-        if (alternative && alternative.traffic === 'Heavy' && opt.traffic !== 'Heavy') reasons.push('Avoids heavier traffic on the alternative');
+        const explanation = opt.recommendation_reason?.explanation;
+        if (typeof explanation === 'string' && explanation.trim()) reasons.push(explanation.trim());
+        if (opt.recommendation_reason?.primary_reason === 'only_eligible_route') {
+            reasons.push('No other eligible provider-validated route was returned.');
+        }
         reasons.push(`Valid for ${document.getElementById('vehicle').value}`);
         why.hidden = false;
         why.querySelector('span').textContent = reasons.map(reason => `• ${reason}`).join('\n');
@@ -1305,9 +1306,7 @@
                 item.append(valueNode, labelNode); metrics.appendChild(item);
             };
             addMetric('Distance', `${opt.distance} km`);
-            addMetric('ETA', formatDuration(opt.time));
-            const delay = Number(opt.traffic_delay || 0);
-            addMetric('Delay', delay > 0 ? `+${formatDuration(delay)}` : 'No Added Delay', 'delay');
+            addMetric('Travel Time', formatDuration(opt.time));
             const badge = document.createElement('span');
             badge.className = 'badge';
             badge.style.background = color;
@@ -1322,7 +1321,9 @@
             div.append(header, routePath, metrics);
             if (Array.isArray(opt.characteristics) && opt.characteristics.length) {
                 const traits = document.createElement('div'); traits.className = 'route-characteristics';
-                opt.characteristics.forEach(value => { const tag = document.createElement('span'); tag.textContent = value.replaceAll('_', ' '); traits.appendChild(tag); });
+                const priority = ['LEAST_CONGESTED', 'FASTEST', 'SHORTEST'];
+                const value = priority.find(item => opt.characteristics.includes(item)) || opt.characteristics[0];
+                const tag = document.createElement('span'); tag.textContent = value.replaceAll('_', ' '); traits.appendChild(tag);
                 div.appendChild(traits);
             }
             if (index > 0 && opt.comparison_to_recommended?.explanation) {
@@ -1368,12 +1369,12 @@
         const scenarioNote = opt.scenario_explanation ? ` ${opt.scenario_explanation}` : '';
         const change = opt.scenario_comparison;
         const comparisonNote = change
-            ? ` Before versus after: ETA changed by ${change.eta_change_minutes >= 0 ? '+' : ''}${formatDuration(Math.abs(change.eta_change_minutes))}; traffic changed from ${change.traffic_before} to ${change.traffic_after}${change.recommended_route_changed ? '; the recommended route changed' : ''}.`
+            ? ` Before versus after: travel time changed by ${change.eta_change_minutes >= 0 ? '+' : ''}${formatDuration(Math.abs(change.eta_change_minutes))}; traffic changed from ${change.traffic_before} to ${change.traffic_after}${change.recommended_route_changed ? '; the recommended route changed' : ''}.`
             : '';
         document.getElementById('ai-text').textContent = `${recommendation}${roadPhrase}${trafficNote}${scenarioNote}${comparisonNote} Estimated arrival time is ${formatDuration(opt.time)}.`;
 
         const next = allOptionsData.find(candidate => candidate !== opt);
-        const facts = [`ETA: ${formatDuration(opt.time)}`, `Traffic: ${opt.traffic}`, `Delay: +${formatDuration(opt.traffic_delay || 0)}`];
+        const facts = [`Travel Time: ${formatDuration(opt.time)}`, `Traffic: ${opt.traffic}`];
         if (next && Number(next.time) > Number(opt.time)) facts.push(`${formatDuration(Number(next.time) - Number(opt.time))} faster than ${next.route_label || 'the next route'}`);
         document.getElementById('decision-details-text').textContent = facts.map(fact => `• ${fact}`).join('\n');
         renderRouteAnalysis(opt, optionIndex);
@@ -1401,8 +1402,9 @@
             : 'The route follows mapped streets between the selected locations.';
 
         const routePosition = optionIndex === 0 ? 'This route is recommended' : `This is ${opt.route_label || `Route ${optionIndex + 1}`}`;
-        const conditionReason = `It combines an ETA of ${formatDuration(opt.time)} with ${String(opt.traffic || 'moderate').toLowerCase()} traffic.`;
-        document.getElementById('analysis-reason').textContent = `${routePosition}. ${conditionReason}`;
+        const backendReason = opt.recommendation_reason?.explanation;
+        const conditionReason = `It combines a travel time of ${formatDuration(opt.time)} with ${String(opt.traffic || 'moderate').toLowerCase()} traffic.`;
+        document.getElementById('analysis-reason').textContent = `${routePosition}. ${backendReason || conditionReason}`;
         const rules = opt.rules_fired || opt.decision?.rules_fired || [];
         document.getElementById('analysis-rules').textContent = rules.length
             ? rules.join(' · ')
@@ -1435,7 +1437,7 @@
 
         document.getElementById('r-route').innerText = 'Route: ' + (opt.display_route || opt.route).join(' → ');
         document.getElementById('r-distance').innerText = 'Distance: ' + opt.distance + ' km';
-        document.getElementById('r-time').innerText = 'ETA: ' + formatDuration(opt.time);
+        document.getElementById('r-time').innerText = 'Travel Time: ' + formatDuration(opt.time);
         document.getElementById('r-traffic').innerText = trafficSummary(opt);
         updateRouteResultDetails(opt);
 
@@ -2126,7 +2128,7 @@
 
         document.getElementById('r-route').innerText = 'Route: ' + (result.display_route || result.route).join(' → ');
         document.getElementById('r-distance').innerText = 'Distance: ' + result.distance + ' km';
-        document.getElementById('r-time').innerText = 'ETA: ' + formatDuration(result.time);
+        document.getElementById('r-time').innerText = 'Travel Time: ' + formatDuration(result.time);
         document.getElementById('r-traffic').innerText = trafficSummary(bestRouteData);
         updateRouteResultDetails(bestRouteData);
         renderAgentInsight(bestRouteData, 0);
@@ -2167,7 +2169,7 @@
         document.getElementById('route-options').replaceChildren();
         document.getElementById('r-route').innerText = 'Route: -';
         document.getElementById('r-distance').innerText = 'Distance: -';
-        document.getElementById('r-time').innerText = 'ETA: -';
+        document.getElementById('r-time').innerText = 'Travel Time: -';
         delete document.getElementById('r-time').dataset.level;
         document.getElementById('r-traffic').innerText = 'Traffic: -';
         delete document.getElementById('r-traffic').dataset.level;
@@ -2207,7 +2209,7 @@
         document.getElementById('route-options').innerHTML = '';
         document.getElementById('r-route').innerText = 'Route: -';
         document.getElementById('r-distance').innerText = 'Distance: -';
-        document.getElementById('r-time').innerText = 'ETA: -';
+        document.getElementById('r-time').innerText = 'Travel Time: -';
         document.getElementById('r-traffic').innerText = 'Traffic: -';
         delete document.getElementById('r-traffic').dataset.level;
         document.getElementById('r-scenario').innerText = '';

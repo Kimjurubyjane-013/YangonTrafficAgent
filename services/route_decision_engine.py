@@ -1,8 +1,8 @@
 """Hybrid numeric + symbolic route decision engine.
 
-ETA is the primary lower-is-better objective. Python owns numeric ranking and
-dominance; Prolog or the deterministic fallback owns eligibility and
-explainable policy signals.
+Traffic-adjusted travel time and bounded congestion exposure determine the
+practical traffic-avoidance objective. Prolog or the deterministic fallback
+owns eligibility and explainable policy signals.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ def _atom(value, allowed, default):
 
 
 def _python_rules(candidate, vehicle, conditions):
-    penalties = {"congestion": 0.0, "vehicle_restriction": 0.0, "time": 0.0, "weather": 0.0, "incident": 0.0, "preference": 0.0}
+    penalties = {"congestion": 0.0, "vehicle_restriction": 0.0, "time": 0.0, "weather": 0.0, "incident": 0.0, "preference": 0.0, "detour": 0.0}
     rejection = []
     reasons = []
     congestion = {"light": 0, "moderate": 3, "heavy": 9}
@@ -55,12 +55,25 @@ def _python_rules(candidate, vehicle, conditions):
             penalties["preference"] -= 1.5
     penalties["weather"] = {"clear": 0, "rain": 4, "storm": 12}[conditions["weather"]]
     penalties["incident"] = {"none": 0, "minor": 6, "major": 18}[conditions["incident"]]
-    if penalties["congestion"]: reasons.append("congestion_penalty")
+    traffic_levels = {segment["traffic"] for segment in candidate["segments"]}
+    if "heavy" in traffic_levels: reasons.append("avoid_heavy_congestion")
+    elif "moderate" in traffic_levels: reasons.append("moderate_congestion_exposure")
     if penalties["vehicle_restriction"]: reasons.append("vehicle_road_suitability_penalty")
     if penalties["time"]: reasons.append("peak_arterial_penalty")
     if penalties["weather"]: reasons.append("adverse_weather_penalty")
     if penalties["incident"]: reasons.append("incident_avoidance_penalty")
     if penalties["preference"] < 0: reasons.append("preferred_road_benefit")
+    eta, distance = float(candidate.get("time") or 0), float(candidate.get("distance") or 0)
+    fastest, shortest = conditions["fastest_eta"], conditions["shortest_distance"]
+    excessive = ((eta > fastest * 1.75 and eta - fastest > 8.0)
+                 or (distance > shortest * 1.8 and distance - shortest > 3.0))
+    if excessive:
+        penalties["detour"] = 12.0
+        reasons.append("reject_excessive_detour")
+    elif eta <= fastest + 3.0 and distance <= shortest * 1.35:
+        reasons.append("acceptable_detour")
+    if not rejection:
+        reasons.append("vehicle_route_allowed")
     return penalties, sorted(set(rejection)), sorted(set(reasons))
 
 
@@ -88,6 +101,8 @@ class RouteDecisionEngine:
             "time_band": _atom(supplied.get("time_band", "off_peak"), VALID_TIME_BANDS, "off_peak"),
             "weather": _atom(supplied.get("weather", "clear"), VALID_WEATHER, "clear"),
             "incident": _atom(supplied.get("incident", "none"), VALID_INCIDENTS, "none"),
+            "fastest_eta": min(float(candidate.get("time") or 0) for candidate in candidates),
+            "shortest_distance": min(float(candidate.get("distance") or 0) for candidate in candidates),
         }
         evaluated = []
         for candidate in candidates:
@@ -140,16 +155,17 @@ class RouteDecisionEngine:
             try:
                 p.assertz(f"request_vehicle({vehicle})")
                 p.assertz(f"request_condition({conditions['time_band']},{conditions['weather']},{conditions['incident']})")
+                p.assertz(f"request_metrics({float(candidate.get('time') or 0)},{float(candidate.get('distance') or 0)},{conditions['fastest_eta']},{conditions['shortest_distance']})")
                 for index, segment in enumerate(candidate["segments"]):
                     road = _atom(segment["road_class"], VALID_ROADS, "arterial")
                     traffic = _atom(segment["traffic"], VALID_TRAFFIC, "moderate")
                     preferred = "true" if segment["preferred"] else "false"
                     direction = "true" if segment["one_way_ok"] else "false"
                     p.assertz(f"request_segment({index},{road},{traffic},{preferred},{direction})")
-                row = next(iter(p.query("request_evaluation(C,V,T,W,I,P,Rejections,Reasons)")), None)
+                row = next(iter(p.query("request_evaluation(C,V,T,W,I,P,D,Rejections,Reasons)")), None)
                 if row is None:
                     raise RuntimeError("Prolog produced no evaluation")
-                penalties = {"congestion": float(row["C"]), "vehicle_restriction": float(row["V"]), "time": float(row["T"]), "weather": float(row["W"]), "incident": float(row["I"]), "preference": float(row["P"])}
+                penalties = {"congestion": float(row["C"]), "vehicle_restriction": float(row["V"]), "time": float(row["T"]), "weather": float(row["W"]), "incident": float(row["I"]), "preference": float(row["P"]), "detour": float(row["D"])}
                 return penalties, [str(x) for x in row["Rejections"]], [str(x) for x in row["Reasons"]]
             finally:
                 list(p.query("clear_request"))

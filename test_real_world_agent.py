@@ -159,7 +159,8 @@ class RealWorldPipelineTests(unittest.TestCase):
     def test_evaluation_exposes_formula_and_ranked_options(self):
         result=run_real_world_agent("Hledan Centre","Myanmar Plaza","Car",route_provider=fake_provider,
             decision_engine=RouteDecisionEngine(False))
-        self.assertIn("traffic_adjusted_eta",result["evaluation"]["formula"])
+        self.assertIn("traffic_exposure",result["evaluation"]["formula"])
+        self.assertIn("bounded_detour_cost",result["evaluation"]["formula"])
         self.assertEqual(len(result["evaluation"]["options"]),2)
 
     def test_longer_route_wins_when_real_traffic_eta_is_lower(self):
@@ -255,6 +256,24 @@ class RealWorldPipelineTests(unittest.TestCase):
                         option["traffic_adjusted_eta"],
                         option["free_flow_eta"] + option["traffic_delay"], places=2,
                     )
+
+    def test_normal_route_cannot_activate_weather_rules(self):
+        result = run_real_world_agent(
+            "Hledan Centre", "Myanmar Plaza", "Car",
+            {"weather": "storm"}, route_provider=fake_provider,
+            decision_engine=RouteDecisionEngine(False),
+        )
+        for option in [result, *result["alternatives"]]:
+            self.assertNotIn("adverse_weather_penalty", option["rules_fired"])
+
+    def test_heavy_rain_scenario_may_activate_weather_rule(self):
+        result = run_real_world_agent(
+            "Hledan Centre", "Myanmar Plaza", "Car",
+            {"scenario_type": "heavy_rain"}, route_provider=fake_provider,
+            decision_engine=RouteDecisionEngine(False),
+        )
+        self.assertIn("adverse_weather_penalty", result["rules_fired"])
+        self.assertEqual(result["traffic_source_label"], "SIMULATED")
 
 
 if __name__ == "__main__": unittest.main()
