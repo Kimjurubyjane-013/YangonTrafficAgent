@@ -10,7 +10,7 @@ from services.route_service import RouteService
 from services.road_repository import ROAD_REPOSITORY
 from services.traffic_service import TRAFFIC_ENGINE
 from services.traffic_backend import TRAFFIC_BACKEND
-from services.traffic_prediction import predict_traffic, prediction_series
+from services.traffic_prediction import predict_route_traffic, predict_traffic, prediction_series
 
 LOGGER = logging.getLogger(__name__)
 
@@ -110,6 +110,15 @@ class Api:
         except Exception:
             LOGGER.exception("Traffic prediction failed")
             return {"error": "Traffic prediction is temporarily unavailable.", "error_details": {"code": "prediction_error", "message": "Traffic prediction is temporarily unavailable."}}
+
+    def get_route_traffic_prediction(self, route, period):
+        try:
+            return predict_route_traffic(route, str(period), engine=self._traffic_engine)
+        except ValueError as exc:
+            return {"error": str(exc), "error_details": {"code": "invalid_prediction_request", "message": str(exc)}}
+        except Exception:
+            LOGGER.exception("Selected-route prediction failed")
+            return {"error": "Traffic outlook is temporarily unavailable.", "error_details": {"code": "prediction_error", "message": "Traffic outlook is temporarily unavailable."}}
 
     def get_road_traffic(self, road_id):
         if not isinstance(road_id, str) or not road_id.strip():

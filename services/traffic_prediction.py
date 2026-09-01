@@ -6,6 +6,8 @@ from datetime import timedelta
 
 from app.runtime_config import yangon_now
 from services.traffic_service import TRAFFIC_ENGINE
+from services.traffic_service import classify_traffic
+from app.traffic_config import TRAFFIC_SPEED_MULTIPLIERS
 
 PREDICTION_PERIODS = ("now", "plus_30", "plus_60", "evening_rush")
 
@@ -60,4 +62,53 @@ def prediction_series(now=None, engine=None) -> dict:
         "forecast_type": "INFERRED_FORECAST",
         "timezone": "Asia/Yangon",
         "predictions": [predict_traffic(period, now=now, engine=engine) for period in PREDICTION_PERIODS],
+    }
+
+
+def predict_route_traffic(route: dict, period: str, now=None, engine=None) -> dict:
+    """Project a selected route using the change in city traffic pressure.
+
+    This preserves the route geometry and ranking.  The route score moves by the
+    same number of points as the deterministic city average, and ETA changes by
+    the documented speed-multiplier ratio for the resulting severity band.
+    """
+    if period not in PREDICTION_PERIODS:
+        raise ValueError("Prediction period must be now, plus_30, plus_60, or evening_rush.")
+    if not isinstance(route, dict):
+        raise ValueError("A selected route is required.")
+    try:
+        current_eta = max(0.0, float(route.get("time")))
+        level_score = {"light": 25.0, "moderate": 52.5, "heavy": 82.5}
+        fallback_score = level_score.get(str(route.get("traffic", "")).casefold(), 50.0)
+        current_score = max(0.0, min(100.0, float(route.get("traffic_score", fallback_score))))
+    except (TypeError, ValueError):
+        raise ValueError("The selected route does not contain valid traffic and ETA values.")
+
+    engine = engine or TRAFFIC_ENGINE
+    current = predict_traffic("now", now=now, engine=engine)
+    future = predict_traffic(period, now=now, engine=engine)
+    projected_score = max(0.0, min(100.0, current_score + future["average_traffic_score"] - current["average_traffic_score"]))
+    current_level = classify_traffic(current_score)
+    expected_level = classify_traffic(projected_score)
+    current_speed = TRAFFIC_SPEED_MULTIPLIERS[current_level]
+    expected_speed = TRAFFIC_SPEED_MULTIPLIERS[expected_level]
+    estimated_eta = current_eta if period == "now" else current_eta * current_speed / expected_speed
+    current_delay = max(0.0, float(route.get("traffic_delay") or 0.0))
+    free_flow_eta = float(route.get("free_flow_eta") or max(0.0, current_eta - current_delay) or current_eta)
+    delay = max(0.0, estimated_eta - free_flow_eta)
+
+    reason = "Current selected-route conditions"
+    if period != "now":
+        reason = future["reasons"][0].replace("Yangon time period:", "Expected period:")
+        if future.get("rush_hour") or "rush" in str(future.get("time_period", "")).lower():
+            reason = "Higher demand is expected during the rush-hour period"
+    return {
+        "period": period,
+        "traffic": expected_level,
+        "estimated_eta": round(estimated_eta, 2),
+        "expected_delay": round(delay, 2),
+        "reason": reason,
+        "traffic_source": "INFERRED",
+        "forecast_type": "CURRENT_ROUTE" if period == "now" else "INFERRED_ROUTE_FORECAST",
+        "is_live": False,
     }

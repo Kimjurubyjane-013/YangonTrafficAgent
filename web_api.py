@@ -33,6 +33,11 @@ class ScenarioPayload(RoutePayload):
     affected_road: Any = None
 
 
+class RoutePredictionPayload(BaseModel):
+    route: Any = None
+    period: Any = None
+
+
 @app.get("/api/health")
 def api_health() -> dict[str, str]:
     return {"status": "ok"}
@@ -85,6 +90,15 @@ def traffic_prediction(period: str | None = None):
     if not result.get("error"):
         return result
     status = 400 if result.get("error_details", {}).get("code") == "invalid_prediction_period" else 503
+    return JSONResponse(status_code=status, content=result)
+
+
+@app.post("/api/traffic/route-outlook")
+def route_traffic_outlook(payload: RoutePredictionPayload):
+    result = application_api.get_route_traffic_prediction(payload.route, payload.period)
+    if not result.get("error"):
+        return result
+    status = 400 if result.get("error_details", {}).get("code") == "invalid_prediction_request" else 503
     return JSONResponse(status_code=status, content=result)
 
 

@@ -58,18 +58,31 @@
         document.getElementById('sim-btn').addEventListener('click', window.openSimulation);
         document.getElementById('analysis-btn').addEventListener('click', () => showView('analysis'));
         document.getElementById('analysis-back').addEventListener('click', () => showView('planner'));
-        document.getElementById('forecast-btn').addEventListener('click', async () => {
+        async function refreshRouteOutlook() {
             const output = document.getElementById('forecast-result');
-            const button = document.getElementById('forecast-btn');
-            button.disabled = true; output.hidden = false; output.textContent = 'Calculating inferred outlook…';
+            const route = window.getSelectedRoute?.();
+            if (!route) { output.hidden = true; return; }
+            const period = document.getElementById('forecast-period').value;
+            output.hidden = false;
+            output.textContent = 'Updating Traffic Outlook...';
             try {
-                const data = await YangonApi.trafficPrediction(document.getElementById('forecast-period').value);
+                const data = await YangonApi.routeTrafficOutlook(route, period);
                 if (data.error) throw new Error(data.error);
-                const period = String(data.period).replaceAll('_', ' ').replace(/\b\w/g, value => value.toUpperCase());
-                output.textContent = `${period}: ${data.traffic_health_label} network health · ${data.light_count} Light, ${data.moderate_count} Moderate, ${data.heavy_count} Heavy roads. ${data.reasons.join('. ')}.`;
-            } catch (error) { output.textContent = error.message || 'Traffic outlook is temporarily unavailable.'; }
-            finally { button.disabled = false; }
-        });
+                const labels = { now:'Current Traffic', plus_30:'+30 Min', plus_60:'+1 Hour', evening_rush:'Evening Rush' };
+                output.replaceChildren();
+                [[labels[period], data.traffic], ['Estimated ETA', window.formatRouteDuration(data.estimated_eta)], ['Expected Delay', `+${window.formatRouteDuration(data.expected_delay)}`]].forEach(([label, value]) => {
+                    const item = document.createElement('span');
+                    const heading = document.createElement('small'); heading.textContent = label;
+                    const detail = document.createElement('strong'); detail.textContent = value;
+                    item.append(heading, detail); output.appendChild(item);
+                });
+                if (period !== 'now' && data.reason) {
+                    const reason = document.createElement('p'); reason.textContent = data.reason; output.appendChild(reason);
+                }
+            } catch (error) { output.textContent = error.message || 'Traffic Outlook is temporarily unavailable.'; }
+        }
+        document.getElementById('forecast-period').addEventListener('change', refreshRouteOutlook);
+        window.refreshRouteOutlook = refreshRouteOutlook;
         document.getElementById('map-sim-pause').addEventListener('click', window.toggleMapSimulationPause);
         document.getElementById('map-sim-restart').addEventListener('click', window.restartMapSimulation);
         document.getElementById('map-sim-exit').addEventListener('click', () => window.exitMapSimulation());
@@ -89,10 +102,7 @@
             closureField.hidden = !['closure', 'accident'].includes(mode);
             document.getElementById('scenario-road-label').textContent = mode === 'closure' ? 'Closed Road Name' : 'Affected Road Name';
             if (!['closure', 'accident'].includes(mode)) document.getElementById('closed-road').value = '';
-            document.getElementById('departure-band').value = mode === 'off_peak'
-                ? 'off_peak'
-                : mode === 'peak' ? 'peak' : '';
-            if (mode === 'emergency') document.getElementById('vehicle').value = 'Ambulance';
+            document.getElementById('departure-band').value = mode === 'peak' ? 'peak' : '';
         });
         YangonAppState.subscribe(({ phase }) => {
             const busy = phase === YangonAppState.phases.LOADING || phase === YangonAppState.phases.SIMULATING || phase === YangonAppState.phases.PAUSED;

@@ -30,6 +30,7 @@
         bestFlowingRoads: (limit = 8) => desktopBackend()?.get_best_flowing_roads(limit) || request(`traffic/best-flowing?limit=${encodeURIComponent(limit)}`),
         roadTraffic: roadId => desktopBackend()?.get_road_traffic(roadId) || request(`traffic/${encodeURIComponent(roadId)}`),
         trafficPrediction: period => desktopBackend()?.get_traffic_prediction(period) || request(`traffic/prediction?period=${encodeURIComponent(period)}`),
+        routeTrafficOutlook: (route, period) => desktopBackend()?.get_route_traffic_prediction(route, period) || request('traffic/route-outlook', { method:'POST', body:JSON.stringify({ route, period }) }),
         findRoute: ({ vehicle, start, destination, conditions }) => {
             const desktop = desktopBackend();
             if (desktop) return desktop.find_route(vehicle, start, destination, conditions || {});

@@ -64,7 +64,7 @@ class ArchitectureTests(unittest.TestCase):
         for element_id in ("home-view","planner-view","home-plan-route","theme-toggle","ai-text","decision-details-text",
             "scenario-mode","departure-band","closed-road","analysis-view","analysis-btn",
             "analysis-back","route-provenance","route-comparison","nav-dashboard","dashboard-view",
-            "health-score","hotspot-list","best-flow-list","r-traffic-source","route-why",
+            "health-score","hotspot-list","best-flow-list","route-why","forecast-period","forecast-result",
             "dashboard-available","dashboard-error-row","retry-traffic","refresh-traffic",
             "coverage-bars","provider-status-note"):
             self.assertIn(f'id="{element_id}"',html)
@@ -183,7 +183,7 @@ class ArchitectureTests(unittest.TestCase):
         html=(root/"web"/"app.html").read_text(encoding="utf-8")
         css=(root/"web"/"styles.css").read_text(encoding="utf-8")
         for token in ("route-option-header", "route-option-path", "route-option-metrics",
-                      "route-option-badges", "Traffic Delay", "traffic_adjusted_eta", "free_flow_eta"):
+                      "route-option-badges", "addMetric('Delay'", "traffic_adjusted_eta", "free_flow_eta"):
             self.assertIn(token, html)
         self.assertIn(".traffic-stat>span,.traffic-stat>strong,.traffic-stat>small{display:block", css)
         self.assertIn(".traffic-dashboard{margin-inline:auto", css)
@@ -191,14 +191,14 @@ class ArchitectureTests(unittest.TestCase):
 
     def test_scenario_and_normal_result_ui_are_truthful_and_clean(self):
         html=(Path(__file__).parent/"web"/"app.html").read_text(encoding="utf-8")
-        self.assertIn('<option value="current">Current Conditions</option>', html)
-        self.assertIn('<option value="off_peak">Off-Peak Scenario</option>', html)
+        self.assertIn('<option value="current">No Scenario</option>', html)
+        self.assertIn('<option value="peak">Rush Hour</option>', html)
         self.assertIn('conditions.traffic_scenario', html)
         self.assertIn('id="r-scenario"', html)
         self.assertIn('id="unknown-legend-item" hidden', html)
         self.assertIn("document.getElementById('unknown-legend-item').hidden", html)
         self.assertIn("provenance.hidden = true", html)
-        self.assertIn("`Traffic Source: ${srcLabel}`", html)
+        self.assertNotIn("`Traffic Source: ${srcLabel}`", html)
         self.assertNotIn("provenance.hidden = false", html)
 
     def test_source_badges_have_central_light_and_dark_contrast_styles(self):
@@ -211,7 +211,7 @@ class ArchitectureTests(unittest.TestCase):
             self.assertIn(f"--source-{source}-text:", css)
             self.assertIn(f"--source-{source}-border:", css)
             self.assertIn(f"src-badge-{source}", css)
-        self.assertIn("route-src-${sourceKind}", html)
+        self.assertNotIn("route-src-${sourceKind}", html)
         self.assertNotIn("srcBadge.style.background", html)
         for badge_id in ("hotspot-source-badge", "best-flow-source-badge",
                          "health-source-badge", "coverage-source-badge"):

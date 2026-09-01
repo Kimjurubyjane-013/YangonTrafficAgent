@@ -512,23 +512,21 @@
         </select>
 
         <details class="journey-conditions" id="journey-conditions">
-            <summary>Journey Conditions <span>Optional</span></summary>
-            <label for="scenario-mode">Traffic Scenario</label>
+            <summary>What-If Scenario <span>Optional</span></summary>
+            <label for="scenario-mode">Scenario</label>
             <select id="scenario-mode">
-                <option value="current">Current Conditions</option>
-                <option value="off_peak">Off-Peak Scenario</option>
-                <option value="peak">Peak-Hour Scenario</option>
-                <option value="accident">Simulated Accident</option>
-                <option value="heavy_rain">Simulated Heavy Rain</option>
-                <option value="closure">Simulated Road Closure</option>
-                <option value="major_event">Simulated Major Event</option>
-                <option value="emergency">Emergency Response</option>
+                <option value="current">No Scenario</option>
+                <option value="accident">Accident</option>
+                <option value="closure">Road Closure</option>
+                <option value="heavy_rain">Heavy Rain</option>
+                <option value="peak">Rush Hour</option>
+                <option value="major_event">Major Event</option>
             </select>
             <input id="departure-band" type="hidden" value="">
             <div id="closure-field" hidden>
                 <label for="closed-road" id="scenario-road-label">Affected Road Name</label>
                 <input id="closed-road" type="text" maxlength="80" placeholder="Example: Pyay Road" autocomplete="off">
-                <small>Scenario only. Enter an English road name shown in a route result; this is never presented as a live incident.</small>
+                <small>Enter a road name shown in the route. This scenario is not a live incident.</small>
             </div>
         </details>
 
@@ -549,7 +547,6 @@
     <div class="panel map-area">
         <div class="map-heading">
             <div><div class="panel-kicker">Live Route Canvas</div><h2 class="primary-panel-title">Yangon Road Map</h2></div>
-            <div class="map-data-pill">OSM road data</div>
         </div>
         <div id="map"></div>
         <div id="map-error"></div>
@@ -610,10 +607,9 @@
         <h2 class="primary-panel-title">Route Result</h2>
         <p id="r-route">Route: -</p>
         <p id="r-distance">Distance: -</p>
-        <p id="r-time">Estimated Time: -</p>
+        <p id="r-time">ETA: -</p>
         <p id="r-traffic">Traffic: -</p>
-        <p id="r-scenario">Traffic Scenario: Current Conditions</p>
-        <p id="r-traffic-source">Traffic Source: -</p>
+        <p id="r-scenario" hidden></p>
         <div class="route-why" id="route-why" hidden><strong>Why This Route?</strong><span></span></div>
         <div class="route-provenance" id="route-provenance" hidden></div>
 
@@ -621,13 +617,12 @@
         <div class="route-comparison" id="route-comparison" hidden></div>
         <div id="route-options"></div>
         <section class="route-forecast" aria-labelledby="forecast-title">
-            <div><strong id="forecast-title">Traffic Outlook</strong><small>Inferred Forecast — Not Live</small></div>
+            <div><strong id="forecast-title">Traffic Outlook</strong></div>
             <select id="forecast-period" aria-label="Traffic forecast period">
                 <option value="now">Now</option><option value="plus_30">+30 Minutes</option>
                 <option value="plus_60">+1 Hour</option><option value="evening_rush">Evening Rush</option>
             </select>
-            <button type="button" id="forecast-btn">View Outlook</button>
-            <p id="forecast-result" hidden></p>
+            <div class="forecast-result" id="forecast-result" hidden></div>
         </section>
         <button class="analysis-link" id="analysis-btn" type="button" disabled>View Route Analysis</button>
     </div>
@@ -644,10 +639,7 @@
         <div class="agent-name">Yangon Route Agent</div>
         <div id="ai-text">Tell me where you want to go, and I’ll explain the route I recommend.</div>
     </div>
-    <details class="decision-details">
-        <summary>How This Decision Was Made</summary>
-        <div id="decision-details-text">Route evidence will appear after a search.</div>
-    </details>
+    <div id="decision-details-text" hidden>Route evidence will appear after a search.</div>
 </div>
 
 </div>
@@ -664,12 +656,12 @@
         <span id="analysis-traffic" class="analysis-traffic">—</span>
     </div>
     <div class="analysis-facts">
+        <div><span>Origin</span><strong id="analysis-origin">—</strong></div>
+        <div><span>Destination</span><strong id="analysis-destination">—</strong></div>
+        <div><span>Vehicle</span><strong id="analysis-vehicle">—</strong></div>
         <div><span>Distance</span><strong id="analysis-distance">—</strong></div>
-        <div><span>Estimated Time</span><strong id="analysis-time">—</strong></div>
-        <div><span>Free-Flow ETA</span><strong id="analysis-free-flow">—</strong></div>
-        <div><span>Traffic Delay</span><strong id="analysis-delay">—</strong></div>
-        <div><span>Model Confidence</span><strong id="analysis-confidence">—</strong></div>
-        <div><span>Data Source</span><strong id="analysis-source">—</strong></div>
+        <div><span>ETA</span><strong id="analysis-time">—</strong></div>
+        <div><span>Delay</span><strong id="analysis-delay">—</strong></div>
     </div>
     <section class="analysis-section">
         <h3>Roads Used</h3>
@@ -683,6 +675,10 @@
         <h3>Rules Applied</h3>
         <p id="analysis-rules">No decision rules have been evaluated yet.</p>
     </section>
+    <details class="analysis-technical">
+        <summary>Technical Details</summary>
+        <p id="analysis-source">Technical route details will appear after a search.</p>
+    </details>
     <section class="analysis-section" id="analysis-alternatives-section" hidden>
         <h3>Other Available Routes</h3>
         <div id="analysis-alternatives"></div>
@@ -1247,10 +1243,10 @@
     }
 
     function updateRouteResultDetails(opt) {
-        const srcLabel = trafficSourceLabel(opt);
-        document.getElementById('r-traffic-source').textContent = `Traffic Source: ${srcLabel}`;
         const scenario = String(opt.traffic_scenario || 'current').replace('_', '-');
-        document.getElementById('r-scenario').textContent = `Traffic Scenario: ${scenario === 'current' ? 'Current Conditions' : scenario.replace(/\b\w/g, letter => letter.toUpperCase())}`;
+        const scenarioResult = document.getElementById('r-scenario');
+        scenarioResult.hidden = scenario === 'current';
+        scenarioResult.textContent = scenario === 'current' ? '' : `What-If Scenario Active: ${scenario.replace(/\b\w/g, letter => letter.toUpperCase())}`;
         const trafficResult = document.getElementById('r-traffic');
         const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
         const color = YangonTrafficColors.getTrafficColor(level);
@@ -1261,9 +1257,14 @@
         etaResult.style.setProperty('--route-traffic-color', color);
         document.querySelector('.result').style.setProperty('--route-traffic-color', color);
         const why = document.getElementById('route-why');
-        const reason = opt.recommendation_reason?.explanation;
-        why.hidden = !reason;
-        why.querySelector('span').textContent = reason || '';
+        const alternative = allOptionsData.find(candidate => candidate !== opt);
+        const reasons = [];
+        if (Array.isArray(opt.characteristics) && opt.characteristics.includes('FASTEST')) reasons.push(`Fastest option: ${formatDuration(opt.time)}`);
+        if (alternative && Number(alternative.time) > Number(opt.time)) reasons.push(`${formatDuration(Number(alternative.time) - Number(opt.time))} faster than ${alternative.route_label || 'the next route'}`);
+        if (alternative && alternative.traffic === 'Heavy' && opt.traffic !== 'Heavy') reasons.push('Avoids heavier traffic on the alternative');
+        reasons.push(`Valid for ${document.getElementById('vehicle').value}`);
+        why.hidden = false;
+        why.querySelector('span').textContent = reasons.map(reason => `• ${reason}`).join('\n');
     }
 
     function renderRouteOptions() {
@@ -1304,31 +1305,20 @@
                 item.append(valueNode, labelNode); metrics.appendChild(item);
             };
             addMetric('Distance', `${opt.distance} km`);
-            addMetric('Traffic ETA', formatDuration(opt.time));
-            addMetric('Free-Flow ETA', formatDuration(opt.free_flow_eta));
+            addMetric('ETA', formatDuration(opt.time));
             const delay = Number(opt.traffic_delay || 0);
-            if (delay > 0) addMetric('Traffic Delay', `+${formatDuration(delay)}`, 'delay');
-            if (Number.isFinite(Number(opt.confidence))) addMetric('Confidence', `${opt.confidence}%`);
+            addMetric('Delay', delay > 0 ? `+${formatDuration(delay)}` : 'No Added Delay', 'delay');
             const badge = document.createElement('span');
             badge.className = 'badge';
             badge.style.background = color;
             badge.textContent = level;
             badge.title = trafficSourceSummary(opt);
 
-            const srcBadge = document.createElement('span');
-            const sourceKind = trafficSourceLabel(opt).toLowerCase();
-            srcBadge.className = `route-src-badge route-src-${sourceKind}`;
-            srcBadge.textContent = trafficSourceLabel(opt).toUpperCase();
-            srcBadge.title = trafficSourceSummary(opt);
-
             const badgeRow = document.createElement('div'); badgeRow.className = 'route-option-badges';
-            const sourceGroup = document.createElement('span'); sourceGroup.className = 'route-option-badge-group';
-            const sourceLabel = document.createElement('small'); sourceLabel.textContent = 'Traffic Source';
-            sourceGroup.append(sourceLabel, srcBadge);
             const trafficGroup = document.createElement('span'); trafficGroup.className = 'route-option-badge-group';
             const trafficLabel = document.createElement('small'); trafficLabel.textContent = 'Traffic';
             trafficGroup.append(trafficLabel, badge);
-            badgeRow.append(sourceGroup, trafficGroup);
+            badgeRow.append(trafficGroup);
             div.append(header, routePath, metrics);
             if (Array.isArray(opt.characteristics) && opt.characteristics.length) {
                 const traits = document.createElement('div'); traits.className = 'route-characteristics';
@@ -1366,17 +1356,15 @@
         const roadPhrase = roads.length
             ? ` It follows ${roads.slice(0, 2).join(' and ')}${roads.length > 2 ? ', with other mapped streets along the way' : ''}.`
             : ' It follows the available mapped road geometry between your selected places.';
-        const srcNote = opt.traffic_data_available
-            ? ''
-            : ' Traffic is estimated by inferred model — not live provider data.';
+        const srcNote = '';
         const recommendation = optionIndex === 0
-            ? `I recommend this ${opt.distance} km route because it offers the best balance of travel time and traffic conditions.`
-            : `You are previewing alternative ${optionIndex}. It is a real-road option that may be useful if you prefer a different approach.`;
+            ? `I recommend this ${opt.distance} km route because it has the best available travel time and traffic balance.`
+            : `You are previewing ${opt.route_label || `Route ${optionIndex + 1}`}.`;
         const trafficNote = srcNote + (opt.traffic === 'Heavy'
             ? ' Heavy traffic may cause meaningful delay; allow extra time.'
             : opt.traffic === 'Moderate'
                 ? ' Some traffic delay is included in the estimate.'
-                : ' Traffic conditions are currently favorable for this journey.');
+                : ' Traffic conditions are favorable for this journey.');
         const scenarioNote = opt.scenario_explanation ? ` ${opt.scenario_explanation}` : '';
         const change = opt.scenario_comparison;
         const comparisonNote = change
@@ -1384,13 +1372,10 @@
             : '';
         document.getElementById('ai-text').textContent = `${recommendation}${roadPhrase}${trafficNote}${scenarioNote}${comparisonNote} Estimated arrival time is ${formatDuration(opt.time)}.`;
 
-        const decision = opt.decision || {};
-        const reasons = Array.isArray(decision.reasons) && decision.reasons.length
-            ? decision.reasons.map(reason => reason.replaceAll('_', ' ')).join(', ')
-            : 'lowest combined real-road travel cost';
-        document.getElementById('decision-details-text').textContent =
-            `Route geometry: ${routeSourceLabel(opt.route_source)}. Traffic data: ${trafficSourceSummary(opt)}. ETA basis: ${opt.eta_basis || 'road duration adjusted for vehicle and traffic'}. ` +
-            `Decision engine: ${decision.engine || 'symbolic fallback'}. Reasoning: ${reasons}.`;
+        const next = allOptionsData.find(candidate => candidate !== opt);
+        const facts = [`ETA: ${formatDuration(opt.time)}`, `Traffic: ${opt.traffic}`, `Delay: +${formatDuration(opt.traffic_delay || 0)}`];
+        if (next && Number(next.time) > Number(opt.time)) facts.push(`${formatDuration(Number(next.time) - Number(opt.time))} faster than ${next.route_label || 'the next route'}`);
+        document.getElementById('decision-details-text').textContent = facts.map(fact => `• ${fact}`).join('\n');
         renderRouteAnalysis(opt, optionIndex);
     }
 
@@ -1398,12 +1383,13 @@
         if (!opt) return;
         const route = opt.display_route || opt.route || [];
         const roads = [...new Set((opt.road_names || route.slice(1, -1)).filter(Boolean))];
-        document.getElementById('analysis-route').textContent = route.join(' → ') || 'Selected Route';
+        document.getElementById('analysis-route').textContent = `${route[0] || 'Origin'} to ${route.at(-1) || 'Destination'}`;
+        document.getElementById('analysis-origin').textContent = route[0] || '—';
+        document.getElementById('analysis-destination').textContent = route.at(-1) || '—';
+        document.getElementById('analysis-vehicle').textContent = document.getElementById('vehicle').value || '—';
         document.getElementById('analysis-distance').textContent = `${opt.distance} km`;
         document.getElementById('analysis-time').textContent = formatDuration(opt.time);
-        document.getElementById('analysis-free-flow').textContent = formatDuration(opt.free_flow_eta);
         document.getElementById('analysis-delay').textContent = `+${formatDuration(opt.traffic_delay || 0)}`;
-        document.getElementById('analysis-confidence').textContent = Number.isFinite(Number(opt.confidence)) ? `${opt.confidence}%` : 'Not Calculated';
         document.getElementById('analysis-source').textContent = `Route Geometry: ${routeSourceLabel(opt.route_source)} · Traffic: ${trafficSourceSummary(opt)}`;
         const trafficLabel = trafficSourceLabel(opt);
         const levelText = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
@@ -1414,13 +1400,13 @@
             ? roads.join(' → ')
             : 'The route follows mapped streets between the selected locations.';
 
-        const routePosition = optionIndex === 0 ? 'This is the recommended route' : `This is Alternative ${optionIndex}`;
-        const conditionReason = `It balances travel time with ${String(opt.traffic || 'moderate').toLowerCase()} traffic conditions (${trafficSourceSummary(opt)}).`;
+        const routePosition = optionIndex === 0 ? 'This route is recommended' : `This is ${opt.route_label || `Route ${optionIndex + 1}`}`;
+        const conditionReason = `It combines an ETA of ${formatDuration(opt.time)} with ${String(opt.traffic || 'moderate').toLowerCase()} traffic.`;
         document.getElementById('analysis-reason').textContent = `${routePosition}. ${conditionReason}`;
         const rules = opt.rules_fired || opt.decision?.rules_fired || [];
         document.getElementById('analysis-rules').textContent = rules.length
-            ? rules.map(rule => rule.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase())).join(' · ')
-            : (opt.decision?.engine === 'python-fallback' ? 'Python fallback evaluated the route; no policy penalty rule was activated.' : 'No policy penalty rule was activated.');
+            ? rules.join(' · ')
+            : 'No route restriction or penalty rule was activated.';
 
         const alternatives = document.getElementById('analysis-alternatives');
         const alternativesSection = document.getElementById('analysis-alternatives-section');
@@ -1449,7 +1435,7 @@
 
         document.getElementById('r-route').innerText = 'Route: ' + (opt.display_route || opt.route).join(' → ');
         document.getElementById('r-distance').innerText = 'Distance: ' + opt.distance + ' km';
-        document.getElementById('r-time').innerText = 'Estimated Time: ' + formatDuration(opt.time);
+        document.getElementById('r-time').innerText = 'ETA: ' + formatDuration(opt.time);
         document.getElementById('r-traffic').innerText = trafficSummary(opt);
         updateRouteResultDetails(opt);
 
@@ -1460,6 +1446,7 @@
 
         updateNavHud(opt);
         renderAgentInsight(opt, index);
+        window.refreshRouteOutlook?.();
         const applied = await drawRouteOnMap(opt.route, opt.segment_traffic, vehicle);
         if (applied) document.getElementById('sim-btn').disabled = false;
     }
@@ -1870,6 +1857,22 @@
         provenance.hidden = true;
         comparison.replaceChildren();
 
+        if (result.scenario_comparison) {
+            const change = result.scenario_comparison;
+            comparison.hidden = false;
+            comparison.className = 'route-comparison scenario-summary';
+            const heading = document.createElement('strong');
+            heading.textContent = 'What-If Scenario Active';
+            const before = document.createElement('span');
+            before.textContent = `Before: ${change.traffic_before} traffic · ${formatDuration(Math.max(0, Number(result.time) - Number(change.eta_change_minutes || 0)))}`;
+            const after = document.createElement('span');
+            after.textContent = `After: ${change.traffic_after} traffic · ${formatDuration(result.time)}`;
+            const decision = document.createElement('span');
+            decision.textContent = change.recommended_route_changed ? 'Recommended route changed.' : 'Recommended route remains the same.';
+            comparison.append(heading, before, after, decision);
+            return;
+        }
+
         if (allOptionsData.length < 2) {
             comparison.hidden = true;
             return;
@@ -2123,10 +2126,11 @@
 
         document.getElementById('r-route').innerText = 'Route: ' + (result.display_route || result.route).join(' → ');
         document.getElementById('r-distance').innerText = 'Distance: ' + result.distance + ' km';
-        document.getElementById('r-time').innerText = 'Estimated Time: ' + formatDuration(result.time);
+        document.getElementById('r-time').innerText = 'ETA: ' + formatDuration(result.time);
         document.getElementById('r-traffic').innerText = trafficSummary(bestRouteData);
         updateRouteResultDetails(bestRouteData);
         renderAgentInsight(bestRouteData, 0);
+        window.refreshRouteOutlook?.();
         document.getElementById('analysis-btn').disabled = false;
         document.getElementById('status').innerText = '✅ Ranked ' + allOptionsData.length + ' real-world road route(s)';
 
@@ -2163,13 +2167,13 @@
         document.getElementById('route-options').replaceChildren();
         document.getElementById('r-route').innerText = 'Route: -';
         document.getElementById('r-distance').innerText = 'Distance: -';
-        document.getElementById('r-time').innerText = 'Estimated Time: -';
+        document.getElementById('r-time').innerText = 'ETA: -';
         delete document.getElementById('r-time').dataset.level;
         document.getElementById('r-traffic').innerText = 'Traffic: -';
         delete document.getElementById('r-traffic').dataset.level;
         document.querySelector('.result').style.removeProperty('--route-traffic-color');
-        document.getElementById('r-scenario').innerText = 'Traffic Scenario: Current Conditions';
-        document.getElementById('r-traffic-source').innerText = 'Traffic Source: -';
+        document.getElementById('r-scenario').innerText = '';
+        document.getElementById('r-scenario').hidden = true;
         document.getElementById('route-why').hidden = true;
         document.getElementById('route-provenance').hidden = true;
         document.getElementById('route-provenance').textContent = '';
@@ -2182,6 +2186,7 @@
         document.getElementById('ai-text').innerText = message;
         document.getElementById('decision-details-text').innerText = 'No decision evidence is available for this request.';
         document.getElementById('analysis-btn').disabled = true;
+        document.getElementById('forecast-result').hidden = true;
     }
 
     function resetAll() {
@@ -2202,11 +2207,11 @@
         document.getElementById('route-options').innerHTML = '';
         document.getElementById('r-route').innerText = 'Route: -';
         document.getElementById('r-distance').innerText = 'Distance: -';
-        document.getElementById('r-time').innerText = 'Estimated Time: -';
+        document.getElementById('r-time').innerText = 'ETA: -';
         document.getElementById('r-traffic').innerText = 'Traffic: -';
         delete document.getElementById('r-traffic').dataset.level;
-        document.getElementById('r-scenario').innerText = 'Traffic Scenario: Current Conditions';
-        document.getElementById('r-traffic-source').innerText = 'Traffic Source: -';
+        document.getElementById('r-scenario').innerText = '';
+        document.getElementById('r-scenario').hidden = true;
         document.getElementById('route-why').hidden = true;
         document.getElementById('route-provenance').hidden = true;
         document.getElementById('route-provenance').textContent = '';
@@ -2216,6 +2221,9 @@
         document.getElementById('ai-text').innerText = 'Tell me where you want to go, and I’ll explain the route I recommend.';
         document.getElementById('decision-details-text').innerText = 'Route evidence will appear after a search.';
         document.getElementById('analysis-route').innerText = 'No Route Selected';
+        document.getElementById('analysis-origin').innerText = '—';
+        document.getElementById('analysis-destination').innerText = '—';
+        document.getElementById('analysis-vehicle').innerText = '—';
         document.getElementById('analysis-distance').innerText = '—';
         document.getElementById('analysis-time').innerText = '—';
         document.getElementById('analysis-source').innerText = '—';
@@ -2225,6 +2233,8 @@
         document.getElementById('analysis-alternatives').replaceChildren();
         document.getElementById('analysis-alternatives-section').hidden = true;
         document.getElementById('analysis-btn').disabled = true;
+        document.getElementById('forecast-period').value = 'now';
+        document.getElementById('forecast-result').hidden = true;
         document.getElementById('status').innerText = 'Ready';
         document.getElementById('sim-btn').disabled = true;
         document.getElementById('nav-hud-2d').classList.remove('visible');
@@ -2395,6 +2405,8 @@
     }
 
     let backendDataInitialized = false;
+    window.getSelectedRoute = () => allOptionsData[activeOptionIndex] || null;
+    window.formatRouteDuration = formatDuration;
     function initializeBackendData() {
         if (backendDataInitialized) return;
         backendDataInitialized = true;
