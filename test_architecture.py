@@ -83,6 +83,9 @@ class ArchitectureTests(unittest.TestCase):
         self.assertNotIn("pywebviewready', () => {\n        initMap();",html)
         self.assertIn("Yangon Traffic Intelligence",html)
         self.assertIn('<script src="./dashboard.js"></script>',html)
+        for element_id in ("dashboard-traffic-map", "weather-card", "weather-condition",
+                           "traffic-distribution", "route-weather-context", "reasoning-flow"):
+            self.assertIn(f'id="{element_id}"', html)
 
     def test_dashboard_uses_the_shared_backend_snapshot(self):
         root=Path(__file__).parent
@@ -92,14 +95,17 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("YangonApi.trafficOverview()",dashboard)
         self.assertIn("data.roads",dashboard)
         self.assertNotIn("Math.random",dashboard)
-        self.assertNotIn("L.map",dashboard)
-        self.assertNotIn("dashboard-traffic-map",dashboard)
-        self.assertNotIn("dashboard-traffic-map",html)
-        self.assertNotIn("dashboard-map-wrap",css)
-        self.assertNotIn("dashboard-map-legend",css)
+        self.assertIn("L.map('dashboard-traffic-map'",dashboard)
+        self.assertIn('id="dashboard-traffic-map"',html)
+        self.assertIn("trafficLayer.clearLayers()",dashboard)
+        self.assertIn("road.coordinates",dashboard)
+        self.assertNotIn("fake",dashboard.lower())
         self.assertIn('id="dashboard-error-row"',html)
         self.assertIn("data.unknown_coverage_percent",dashboard)
         self.assertIn("byId('dashboard-available').hidden = true",dashboard)
+        self.assertIn("YangonApi.weather(force)",dashboard)
+        self.assertIn('id="weather-card"',html)
+        self.assertIn('id="traffic-distribution"',html)
 
     def test_browser_transport_and_vercel_entrypoint_are_present(self):
         root=Path(__file__).parent
@@ -108,10 +114,19 @@ class ArchitectureTests(unittest.TestCase):
         vercel=(root/"vercel.json").read_text(encoding="utf-8")
         self.assertIn("fetch(`/api/${path}`",api_js)
         self.assertIn("trafficOverview",api_js)
+        self.assertIn("weather",api_js)
         self.assertIn("roadTraffic",api_js)
         self.assertIn("app = FastAPI",web_api)
         self.assertIn('"src": "web_api.py"',vercel)
         self.assertNotIn("import webview",web_api)
+        self.assertIn('@app.get("/api/weather")',web_api)
+
+    def test_command_center_has_no_unsupported_operational_features(self):
+        html=(Path(__file__).parent/"web"/"app.html").read_text(encoding="utf-8").lower()
+        dashboard=html[html.index('id="dashboard-view"'):html.index('id="home-view"')]
+        for unsupported in ("cctv", "traffic camera", "incident summary", "signal efficiency",
+                            "roadway throughput", "construction alert"):
+            self.assertNotIn(unsupported, dashboard)
 
     def test_railway_uses_the_http_entrypoint_not_the_desktop_entrypoint(self):
         root=Path(__file__).parent

@@ -30,11 +30,13 @@ request_evaluation(Congestion, VehiclePenalty, TimePenalty, WeatherPenalty, Inci
     findall(F, (request_segment(_,_,_,Preferred,_), preference_cost(Preferred,F)), Fs), sum_list(Fs,Preference),
     weather_cost(Weather,WeatherPenalty), incident_cost(Incident,IncidentPenalty),
     findall(R, segment_rejection(V,_,R), Rejections),
-    findall(X, explanation(X,Congestion,VehiclePenalty,Preference), Reasons).
+    findall(X, explanation(X,Congestion,VehiclePenalty,Preference,Weather), Reasons).
 
-explanation(congestion_penalty, C, _, _) :- C > 0.
-explanation(vehicle_road_suitability_penalty, _, V, _) :- V > 0.
-explanation(preferred_road_benefit, _, _, P) :- P < 0.
+explanation(congestion_penalty, C, _, _, _) :- C > 0.
+explanation(vehicle_road_suitability_penalty, _, V, _, _) :- V > 0.
+explanation(preferred_road_benefit, _, _, P, _) :- P < 0.
+explanation(weather_risk_rain, _, _, _, rain).
+explanation(weather_risk_storm, _, _, _, storm).
 
 clear_request :-
     retractall(request_vehicle(_)), retractall(request_condition(_,_,_)), retractall(request_segment(_,_,_,_,_)).

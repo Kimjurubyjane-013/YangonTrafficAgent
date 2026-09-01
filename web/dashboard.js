@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    let loadingPromise = null, initialized = false;
+    let loadingPromise = null, initialized = false, dashboardMap = null, trafficLayer = null;
     const byId = id => document.getElementById(id);
     const setText = (id, value) => { const node = byId(id); if (node) node.textContent = value; };
     const trafficLevel = value => YangonTrafficColors.normalize(value) || 'Unknown';
@@ -71,6 +71,86 @@
         const withSpeed = (roads || []).filter(r => r.average_speed_kmh != null && r.average_speed_kmh > 0);
         if (!withSpeed.length) return null;
         return Math.round(withSpeed.reduce((sum, r) => sum + r.average_speed_kmh, 0) / withSpeed.length);
+    }
+
+    function ensureTrafficMap() {
+        if (dashboardMap || !window.L || !byId('dashboard-traffic-map')) return dashboardMap;
+        dashboardMap = L.map('dashboard-traffic-map', { zoomControl: true, attributionControl: true })
+            .setView([16.8409, 96.1735], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors',
+        }).addTo(dashboardMap);
+        trafficLayer = L.layerGroup().addTo(dashboardMap);
+        return dashboardMap;
+    }
+
+    function renderTrafficMap(roads) {
+        const map = ensureTrafficMap();
+        if (!map || !trafficLayer) return;
+        trafficLayer.clearLayers();
+        const bounds = [];
+        (roads || []).forEach(road => {
+            if (!Array.isArray(road.coordinates) || road.coordinates.length < 2) return;
+            const points = road.coordinates.filter(point => Array.isArray(point) && point.length >= 2);
+            if (points.length < 2) return;
+            const level = trafficLevel(road.traffic_level);
+            const line = L.polyline(points, {
+                color: getTrafficColor(level), weight: 6, opacity: .88,
+                lineCap: 'round', lineJoin: 'round',
+            });
+            const popup = document.createElement('div');
+            const name = document.createElement('strong');
+            const detail = document.createElement('span');
+            name.textContent = road.road_name || 'Unnamed Road';
+            detail.textContent = `${level} Â· ${road.average_speed_kmh ?? 'â€”'} km/h Â· ${roadSourceBadge(road)}`;
+            popup.append(name, document.createElement('br'), detail);
+            line.bindPopup(popup).addTo(trafficLayer);
+            bounds.push(...points);
+        });
+        if (bounds.length) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 13 });
+        setTimeout(() => map.invalidateSize(false), 0);
+    }
+
+    function renderDistribution(data) {
+        const node = byId('traffic-distribution');
+        if (!node) return;
+        node.replaceChildren();
+        const total = Math.max(1, Number(data.total_roads || 0));
+        [['Light', data.light_count], ['Moderate', data.moderate_count], ['Heavy', data.heavy_count]].forEach(([label, raw]) => {
+            const value = Number(raw || 0), pct = value / total * 100;
+            const row = document.createElement('div');
+            row.className = `distribution-row ${label.toLowerCase()}`;
+            const copy = document.createElement('span'); copy.textContent = label;
+            const bar = document.createElement('i'); bar.style.setProperty('--distribution', `${pct}%`);
+            const metric = document.createElement('strong'); metric.textContent = `${value} / ${Number(data.total_roads || 0)}`;
+            row.append(copy, bar, metric); node.appendChild(row);
+        });
+    }
+
+    function renderWeather(data) {
+        const live = data && data.status === 'live' && !data.error;
+        byId('weather-card')?.classList.toggle('is-unavailable', !live);
+        setText('weather-status', live ? 'Live Weather' : 'Unavailable');
+        if (!live) {
+            setText('weather-condition', 'Weather Temporarily Unavailable');
+            setText('weather-temperature', 'â€”');
+            setText('weather-humidity', 'â€”'); setText('weather-wind', 'â€”'); setText('weather-precipitation', 'â€”');
+            setText('weather-risk', 'Not Evaluated');
+            setText('weather-reason', 'Routing and traffic analysis remain available. No weather values are fabricated.');
+            setText('weather-updated', 'Open-Meteo unavailable');
+            window.YangonWeatherSnapshot = null;
+            return;
+        }
+        window.YangonWeatherSnapshot = data;
+        setText('weather-condition', data.condition);
+        setText('weather-temperature', `${Number(data.temperature_c).toFixed(1)}Â°C`);
+        setText('weather-humidity', `${data.humidity_percent}%`);
+        setText('weather-wind', `${data.wind_speed_kmh} km/h`);
+        setText('weather-precipitation', `${data.precipitation_mm} mm`);
+        setText('weather-risk', `${data.traffic_impact?.risk || 'Unknown'} Risk`);
+        setText('weather-reason', data.traffic_impact?.reason || 'No weather rule explanation is available.');
+        setText('weather-updated', `Updated ${formatTime(data.observed_at)}`);
     }
 
     // ----------------------------------------------------------------
@@ -228,6 +308,8 @@
 
         // Coverage bars
         renderCoverageBars(data);
+        renderDistribution(data);
+        renderTrafficMap(data.roads);
 
         // Provider status note
         setText('provider-status-note', providerStatusNote(data));
@@ -267,8 +349,13 @@
         const button = byId('refresh-traffic');
         setState('Refreshing traffic intelligence…', 'loading');
         if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
-        loadingPromise = (force ? YangonApi.trafficOverview(true) : YangonApi.trafficOverview())
-            .then(data => {
+        loadingPromise = Promise.allSettled([
+            force ? YangonApi.trafficOverview(true) : YangonApi.trafficOverview(),
+            YangonApi.weather(force),
+        ]).then(([trafficResult, weatherResult]) => {
+                renderWeather(weatherResult.status === 'fulfilled' ? weatherResult.value : null);
+                if (trafficResult.status === 'rejected') throw trafficResult.reason;
+                const data = trafficResult.value;
                 if (!data || data.error) throw new Error(data?.error || 'No traffic data returned.');
                 // Accept data if roads array exists OR if health score is present (inferred mode)
                 const hasData = Array.isArray(data.roads) && data.roads.length > 0;
@@ -296,6 +383,7 @@
         if (window.location.protocol !== 'file:' || window.__yangonBridgeReady || window.pywebview?.api) refresh();
         window.addEventListener('pywebviewready', () => { if (!initialized) refresh(); });
         window.addEventListener('yangonbridgeavailable', () => { if (!initialized) refresh(); });
+        window.addEventListener('resize', () => dashboardMap?.invalidateSize(false));
     }
 
     window.YangonDashboard = Object.freeze({ refresh, getTrafficColor });

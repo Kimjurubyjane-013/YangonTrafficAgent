@@ -10,6 +10,24 @@
         const plannerNav = document.getElementById('nav-planner');
         const themeToggle = document.getElementById('theme-toggle');
 
+        function displayRouteWeather(data) {
+            const note = document.getElementById('route-weather-note');
+            if (!note) return;
+            if (!data || data.error || data.status !== 'live') {
+                note.textContent = 'Weather temporarily unavailable; no weather rule will be applied.';
+                return;
+            }
+            window.YangonWeatherSnapshot = data;
+            note.textContent = `${data.condition}, ${data.temperature_c}Â°C Â· ${data.traffic_impact.risk} rule-based risk`;
+        }
+
+        const loadWeather = () => YangonApi.weather().then(displayRouteWeather).catch(() => displayRouteWeather(null));
+        if (window.location.protocol !== 'file:' || window.pywebview?.api) loadWeather();
+        else {
+            window.addEventListener('pywebviewready', loadWeather, { once: true });
+            window.addEventListener('yangonbridgeavailable', loadWeather, { once: true });
+        }
+
         function showView(name) {
             const plannerVisible = name === 'planner';
             const analysisVisible = name === 'analysis';

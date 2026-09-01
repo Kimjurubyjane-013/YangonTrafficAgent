@@ -320,3 +320,79 @@ body[data-theme=dark] .route-option.recommended .route-recommendation-star{backg
 body[data-theme=dark] .route-option-difference{background:var(--surface-soft)!important;color:var(--text-secondary)!important}
 @media(max-width:760px){.traffic-dashboard{width:min(100% - 24px,1380px)}.dashboard-head{flex-direction:column}.route-option-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.route-option-metrics>span.delay{grid-column:auto}}
 @media(max-width:420px){.route-option-metrics{grid-template-columns:1fr 1fr}.route-option-metrics>span.delay{grid-column:1/-1}}
+
+/* =====================================================================
+   YANGON TRAFFIC COMMAND CENTER
+   Operational, map-first presentation built only from supported data.
+   ===================================================================== */
+:root{
+  --command-bg:#eef2f4;--command-surface:#fff;--command-raised:#f7f9fa;
+  --command-ink:#122532;--command-muted:#62747e;--command-border:#d4dde2;
+  --command-accent:#137aa1;--command-accent-soft:#dceef5;
+  --command-radius:10px;--command-shadow:0 8px 24px rgba(18,37,50,.07);
+  --duration-fast:140ms;--duration-normal:220ms
+}
+body[data-theme=dark]{
+  --command-bg:#0d1620;--command-surface:#142131;--command-raised:#19283a;
+  --command-ink:#f1f6f8;--command-muted:#9fb0bc;--command-border:#2a3b4d;
+  --command-accent:#57b6d9;--command-accent-soft:#17364a;
+  --command-shadow:0 8px 22px rgba(0,0,0,.22)
+}
+.traffic-dashboard{width:min(1560px,calc(100% - 40px));padding:24px 0 42px;background:transparent}
+.traffic-dashboard .dashboard-head{margin-bottom:14px;padding:0 2px}
+.traffic-dashboard .dashboard-head h1{font-size:clamp(27px,2.8vw,38px);font-weight:720}
+.traffic-dashboard .dashboard-head .panel-kicker{color:var(--command-accent)}
+.traffic-dashboard .dashboard-refresh{background:var(--command-surface)!important;border-color:var(--command-border)!important;color:var(--command-accent)!important;box-shadow:none!important}
+.traffic-dashboard .traffic-context{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;margin:0 0 12px;padding:1px;background:var(--command-border);border:1px solid var(--command-border);border-radius:var(--command-radius);overflow:hidden}
+.traffic-dashboard .traffic-context>span{display:block;padding:9px 12px;background:var(--command-surface);border:0;border-radius:0}
+.traffic-dashboard .traffic-context small{margin-bottom:3px;color:var(--command-muted)}
+.traffic-dashboard .traffic-context strong{color:var(--command-ink);font-size:12px}
+.traffic-dashboard #dashboard-available{gap:12px}
+.traffic-dashboard .traffic-summary-grid{grid-template-columns:minmax(270px,.9fr) minmax(560px,2.4fr);gap:12px;margin:0}
+.traffic-dashboard .health-card,.traffic-dashboard .traffic-stat,.traffic-dashboard .dashboard-card,.traffic-dashboard .coverage-card{background:var(--command-surface);border-color:var(--command-border);border-radius:var(--command-radius);box-shadow:var(--command-shadow)}
+.traffic-dashboard .health-card{min-height:174px;padding:19px;grid-template-columns:1fr 116px}
+.traffic-dashboard .health-card-copy>strong{margin:9px 0 1px}.traffic-dashboard .health-card-copy>strong b{font-size:39px}
+.traffic-dashboard .health-card-copy p{margin-top:8px}.traffic-dashboard .health-card>small{left:19px;bottom:14px}
+.traffic-dashboard .health-gauge{width:112px;height:62px;transform:scale(.86);transform-origin:right center}
+.traffic-dashboard .traffic-metric-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.traffic-dashboard .traffic-stat{min-height:174px;padding:17px 16px;border-top:3px solid var(--command-border)}
+.traffic-dashboard .traffic-stat.light{border-top-color:var(--traffic-light)}
+.traffic-dashboard .traffic-stat.moderate{border-top-color:var(--traffic-moderate)}
+.traffic-dashboard .traffic-stat.heavy{border-top-color:var(--traffic-heavy)}
+.traffic-dashboard .traffic-stat strong{font-size:32px}.traffic-dashboard .traffic-stat small{font-size:10px}
+.command-grid{display:grid;grid-template-columns:minmax(0,2.15fr) minmax(290px,.85fr);gap:12px}
+.command-map-card{min-width:0}.command-map-card .dashboard-card-head{min-height:62px}
+.command-map-legend{display:flex;align-items:center;gap:6px;color:var(--command-muted);font-size:9px;white-space:nowrap}
+.command-map-legend i{width:8px;height:8px;margin-left:5px;border-radius:2px}.command-map-legend i.light{background:var(--traffic-light)}.command-map-legend i.moderate{background:var(--traffic-moderate)}.command-map-legend i.heavy{background:var(--traffic-heavy)}.command-map-legend i.unknown{background:var(--traffic-unknown)}
+#dashboard-traffic-map{height:445px;background:#dce5e8}.command-map-card .leaflet-container{font:12px/1.4 "Segoe UI",Arial,sans-serif!important}
+.command-side-stack{display:grid;grid-template-rows:auto 1fr;gap:12px;min-width:0}
+.weather-content{display:grid;gap:14px;padding:18px}.weather-primary{display:flex;align-items:flex-end;justify-content:space-between;gap:14px}.weather-primary strong{color:var(--command-ink);font-size:15px}.weather-primary b{color:var(--command-ink);font-size:31px;line-height:1}
+.weather-content dl{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin:0;background:var(--command-border);border:1px solid var(--command-border)}.weather-content dl div{padding:10px;background:var(--command-raised)}.weather-content dt{color:var(--command-muted);font-size:8px;text-transform:uppercase}.weather-content dd{margin:4px 0 0;color:var(--command-ink);font-size:11px;font-weight:700}
+.weather-risk{padding:11px 12px;border-left:3px solid var(--command-accent);background:var(--command-raised)}.weather-risk span,.weather-risk strong{display:block}.weather-risk span{color:var(--command-muted);font-size:8px;text-transform:uppercase}.weather-risk strong{margin:3px 0;color:var(--command-ink);font-size:12px}.weather-risk p{margin:0;color:var(--command-muted);font-size:10px;line-height:1.45}
+.weather-content footer{display:flex;justify-content:space-between;color:var(--command-muted);font-size:9px}.weather-content footer b,.weather-live-badge{color:var(--command-accent)}.weather-card.is-unavailable .weather-live-badge{color:var(--traffic-unknown)}
+.traffic-distribution{display:grid;gap:14px;padding:18px}.distribution-row{display:grid;grid-template-columns:66px 1fr 48px;align-items:center;gap:9px}.distribution-row span,.distribution-row strong{font-size:10px}.distribution-row span{color:var(--command-muted)}.distribution-row strong{color:var(--command-ink);text-align:right}.distribution-row i{height:8px;background:var(--command-raised);border-radius:2px;overflow:hidden}.distribution-row i::after{content:"";display:block;width:var(--distribution);height:100%;background:var(--traffic-unknown)}.distribution-row.light i::after{background:var(--traffic-light)}.distribution-row.moderate i::after{background:var(--traffic-moderate)}.distribution-row.heavy i::after{background:var(--traffic-heavy)}
+.command-lists{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.traffic-dashboard .dashboard-card-head{border-color:var(--command-border)}.traffic-dashboard .dashboard-card-head h2,.traffic-dashboard .ranked-road strong,.traffic-dashboard .coverage-title{color:var(--command-ink)}
+.traffic-dashboard .ranked-road{border-color:var(--command-border)!important}.traffic-dashboard .ranked-road:hover{background:var(--command-raised)!important}
+.traffic-dashboard .coverage-card{margin:0;padding:17px 20px}.traffic-dashboard .coverage-bars{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+body[data-theme=dark] .traffic-dashboard .health-card,body[data-theme=dark] .traffic-dashboard .traffic-stat,body[data-theme=dark] .traffic-dashboard .dashboard-card,body[data-theme=dark] .traffic-dashboard .coverage-card,body[data-theme=dark] .traffic-dashboard .traffic-context>span{background:var(--command-surface)!important;border-color:var(--command-border)!important}
+body[data-theme=dark] .traffic-dashboard .dashboard-card-head h2,body[data-theme=dark] .weather-primary strong,body[data-theme=dark] .weather-primary b,body[data-theme=dark] .distribution-row strong{color:var(--command-ink)!important}
+
+/* Map-first navigation cockpit: controls + map, results become a comparison drawer. */
+.planner-view .main{grid-template-columns:300px minmax(0,1fr)!important;grid-template-rows:minmax(590px,calc(100vh - 126px)) auto;align-items:stretch!important;gap:12px!important;padding:12px max(14px,calc((100vw - 1580px)/2))!important}
+.planner-view .control{grid-column:1;grid-row:1;height:auto!important;min-height:0!important}
+.planner-view .map-area{grid-column:2;grid-row:1;height:auto!important;min-height:590px!important;padding:14px!important}
+.planner-view .result{grid-column:1/-1;grid-row:2;height:auto!important;min-height:0!important;overflow:visible!important;display:grid;grid-template-columns:220px 1fr;gap:10px 20px;padding:17px!important}
+.planner-view .result>.panel-kicker,.planner-view .result>h2,.planner-view .result>p,.planner-view .result>.route-why,.planner-view .result>.route-provenance{grid-column:1}
+.planner-view .result>h3,.planner-view .result>.route-comparison,.planner-view .result>#route-options,.planner-view .result>#analysis-btn{grid-column:2}
+.planner-view .result>h3{grid-row:1;margin:0!important}.planner-view .result>#route-options{grid-row:2/9;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));align-content:start}.planner-view .result>#analysis-btn{align-self:end}
+.route-weather-context{margin-top:12px;padding:10px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface-soft)}.route-weather-context strong,.route-weather-context span{display:block}.route-weather-context strong{color:var(--text-primary);font-size:10px}.route-weather-context span{margin-top:3px;color:var(--text-muted);font-size:9px;line-height:1.4}
+
+/* Product method is explanatory, not another dashboard. */
+.intelligence-flow{display:flex;align-items:center;gap:7px;margin-top:24px;padding:11px 13px;border:1px solid #d5dfdf;border-radius:8px;background:rgba(255,255,255,.56)}.intelligence-flow span{display:flex;align-items:center;gap:6px;color:#43575e;font-size:9px;font-weight:700}.intelligence-flow b{color:#247a6c;font-size:8px}.intelligence-flow i{color:#8a999d;font-style:normal}
+body[data-theme=dark] .intelligence-flow{background:#1a2024;border-color:#353f45}body[data-theme=dark] .intelligence-flow span{color:#c0c9cd}
+.reasoning-flow{display:grid;grid-template-columns:repeat(9,auto);align-items:stretch;gap:7px}.reasoning-flow article{min-width:0;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-soft)}.reasoning-flow article span,.reasoning-flow article strong{display:block}.reasoning-flow article span{margin-bottom:5px;color:var(--text-muted);font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.reasoning-flow article strong{color:var(--text-primary);font-size:10px;line-height:1.45;overflow-wrap:anywhere}.reasoning-flow>i{align-self:center;color:var(--text-muted);font-style:normal}body[data-theme=dark] .reasoning-flow article{background:var(--surface-soft);border-color:var(--border)}
+
+@media(max-width:1100px){.traffic-dashboard .traffic-summary-grid{grid-template-columns:1fr}.command-grid{grid-template-columns:1fr}.command-side-stack{grid-template-columns:1fr 1fr;grid-template-rows:auto}.planner-view .main{grid-template-columns:280px minmax(0,1fr)!important}.planner-view .result{display:block}.planner-view .result>#route-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:780px){.traffic-dashboard{width:calc(100% - 20px);padding-top:16px}.traffic-dashboard .dashboard-head{flex-direction:column}.traffic-dashboard .traffic-context{grid-template-columns:repeat(2,minmax(0,1fr))}.traffic-dashboard .traffic-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.traffic-dashboard .traffic-stat{min-height:118px}.command-side-stack,.command-lists{grid-template-columns:1fr}#dashboard-traffic-map{height:410px}.traffic-dashboard .coverage-bars{grid-template-columns:1fr}.planner-view .main{display:flex!important;flex-direction:column!important;padding:10px!important}.planner-view .map-area{order:1;min-height:68vh!important}.planner-view .control{order:2}.planner-view .result{order:3}.planner-view .result>#route-options{grid-template-columns:1fr}.intelligence-flow{align-items:flex-start;flex-direction:column}.intelligence-flow i{transform:rotate(90deg);margin-left:12px}}
+@media(max-width:900px){.reasoning-flow{grid-template-columns:1fr}.reasoning-flow>i{justify-self:center;transform:rotate(90deg)}}
+@media(max-width:460px){.traffic-dashboard .traffic-summary-grid{display:block}.traffic-dashboard .health-card{margin-bottom:10px;grid-template-columns:1fr}.traffic-dashboard .health-gauge{display:none}.traffic-dashboard .traffic-context{grid-template-columns:1fr 1fr}.command-map-legend{display:grid;grid-template-columns:auto auto auto auto;font-size:8px}#dashboard-traffic-map{height:360px}.weather-content dl{grid-template-columns:1fr}.planner-view .map-area{min-height:64vh!important}.planner-view .control{padding:15px!important}.planner-view .result{padding:15px!important}}
