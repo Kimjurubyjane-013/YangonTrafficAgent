@@ -10,7 +10,7 @@ from services.route_decision_engine import RouteDecisionEngine
 def fake_provider(start, destination, alternatives=3):
     return [
         {"provider_id":0,"distance":5.2,"duration":9.0,"geometry":[[16.81,96.13],[16.82,96.14]],"road_names":["Pyay Road","University Avenue"]},
-        {"provider_id":1,"distance":6.0,"duration":8.0,"geometry":[[16.81,96.13],[16.815,96.15],[16.82,96.14]],"road_names":["Hledan Road","Kabar Aye Pagoda Road"]},
+        {"provider_id":1,"distance":5.5,"duration":8.0,"geometry":[[16.81,96.13],[16.815,96.15],[16.82,96.14]],"road_names":["Hledan Road","Kabar Aye Pagoda Road"]},
     ]
 
 

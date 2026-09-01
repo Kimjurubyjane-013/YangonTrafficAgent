@@ -16,7 +16,11 @@
         // Route validation responses are returned to the existing UI because
         // it already renders their structured error_details contract.
         if (!response.ok && payload && payload.error) return payload;
-        if (!response.ok) throw new Error(payload?.detail || `Request failed (${response.status}).`);
+        if (!response.ok) {
+            const detail = payload?.detail;
+            const errorMsg = Array.isArray(detail) ? detail.map(e => e.msg || JSON.stringify(e)).join(', ') : (typeof detail === 'string' ? detail : `Request failed (${response.status}).`);
+            throw new Error(errorMsg);
+        }
         return payload;
     }
 
@@ -30,7 +34,7 @@
         bestFlowingRoads: (limit = 8) => desktopBackend()?.get_best_flowing_roads(limit) || request(`traffic/best-flowing?limit=${encodeURIComponent(limit)}`),
         roadTraffic: roadId => desktopBackend()?.get_road_traffic(roadId) || request(`traffic/${encodeURIComponent(roadId)}`),
         trafficPrediction: period => desktopBackend()?.get_traffic_prediction(period) || request(`traffic/prediction?period=${encodeURIComponent(period)}`),
-        routeTrafficOutlook: (route, period) => desktopBackend()?.get_route_traffic_prediction(route, period) || request('traffic/route-outlook', { method:'POST', body:JSON.stringify({ route, period }) }),
+        routeTrafficOutlook: (route, period) => desktopBackend()?.get_route_traffic_prediction(route, period) || request('traffic/route-outlook', { method:'POST', headers: { 'Content-Type': 'application/json' }, body:JSON.stringify({ route, period }) }),
         findRoute: ({ vehicle, start, destination, conditions }) => {
             const desktop = desktopBackend();
             if (desktop) return desktop.find_route(vehicle, start, destination, conditions || {});

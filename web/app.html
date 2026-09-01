@@ -1441,10 +1441,7 @@
         document.getElementById('r-traffic').innerText = trafficSummary(opt);
         updateRouteResultDetails(opt);
 
-        document.getElementById('status').innerText =
-            index === 0
-                ? '✅ Showing recommended real-world route'
-                : '👁️ Previewing real-world alternative';
+        document.getElementById('status').innerText = '';
 
         updateNavHud(opt);
         renderAgentInsight(opt, index);
@@ -2134,7 +2131,7 @@
         renderAgentInsight(bestRouteData, 0);
         window.refreshRouteOutlook?.();
         document.getElementById('analysis-btn').disabled = false;
-        document.getElementById('status').innerText = '✅ Ranked ' + allOptionsData.length + ' real-world road route(s)';
+        document.getElementById('status').innerText = '';
 
         updateNavHud(bestRouteData);
         const applied = await drawRouteOnMap(result.route, result.segment_traffic, vehicle);

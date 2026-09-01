@@ -104,11 +104,16 @@ def _recommendation_reason(best, alternatives):
         comparisons.append(f"{abs(distance_difference):.2f} km {'shorter' if distance_difference < 0 else 'longer'}")
     if traffic_improvement > 0:
         explanation = (
-            f"The recommended route avoids {alternative_level.lower()} traffic on Alternative 1 "
-            f"and is rated {best_level.lower()}."
+            f"The recommended route is rated {best_level.lower()}, avoiding {alternative_level.lower()} congestion on Alternative 1."
         )
         if abs(eta_advantage) > 0.01:
-            explanation += f" It is {_format_minutes(eta_advantage)} {'faster' if eta_advantage > 0 else 'slower'}."
+            explanation += f" It is also {_format_minutes(eta_advantage)} {'faster' if eta_advantage > 0 else 'slower'}."
+    elif traffic_improvement < 0:
+        explanation = (
+            f"Alternative 1 has {alternative_level.lower()} traffic, but the recommended route is selected because "
+            f"the traffic difference is manageable and it avoids an unnecessary detour "
+            f"({' and '.join(comparisons)})."
+        )
     elif comparisons:
         explanation = f"The recommended route is {' and '.join(comparisons)} than Alternative 1."
     else:
@@ -258,6 +263,57 @@ def _effective_route_traffic(route, model_state, allow_provider=True):
             "traffic_source": description, "provider_coverage_percent": provider,
             "inferred_coverage_percent": inferred, "unknown_coverage_percent": unknown}
 
+
+def _filter_practical_alternatives(candidates):
+    if not candidates:
+        return []
+    primary = candidates[0]
+    prim_dist = float(primary["distance"])
+    prim_time = float(primary["time"])
+    levels = {"Light": 1, "Moderate": 2, "Heavy": 3, "Unknown": 2}
+    prim_level = levels.get(primary["overall_traffic"], 2)
+    
+    practical = [primary]
+    
+    for cand in candidates[1:]:
+        cand_dist = float(cand["distance"])
+        cand_time = float(cand["time"])
+        dist_diff = cand_dist - prim_dist
+        time_diff = cand_time - prim_time
+        dist_ratio = cand_dist / max(0.1, prim_dist)
+        time_ratio = cand_time / max(0.1, prim_time)
+        
+        cand_level = levels.get(cand["overall_traffic"], 2)
+        traffic_advantage = prim_level - cand_level
+        
+        if cand_dist > prim_dist * 2.5:
+            continue
+            
+        if prim_dist <= 3.0:
+            if traffic_advantage <= 0:
+                if dist_ratio > 1.25 or dist_diff > 0.5:
+                    continue
+                if time_ratio > 1.3 or time_diff > 2.0:
+                    continue
+            else:
+                if dist_ratio > 1.6 or dist_diff > 1.5:
+                    continue
+                if time_ratio > 1.7 or time_diff > 4.0:
+                    continue
+        else:
+            if traffic_advantage <= 0:
+                if dist_ratio > 1.15 or dist_diff > 2.0:
+                    continue
+                if time_ratio > 1.2 or time_diff > 3.0:
+                    continue
+            else:
+                if dist_ratio > 1.4 or dist_diff > 4.0:
+                    continue
+                if time_ratio > 1.5 or time_diff > 6.0:
+                    continue
+                    
+        practical.append(cand)
+    return practical
 
 def run_real_world_agent(start, destination, vehicle, conditions=None, route_provider=None, decision_engine=None,
                          traffic_engine=None, traffic_snapshot=None):
@@ -437,6 +493,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "scenario_type": scenario_type,
             "segments": model_segments,
         })
+    candidates = _filter_practical_alternatives(candidates)
     if not candidates:
         if closure_rejections:
             return {

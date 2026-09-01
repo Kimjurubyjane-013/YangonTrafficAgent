@@ -62,8 +62,16 @@ def annotate_route_comparison(routes: list[dict]) -> list[dict]:
             characteristics.append("FASTEST")
         if abs(_number(route.get("distance")) - shortest) <= 0.01:
             characteristics.append("SHORTEST")
-        if congestion_keys[index] == least_congested:
+            
+        is_least = (congestion_keys[index] == least_congested)
+        # Omit badge if all routes tie for least congested
+        if is_least and len(routes) > 1:
+            all_tied = all(key == least_congested for key in congestion_keys)
+            if not all_tied:
+                characteristics.append("LEAST_CONGESTED")
+        elif is_least:
             characteristics.append("LEAST_CONGESTED")
+            
         confidence, reasons = _confidence(route)
         route["route_label"] = f"Route {chr(65 + index)}"
         route["characteristics"] = characteristics
