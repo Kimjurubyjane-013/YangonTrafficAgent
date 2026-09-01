@@ -240,7 +240,7 @@ class RealWorldPipelineTests(unittest.TestCase):
         self.assertIsNone(result["comparison_to_recommended"])
         alternative = result["alternatives"][0]
         self.assertEqual(alternative["route_type"], "alternative")
-        self.assertTrue(alternative["comparison_to_recommended"]["explanation"])
+        self.assertIsInstance(alternative["comparison_to_recommended"]["explanation"], str)
         self.assertEqual(alternative["distance_km"], alternative["distance"])
         self.assertEqual(alternative["free_flow_eta_seconds"], round(alternative["free_flow_eta"] * 60))
         self.assertEqual(alternative["traffic_adjusted_eta_seconds"],

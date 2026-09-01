@@ -62,6 +62,11 @@ def _format_minutes(value):
     seconds = round(abs(float(value)) * 60)
     minutes, seconds = divmod(seconds, 60)
     return f"{minutes} min {seconds} sec" if seconds else f"{minutes} min"
+def _practical_time_tolerance(eta_minutes):
+    return max(1.0, min(3.0, eta_minutes * 0.1))
+
+def _practical_distance_tolerance(dist_km):
+    return max(0.4, min(2.0, dist_km * 0.1))
 
 
 def _recommendation_reason(best, alternatives):
@@ -79,50 +84,36 @@ def _recommendation_reason(best, alternatives):
             "explanation": "This is the only eligible real-road route returned for the journey.",
         }
     alternative = alternatives[0]
+    
     eta_advantage = round(float(alternative["time"]) - float(best["time"]), 2)
     distance_difference = round(float(best["distance"]) - float(alternative["distance"]), 2)
-    best_heavy = int(best.get("heavy_segments", best.get("segment_traffic", []).count("Heavy")))
-    alt_heavy = int(alternative.get("heavy_segments", alternative.get("segment_traffic", []).count("Heavy")))
-    heavy_difference = best_heavy - alt_heavy
-    delay_advantage = round(float(alternative.get("traffic_delay") or 0) - float(best.get("traffic_delay") or 0), 2)
-    severity = {"Light": 0, "Moderate": 1, "Heavy": 2, "Unknown": 1}
+    delay_advantage = round(float(alternative.get("traffic_delay", 0)) - float(best.get("traffic_delay", 0)), 2)
+    heavy_difference = int(best.get("heavy_segments", 0)) - int(alternative.get("heavy_segments", 0))
+    dominated = bool(eta_advantage >= 0 and distance_difference >= 0 and heavy_difference <= 0)
+    severity = {"Light": 1, "Moderate": 2, "Heavy": 3}
     best_level = str(best.get("traffic") or "Unknown")
     alternative_level = str(alternative.get("traffic") or "Unknown")
-    traffic_improvement = severity.get(alternative_level, 1) - severity.get(best_level, 1)
+    traffic_improvement = severity.get(alternative_level, 2) - severity.get(best_level, 2)
+    
+    time_tol = _practical_time_tolerance(float(best["time"]))
+    
     if traffic_improvement > 0:
         primary = "lower_congestion_with_practical_detour"
-    elif eta_advantage > 0:
-        primary = "lower_travel_time"
-    elif heavy_difference < 0:
-        primary = "lower_severe_congestion"
-    else:
-        primary = "best_practical_traffic_balance"
-    comparisons = []
-    if abs(eta_advantage) > 0.01:
-        comparisons.append(f"{_format_minutes(eta_advantage)} {'faster' if eta_advantage > 0 else 'slower'}")
-    if abs(distance_difference) > 0.01:
-        comparisons.append(f"{abs(distance_difference):.2f} km {'shorter' if distance_difference < 0 else 'longer'}")
-    if traffic_improvement > 0:
-        explanation = (
-            f"The recommended route has lighter traffic ({best_level.lower()}) than Alternative 1 ({alternative_level.lower()})."
-        )
-        if abs(eta_advantage) > 0.01:
-            if eta_advantage < 0:
-                explanation += f" It requires only {_format_minutes(abs(eta_advantage))} of additional travel time."
-            else:
-                explanation += f" It is also {_format_minutes(eta_advantage)} faster."
+        if alternative_level == "Heavy":
+            explanation = "The recommended route avoids heavy traffic with only a small detour."
+        else:
+            explanation = "The recommended route has lighter traffic with only a small increase in travel time."
     elif traffic_improvement < 0:
-        explanation = (
-            f"Alternative 1 has {alternative_level.lower()} traffic, but the recommended route is selected because "
-            f"the traffic difference is manageable and it avoids an unnecessary detour "
-            f"({' and '.join(comparisons)})."
-        )
-    elif comparisons:
-        explanation = f"The recommended route is {' and '.join(comparisons)} than Alternative 1."
+        primary = "avoid_unreasonable_detour"
+        explanation = "The recommended route is selected because Alternative 1 requires a substantial detour despite having lighter traffic."
     else:
-        explanation = "The recommended route offers the best practical balance of traffic, travel time, and distance."
-    if heavy_difference < 0:
-        explanation += f" It also contains {abs(heavy_difference)} fewer Heavy traffic segment(s)."
+        if abs(eta_advantage) > time_tol:
+            primary = "lower_travel_time"
+            explanation = f"Both routes have similar traffic conditions, but the recommended route is {_format_minutes(eta_advantage)} faster."
+        else:
+            primary = "best_practical_traffic_balance"
+            explanation = "Both routes have similar traffic conditions. The recommended route is the more direct option."
+            
     return {
         "recommended_route_id": best_id, "primary_reason": primary,
         "eta_advantage_minutes": eta_advantage,
@@ -138,16 +129,23 @@ def _comparison_to_recommended(best, alternative):
     eta_delta = round(float(alternative["time"]) - float(best["time"]), 2)
     distance_delta = round(float(alternative["distance"]) - float(best["distance"]), 2)
     heavy_delta = int(alternative.get("heavy_segments", 0)) - int(best.get("heavy_segments", 0))
+    
+    time_tol = _practical_time_tolerance(float(best["time"]))
+    dist_tol = _practical_distance_tolerance(float(best["distance"]))
+    
     parts = []
-    if abs(eta_delta) > 0.01:
+    if abs(eta_delta) > time_tol:
         parts.append(f"{_format_minutes(eta_delta)} {'slower' if eta_delta > 0 else 'faster'}")
-    if abs(distance_delta) > 0.01:
+    if abs(distance_delta) > dist_tol:
         parts.append(f"{abs(distance_delta):.2f} km {'longer' if distance_delta > 0 else 'shorter'}")
-    explanation = " and ".join(parts).capitalize() + "." if parts else "A different provider-validated road corridor."
-    if heavy_delta < 0:
-        explanation = explanation.rstrip(".") + f", but avoids {abs(heavy_delta)} Heavy segment(s)."
-    elif heavy_delta > 0:
-        explanation = explanation.rstrip(".") + f" and includes {heavy_delta} additional Heavy segment(s)."
+        
+    explanation = " and ".join(parts).capitalize() + "." if parts else ""
+    if explanation:
+        if heavy_delta < 0:
+            explanation = explanation.rstrip(".") + f", but avoids {abs(heavy_delta)} Heavy segment(s)."
+        elif heavy_delta > 0:
+            explanation = explanation.rstrip(".") + f" and includes {heavy_delta} additional Heavy segment(s)."
+            
     return {
         "eta_difference_minutes": eta_delta,
         "distance_difference_km": distance_delta,

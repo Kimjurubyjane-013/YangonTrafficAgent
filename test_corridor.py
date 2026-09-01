@@ -14,3 +14,4 @@ rev = fetch_real_routes(dest, start)
 print("\n--- JS -> Hledan ---")
 for r in rev:
     print(r["distance"], r["duration"], r["road_names"])
+

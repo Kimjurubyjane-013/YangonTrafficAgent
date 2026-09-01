@@ -166,5 +166,20 @@ class RealTrafficTests(unittest.TestCase):
         self.assertTrue(all(road["source"] == "UNKNOWN" for road in result["roads"]))
 
 
+    def test_swap_consistency_inferred(self):
+        from services.traffic_service import TRAFFIC_ENGINE
+        engine = TRAFFIC_ENGINE
+        daytime = datetime(2026, 8, 26, 12, 7)
+        # Using realistic geometry that matches Pyay Road or similar
+        # If we use exactly the same geometry but reversed, the inferred traffic must be identical.
+        geometry_fwd = [[16.80, 96.10], [16.81, 96.12], [16.82, 96.15]]
+        geometry_rev = list(reversed(geometry_fwd))
+        
+        fwd_state = engine.route_state("A", "B", ["Pyay Road"], engine.get_snapshot(daytime), geometry_fwd)
+        rev_state = engine.route_state("B", "A", ["Pyay Road"], engine.get_snapshot(daytime), geometry_rev)
+        
+        self.assertEqual(fwd_state["traffic_level"], rev_state["traffic_level"])
+        self.assertEqual(fwd_state["average_score"], rev_state["average_score"])
+        
 if __name__ == "__main__":
     unittest.main()

@@ -9,3 +9,4 @@ print("Calling _fetch_real_routes_uncached...")
 res = osrm._fetch_real_routes_uncached(start, dest, 3)
 for r in res:
     print(r["distance"], r["road_names"])
+

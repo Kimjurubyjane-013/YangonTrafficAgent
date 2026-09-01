@@ -57,12 +57,12 @@ def has_meaningful_traffic_advantage(route_a: Mapping, route_b: Mapping) -> bool
     a, b = candidate_metrics(route_a), candidate_metrics(route_b)
     if a["critical_segments"] < b["critical_segments"]:
         return True
-    severity = {"light": 0, "moderate": 1, "heavy": 2}
+    severity = {"light": 0, "moderate": 1, "heavy": 2, "unknown": 1}
     fewer_heavy = a["heavy_segments"] < b["heavy_segments"]
     materially_lower_score = a["average_traffic_score"] + MEANINGFUL_SCORE_ADVANTAGE <= b["average_traffic_score"]
     lower_worst_level = severity.get(a["worst_traffic_level"].lower(), 1) < severity.get(b["worst_traffic_level"].lower(), 1)
     avoids_multiple_heavy_segments = b["heavy_segments"] - a["heavy_segments"] >= 2
-    return fewer_heavy and (materially_lower_score or lower_worst_level or avoids_multiple_heavy_segments)
+    return fewer_heavy or lower_worst_level or (materially_lower_score and a["worst_traffic_level"].lower() != "heavy")
 
 
 def is_route_dominated(route_a: Mapping, route_b: Mapping) -> bool:

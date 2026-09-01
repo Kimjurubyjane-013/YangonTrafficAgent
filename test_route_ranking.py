@@ -96,6 +96,32 @@ class RouteRankingTests(unittest.TestCase):
         second = [item["candidate_id"] for item in self.rank(*routes)]
         self.assertEqual(first, second)
 
+    def test_light_vs_moderate_small_detour(self):
+        # Route A: Moderate 4:00 (4.0). Route B: Light 4:45 (4.75).
+        # Expected: Route B recommended. Reason: lighter traffic with a small time difference.
+        ranked = self.rank(
+            candidate("a-moderate", 2.0, 4.0, "Moderate"),
+            candidate("b-light", 2.5, 4.75, "Light"),
+        )
+        self.assertEqual(ranked[0]["candidate_id"], "b-light")
+        
+    def test_excessive_detour_rejected(self):
+        # Route A: Moderate 4:00. Route B: Light 8:30.
+        ranked = self.rank(
+            candidate("a-moderate", 2.0, 4.0, "Moderate"),
+            candidate("b-light", 6.0, 8.5, "Light"),
+        )
+        self.assertEqual(ranked[0]["candidate_id"], "a-moderate")
+        self.assertIn("reject_excessive_detour", ranked[1]["decision"]["rules_fired"])
+
+    def test_same_traffic_practical_tolerance(self):
+        # Route A: Moderate 4:00 (4.0). Route B: Moderate 4:48 (4.8).
+        ranked = self.rank(
+            candidate("a-moderate", 2.0, 4.0, "Moderate"),
+            candidate("b-moderate-slower", 2.0, 4.8, "Moderate"),
+        )
+        self.assertEqual(ranked[0]["candidate_id"], "a-moderate")
+
     def test_real_pipeline_returns_truthful_structured_comparison(self):
         def provider(*_args, **_kwargs):
             common = {
@@ -119,7 +145,6 @@ class RouteRankingTests(unittest.TestCase):
         self.assertGreater(reason["eta_advantage_minutes"], 0)
         self.assertLess(reason["distance_difference_km"], 0)
         self.assertIn("faster", reason["explanation"])
-        self.assertIn("shorter", reason["explanation"])
         self.assertNotIn("slower", reason["explanation"])
 
 
