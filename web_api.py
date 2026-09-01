@@ -28,6 +28,11 @@ class RoutePayload(BaseModel):
     conditions: Any = None
 
 
+class ScenarioPayload(RoutePayload):
+    scenario_type: Any = None
+    affected_road: Any = None
+
+
 @app.get("/api/health")
 def api_health() -> dict[str, str]:
     return {"status": "ok"}
@@ -74,6 +79,15 @@ def best_flowing_roads(limit: int = 8):
     return JSONResponse(status_code=503, content=result) if result.get("error") else result
 
 
+@app.get("/api/traffic/prediction")
+def traffic_prediction(period: str | None = None):
+    result = application_api.get_traffic_prediction(period)
+    if not result.get("error"):
+        return result
+    status = 400 if result.get("error_details", {}).get("code") == "invalid_prediction_period" else 503
+    return JSONResponse(status_code=status, content=result)
+
+
 @app.get("/api/traffic/{road_id}")
 def road_traffic(road_id: str):
     result = application_api.get_road_traffic(road_id)
@@ -105,6 +119,18 @@ def route(payload: RoutePayload):
     else:
         status = 503
     return JSONResponse(status_code=status, content=result)
+
+
+@app.post("/api/route/scenario")
+def route_scenario(payload: ScenarioPayload):
+    result = application_api.compare_route_scenario(
+        payload.vehicle, payload.start, payload.destination,
+        payload.scenario_type, payload.affected_road,
+    )
+    if not result.get("error"):
+        return result
+    code = result.get("error_details", {}).get("code")
+    return JSONResponse(status_code=400 if code in {"invalid_scenario", "invalid_type", "unknown_vehicle", "unknown_location", "same_location", "invalid_closed_road"} else 503, content=result)
 
 
 @app.get("/", include_in_schema=False)

@@ -10,6 +10,7 @@ from services.route_service import RouteService
 from services.road_repository import ROAD_REPOSITORY
 from services.traffic_service import TRAFFIC_ENGINE
 from services.traffic_backend import TRAFFIC_BACKEND
+from services.traffic_prediction import predict_traffic, prediction_series
 
 LOGGER = logging.getLogger(__name__)
 
@@ -99,6 +100,17 @@ class Api:
             LOGGER.exception("Traffic overview failed")
             return {"error": "Traffic analysis is temporarily unavailable.", "error_details": {"code": "traffic_analysis_error", "message": "Traffic analysis is temporarily unavailable."}}
 
+    def get_traffic_prediction(self, period=None):
+        try:
+            if period:
+                return predict_traffic(str(period), engine=self._traffic_engine)
+            return prediction_series(engine=self._traffic_engine)
+        except ValueError as exc:
+            return {"error": str(exc), "error_details": {"code": "invalid_prediction_period", "message": str(exc)}}
+        except Exception:
+            LOGGER.exception("Traffic prediction failed")
+            return {"error": "Traffic prediction is temporarily unavailable.", "error_details": {"code": "prediction_error", "message": "Traffic prediction is temporarily unavailable."}}
+
     def get_road_traffic(self, road_id):
         if not isinstance(road_id, str) or not road_id.strip():
             return {"error": "Road ID must be a non-empty text value.", "error_details": {"code": "invalid_road_id", "message": "Road ID must be a non-empty text value."}}
@@ -129,6 +141,41 @@ class Api:
             with self._lock:
                 self._last_result = result
         return result
+
+    def compare_route_scenario(self, vehicle, start, destination, scenario_type, affected_road=None):
+        allowed = {"accident", "heavy_rain", "rush_hour", "road_closed", "major_event"}
+        if scenario_type not in allowed:
+            message = "Unknown scenario type."
+            return {"error": message, "error_details": {"code": "invalid_scenario", "message": message}}
+        if scenario_type in {"accident", "road_closed"} and not affected_road:
+            message = "Select an affected road for this scenario."
+            return {"error": message, "error_details": {"code": "invalid_scenario", "message": message}}
+        before = self.find_route(vehicle, start, destination, {"traffic_scenario": "current"})
+        if before.get("error"):
+            return before
+        conditions = {"traffic_scenario": "current", "scenario_type": scenario_type}
+        if affected_road:
+            conditions["affected_road"] = affected_road
+        after = self.find_route(vehicle, start, destination, conditions)
+        if after.get("error"):
+            return after
+        return {
+            "ok": True,
+            "scenario_type": scenario_type,
+            "scenario_label": "SIMULATED",
+            "is_live": False,
+            "affected_road": affected_road,
+            "before": before,
+            "after": after,
+            "changes": {
+                "recommended_route_changed": before.get("route_id") != after.get("route_id"),
+                "eta_change_minutes": round(float(after["time"]) - float(before["time"]), 2),
+                "traffic_before": before.get("traffic"),
+                "traffic_after": after.get("traffic"),
+                "rules_before": before.get("rules_fired", []),
+                "rules_after": after.get("rules_fired", []),
+            },
+        }
 
     def get_last_result(self):
         with self._lock:

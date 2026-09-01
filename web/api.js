@@ -29,6 +29,7 @@
         trafficHotspots: (limit = 8) => desktopBackend()?.get_congestion_hotspots(limit) || request(`traffic/hotspots?limit=${encodeURIComponent(limit)}`),
         bestFlowingRoads: (limit = 8) => desktopBackend()?.get_best_flowing_roads(limit) || request(`traffic/best-flowing?limit=${encodeURIComponent(limit)}`),
         roadTraffic: roadId => desktopBackend()?.get_road_traffic(roadId) || request(`traffic/${encodeURIComponent(roadId)}`),
+        trafficPrediction: period => desktopBackend()?.get_traffic_prediction(period) || request(`traffic/prediction?period=${encodeURIComponent(period)}`),
         findRoute: ({ vehicle, start, destination, conditions }) => {
             const desktop = desktopBackend();
             if (desktop) return desktop.find_route(vehicle, start, destination, conditions || {});
@@ -36,6 +37,14 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ vehicle, start, destination, conditions: conditions || {} })
+            });
+        },
+        compareScenario: ({ vehicle, start, destination, scenarioType, affectedRoad }) => {
+            const desktop = desktopBackend();
+            if (desktop) return desktop.compare_route_scenario(vehicle, start, destination, scenarioType, affectedRoad || null);
+            return request('route/scenario', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ vehicle, start, destination, scenario_type: scenarioType, affected_road: affectedRoad || null })
             });
         }
     });

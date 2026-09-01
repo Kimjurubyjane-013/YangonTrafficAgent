@@ -12,6 +12,9 @@ Yangon Traffic Intelligence is an explainable route-planning and city-traffic an
 - Provides Current, Off-Peak, Peak-Hour, closure, and emergency scenarios without presenting hypothetical output as live telemetry.
 - Exposes a city dashboard using the same cached traffic snapshot as routing.
 - Explains recommendations without using an LLM for the core decision.
+- Compares up to three genuine alternatives as Route A/B/C with metric-derived Fastest, Shortest, and Least Congested labels.
+- Provides deterministic Now, +30 minute, +1 hour, and Evening Rush outlooks labelled `INFERRED_FORECAST` (not live).
+- Recalculates simulated accident, heavy-rain, rush-hour, road-closure, and major-event before/after scenarios in the backend.
 
 ## Architecture
 
@@ -27,7 +30,7 @@ UI:       app.html + styles.css + app.js + api.js + state.js
 
 Canonical landmark and modeled-road data live in `data/locations.json` and `data/roads.json`. `algorithms.graph` and `algorithms.road_metadata` are derived compatibility views, not separate sources.
 
-Every successful option follows one contract. Important fields include `route_id`, `route_type`, `geometry`, `traffic_geometry`, `major_roads`, `distance_km`, `free_flow_eta`, `traffic_adjusted_eta`, second-based ETA aliases, `traffic_delay`, segment traffic/source arrays, provider coverage, decision score, recommendation reason, and a backend-generated comparison to the recommended route.
+Every successful option follows one contract. Important fields include `route_id`, `route_type`, `route_label`, `characteristics`, `confidence`, `confidence_basis`, `geometry`, `traffic_geometry`, `major_roads`, `distance_km`, `free_flow_eta`, `traffic_adjusted_eta`, second-based ETA aliases, `traffic_delay`, segment traffic/source arrays, provider coverage, actual `rules_fired`, decision score, recommendation reason, and a backend-generated comparison to the recommended route.
 
 ## Traffic truth model
 
@@ -37,6 +40,7 @@ The interface distinguishes evidence instead of silently substituting sources:
 - **Inferred**: deterministic estimate using road metadata, Yangon time, context, and scenario.
 - **Mixed**: the route contains provider-backed and inferred segments.
 - **Unknown**: neither provider evidence nor a valid estimate is available.
+- **Simulated**: a user-selected what-if condition changed calculated route values; it is never described as a live incident.
 
 `TRAFFIC_MODE` controls behavior:
 
@@ -90,6 +94,10 @@ Severe-congestion weights are smaller for emergency vehicles. A dominance guard 
 
 SWI-Prolog evaluates eligibility, restrictions, suitability, penalties, and reasons. Request facts are allowlisted and cleared after evaluation. If SWI-Prolog or PySwip is unavailable, the engine reports `python-fallback` and uses the same deterministic scoring contract; it never claims Prolog was used.
 
+### Prediction and scenarios
+
+`services/traffic_prediction.py` evaluates deterministic future snapshots in `Asia/Yangon`. Its output is a model outlook, not provider-backed future telemetry. Scenario requests recalculate route traffic, ETA, eligibility, ranking, segment colors, and fired rules; the API returns normalized `before`, `after`, and `changes` objects. Accident and closure scenarios require an English road name from provider route results. The system never invents an incident report.
+
 ## Run locally
 
 ### Web
@@ -134,8 +142,10 @@ For Prolog mode, install SWI-Prolog and `pyswip`, then confirm `swipl --version`
 - `GET /api/traffic`
 - `GET /api/traffic/hotspots?limit=8`
 - `GET /api/traffic/best-flowing?limit=8`
+- `GET /api/traffic/prediction?period=now|plus_30|plus_60|evening_rush`
 - `GET /api/traffic/{road_id}`
 - `POST /api/route`
+- `POST /api/route/scenario`
 
 Inputs are validated server-side. Errors use structured codes and user-safe messages.
 
@@ -175,10 +185,11 @@ Tests cover graph validation, provider routing/deduplication, traffic calibratio
 1. Choose a vehicle and locations in **Route Planner**.
 2. Find a Current route and inspect segment colors and evidence labels.
 3. Select an alternative and verify map, card, ETA, and comparison update together.
-4. Compare Off-Peak and Peak-Hour snapshots.
-5. Open **Route Analysis** for the recommendation, evidence, ETA/delay, major roads, and rule-engine explanation.
-6. Start navigation, pause/restart it, and confirm the vehicle follows selected mapped geometry and segment traffic.
-7. Open the dashboard for city health, hotspots, best-flow roads, coverage, and provenance.
+4. Open **Traffic Outlook** and compare the explicitly inferred future periods.
+5. Select a simulated accident or road closure on a returned road and compare the recalculated result with Current Conditions.
+6. Open **Route Analysis** for recommendation evidence, free-flow/traffic ETA, delay, confidence, major roads, and actual fired rules.
+7. Start navigation, pause/restart it, and confirm the vehicle follows selected mapped geometry and segment traffic.
+8. Open the dashboard for city health, hotspots, best-flow roads, coverage, and provenance.
 
 ## Limitations
 
@@ -187,4 +198,5 @@ Tests cover graph validation, provider routing/deduplication, traffic calibratio
 - The deterministic model is an explainable university-project estimate, not transport-authority telemetry or safety-critical navigation.
 - Closure matching uses English provider road names and reports when no candidate matched.
 - ETA is an estimate, not a live-arrival guarantee.
+- Forecast confidence describes deterministic model/input coverage, not observation certainty.
 - Procedural visual elements are illustrative and do not claim building-level geographic accuracy.

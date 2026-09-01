@@ -57,8 +57,11 @@ def _python_rules(candidate, vehicle, conditions):
     penalties["incident"] = {"none": 0, "minor": 6, "major": 18}[conditions["incident"]]
     if penalties["congestion"]: reasons.append("congestion_penalty")
     if penalties["vehicle_restriction"]: reasons.append("vehicle_road_suitability_penalty")
+    if penalties["time"]: reasons.append("peak_arterial_penalty")
+    if penalties["weather"]: reasons.append("adverse_weather_penalty")
+    if penalties["incident"]: reasons.append("incident_avoidance_penalty")
     if penalties["preference"] < 0: reasons.append("preferred_road_benefit")
-    return penalties, sorted(set(rejection)), reasons
+    return penalties, sorted(set(rejection)), sorted(set(reasons))
 
 
 class RouteDecisionEngine:
@@ -101,6 +104,7 @@ class RouteDecisionEngine:
                 "vehicle_restriction_penalty": penalties["vehicle_restriction"],
                 "other_rule_penalties": {k: v for k, v in penalties.items() if k not in {"congestion", "vehicle_restriction"}},
                 "rejection_reasons": rejection, "reasons": reasons,
+                "rules_fired": reasons,
                 "eligible": not rejection, "engine": self.engine_name,
             }
             evaluated.append(item)

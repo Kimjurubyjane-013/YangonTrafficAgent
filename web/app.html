@@ -518,14 +518,17 @@
                 <option value="current">Current Conditions</option>
                 <option value="off_peak">Off-Peak Scenario</option>
                 <option value="peak">Peak-Hour Scenario</option>
-                <option value="closure">Road closure rerouting</option>
-                <option value="emergency">Emergency response</option>
+                <option value="accident">Simulated Accident</option>
+                <option value="heavy_rain">Simulated Heavy Rain</option>
+                <option value="closure">Simulated Road Closure</option>
+                <option value="major_event">Simulated Major Event</option>
+                <option value="emergency">Emergency Response</option>
             </select>
             <input id="departure-band" type="hidden" value="">
             <div id="closure-field" hidden>
-                <label for="closed-road">Closed Road Name</label>
+                <label for="closed-road" id="scenario-road-label">Affected Road Name</label>
                 <input id="closed-road" type="text" maxlength="80" placeholder="Example: Pyay Road" autocomplete="off">
-                <small>Enter an English road name shown in a route result. A reroute is reported only when the provider data matches it.</small>
+                <small>Scenario only. Enter an English road name shown in a route result; this is never presented as a live incident.</small>
             </div>
         </details>
 
@@ -617,6 +620,15 @@
         <h3>Route Options <span class="muted">Best First</span></h3>
         <div class="route-comparison" id="route-comparison" hidden></div>
         <div id="route-options"></div>
+        <section class="route-forecast" aria-labelledby="forecast-title">
+            <div><strong id="forecast-title">Traffic Outlook</strong><small>Inferred Forecast — Not Live</small></div>
+            <select id="forecast-period" aria-label="Traffic forecast period">
+                <option value="now">Now</option><option value="plus_30">+30 Minutes</option>
+                <option value="plus_60">+1 Hour</option><option value="evening_rush">Evening Rush</option>
+            </select>
+            <button type="button" id="forecast-btn">View Outlook</button>
+            <p id="forecast-result" hidden></p>
+        </section>
         <button class="analysis-link" id="analysis-btn" type="button" disabled>View Route Analysis</button>
     </div>
 
@@ -654,6 +666,9 @@
     <div class="analysis-facts">
         <div><span>Distance</span><strong id="analysis-distance">—</strong></div>
         <div><span>Estimated Time</span><strong id="analysis-time">—</strong></div>
+        <div><span>Free-Flow ETA</span><strong id="analysis-free-flow">—</strong></div>
+        <div><span>Traffic Delay</span><strong id="analysis-delay">—</strong></div>
+        <div><span>Model Confidence</span><strong id="analysis-confidence">—</strong></div>
         <div><span>Data Source</span><strong id="analysis-source">—</strong></div>
     </div>
     <section class="analysis-section">
@@ -663,6 +678,10 @@
     <section class="analysis-section">
         <h3>Why This Route</h3>
         <p id="analysis-reason">Find a route to see its recommendation.</p>
+    </section>
+    <section class="analysis-section">
+        <h3>Rules Applied</h3>
+        <p id="analysis-rules">No decision rules have been evaluated yet.</p>
     </section>
     <section class="analysis-section" id="analysis-alternatives-section" hidden>
         <h3>Other Available Routes</h3>
@@ -1201,6 +1220,7 @@
         if (label === 'HERE') return 'HERE';
         if (label === 'MIXED') return 'Mixed';
         if (label === 'INFERRED') return 'Inferred';
+        if (label === 'SIMULATED') return 'Simulated';
         if (label === 'UNKNOWN') return 'Unknown';
         // Derive from fields if label absent
         if (opt.traffic_data_available) return 'HERE';
@@ -1217,6 +1237,7 @@
             return `Mixed Traffic Data (HERE ${pct.toFixed(0)}% · Inferred ${inferred.toFixed(0)}%)`;
         }
         if (label === 'Inferred') return 'Inferred Traffic Model';
+        if (label === 'Simulated') return 'Simulated Scenario — Not Live';
         return 'Traffic Data Unavailable';
     }
 
@@ -1259,7 +1280,7 @@
                 if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectOption(index); }
             });
 
-            const label = index === 0 ? 'Recommended Route' : `Alternative ${index}`;
+            const label = index === 0 ? `${opt.route_label || 'Route A'} · Recommended` : (opt.route_label || `Route ${String.fromCharCode(65 + index)}`);
             const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
             const color = YangonTrafficColors.getTrafficColor(level);
             div.dataset.level = level;
@@ -1283,9 +1304,11 @@
                 item.append(valueNode, labelNode); metrics.appendChild(item);
             };
             addMetric('Distance', `${opt.distance} km`);
-            addMetric('ETA', formatDuration(opt.time));
+            addMetric('Traffic ETA', formatDuration(opt.time));
+            addMetric('Free-Flow ETA', formatDuration(opt.free_flow_eta));
             const delay = Number(opt.traffic_delay || 0);
             if (delay > 0) addMetric('Traffic Delay', `+${formatDuration(delay)}`, 'delay');
+            if (Number.isFinite(Number(opt.confidence))) addMetric('Confidence', `${opt.confidence}%`);
             const badge = document.createElement('span');
             badge.className = 'badge';
             badge.style.background = color;
@@ -1307,6 +1330,11 @@
             trafficGroup.append(trafficLabel, badge);
             badgeRow.append(sourceGroup, trafficGroup);
             div.append(header, routePath, metrics);
+            if (Array.isArray(opt.characteristics) && opt.characteristics.length) {
+                const traits = document.createElement('div'); traits.className = 'route-characteristics';
+                opt.characteristics.forEach(value => { const tag = document.createElement('span'); tag.textContent = value.replaceAll('_', ' '); traits.appendChild(tag); });
+                div.appendChild(traits);
+            }
             if (index > 0 && opt.comparison_to_recommended?.explanation) {
                 const comparison = document.createElement('p'); comparison.className = 'route-option-difference';
                 comparison.textContent = opt.comparison_to_recommended.explanation;
@@ -1350,7 +1378,11 @@
                 ? ' Some traffic delay is included in the estimate.'
                 : ' Traffic conditions are currently favorable for this journey.');
         const scenarioNote = opt.scenario_explanation ? ` ${opt.scenario_explanation}` : '';
-        document.getElementById('ai-text').textContent = `${recommendation}${roadPhrase}${trafficNote}${scenarioNote} Estimated arrival time is ${formatDuration(opt.time)}.`;
+        const change = opt.scenario_comparison;
+        const comparisonNote = change
+            ? ` Before versus after: ETA changed by ${change.eta_change_minutes >= 0 ? '+' : ''}${formatDuration(Math.abs(change.eta_change_minutes))}; traffic changed from ${change.traffic_before} to ${change.traffic_after}${change.recommended_route_changed ? '; the recommended route changed' : ''}.`
+            : '';
+        document.getElementById('ai-text').textContent = `${recommendation}${roadPhrase}${trafficNote}${scenarioNote}${comparisonNote} Estimated arrival time is ${formatDuration(opt.time)}.`;
 
         const decision = opt.decision || {};
         const reasons = Array.isArray(decision.reasons) && decision.reasons.length
@@ -1369,6 +1401,9 @@
         document.getElementById('analysis-route').textContent = route.join(' → ') || 'Selected Route';
         document.getElementById('analysis-distance').textContent = `${opt.distance} km`;
         document.getElementById('analysis-time').textContent = formatDuration(opt.time);
+        document.getElementById('analysis-free-flow').textContent = formatDuration(opt.free_flow_eta);
+        document.getElementById('analysis-delay').textContent = `+${formatDuration(opt.traffic_delay || 0)}`;
+        document.getElementById('analysis-confidence').textContent = Number.isFinite(Number(opt.confidence)) ? `${opt.confidence}%` : 'Not Calculated';
         document.getElementById('analysis-source').textContent = `Route Geometry: ${routeSourceLabel(opt.route_source)} · Traffic: ${trafficSourceSummary(opt)}`;
         const trafficLabel = trafficSourceLabel(opt);
         const levelText = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
@@ -1382,6 +1417,10 @@
         const routePosition = optionIndex === 0 ? 'This is the recommended route' : `This is Alternative ${optionIndex}`;
         const conditionReason = `It balances travel time with ${String(opt.traffic || 'moderate').toLowerCase()} traffic conditions (${trafficSourceSummary(opt)}).`;
         document.getElementById('analysis-reason').textContent = `${routePosition}. ${conditionReason}`;
+        const rules = opt.rules_fired || opt.decision?.rules_fired || [];
+        document.getElementById('analysis-rules').textContent = rules.length
+            ? rules.map(rule => rule.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase())).join(' · ')
+            : (opt.decision?.engine === 'python-fallback' ? 'Python fallback evaluated the route; no policy penalty rule was activated.' : 'No policy penalty rule was activated.');
 
         const alternatives = document.getElementById('analysis-alternatives');
         const alternativesSection = document.getElementById('analysis-alternatives-section');
@@ -1965,8 +2004,8 @@
         const destination = document.getElementById('destination').value;
         const conditions = getJourneyConditions();
 
-        if (document.getElementById('scenario-mode').value === 'closure' && !conditions.closed_road) {
-            document.getElementById('status').innerText = 'Enter the English name of the road that is closed.';
+        if (['closure', 'accident'].includes(document.getElementById('scenario-mode').value) && !conditions.affected_road) {
+            document.getElementById('status').innerText = 'Enter the English name of the affected road.';
             document.getElementById('closed-road').focus();
             YangonAppState.set({ phase: YangonAppState.phases.ERROR });
             return;
@@ -1997,7 +2036,16 @@
         const searchStartedAt = performance.now();
 
         try {
-            result = await YangonApi.findRoute({ vehicle, start, destination, conditions });
+            if (conditions.scenario_type && conditions.scenario_type !== 'rush_hour') {
+                const comparison = await YangonApi.compareScenario({
+                    vehicle, start, destination, scenarioType: conditions.scenario_type,
+                    affectedRoad: conditions.affected_road
+                });
+                result = comparison.error ? comparison : comparison.after;
+                if (!result.error) result.scenario_comparison = comparison.changes;
+            } else {
+                result = await YangonApi.findRoute({ vehicle, start, destination, conditions });
+            }
         } catch (e) {
             clearTimeout(slowSearchNotice);
             console.error('find_route call failed:', e);
@@ -2044,8 +2092,15 @@
             traffic_model_available: result.traffic_model_available,
             traffic_snapshot_id: result.traffic_snapshot_id,
             traffic_scenario: result.traffic_scenario,
+            scenario_type: result.scenario_type,
             scenario_explanation: result.scenario_explanation,
+            scenario_comparison: result.scenario_comparison,
             route_type: result.route_type,
+            route_label: result.route_label,
+            characteristics: result.characteristics,
+            confidence: result.confidence,
+            confidence_basis: result.confidence_basis,
+            rules_fired: result.rules_fired,
             major_roads: result.major_roads,
             distance_km: result.distance_km,
             free_flow_eta_seconds: result.free_flow_eta_seconds,
@@ -2090,7 +2145,12 @@
         conditions.traffic_scenario = ['current', 'off_peak', 'peak'].includes(mode)
             ? mode
             : (timeBand || 'current');
-        if (closedRoad) conditions.closed_road = closedRoad;
+        if (mode === 'accident') conditions.scenario_type = 'accident';
+        if (mode === 'heavy_rain') conditions.scenario_type = 'heavy_rain';
+        if (mode === 'peak') conditions.scenario_type = 'rush_hour';
+        if (mode === 'major_event') conditions.scenario_type = 'major_event';
+        if (mode === 'closure') conditions.scenario_type = 'road_closed';
+        if (closedRoad) conditions.affected_road = closedRoad;
         return conditions;
     }
 

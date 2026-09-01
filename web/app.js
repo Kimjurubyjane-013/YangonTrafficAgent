@@ -58,6 +58,18 @@
         document.getElementById('sim-btn').addEventListener('click', window.openSimulation);
         document.getElementById('analysis-btn').addEventListener('click', () => showView('analysis'));
         document.getElementById('analysis-back').addEventListener('click', () => showView('planner'));
+        document.getElementById('forecast-btn').addEventListener('click', async () => {
+            const output = document.getElementById('forecast-result');
+            const button = document.getElementById('forecast-btn');
+            button.disabled = true; output.hidden = false; output.textContent = 'Calculating inferred outlook…';
+            try {
+                const data = await YangonApi.trafficPrediction(document.getElementById('forecast-period').value);
+                if (data.error) throw new Error(data.error);
+                const period = String(data.period).replaceAll('_', ' ').replace(/\b\w/g, value => value.toUpperCase());
+                output.textContent = `${period}: ${data.traffic_health_label} network health · ${data.light_count} Light, ${data.moderate_count} Moderate, ${data.heavy_count} Heavy roads. ${data.reasons.join('. ')}.`;
+            } catch (error) { output.textContent = error.message || 'Traffic outlook is temporarily unavailable.'; }
+            finally { button.disabled = false; }
+        });
         document.getElementById('map-sim-pause').addEventListener('click', window.toggleMapSimulationPause);
         document.getElementById('map-sim-restart').addEventListener('click', window.restartMapSimulation);
         document.getElementById('map-sim-exit').addEventListener('click', () => window.exitMapSimulation());
@@ -74,8 +86,9 @@
         const closureField = document.getElementById('closure-field');
         scenario.addEventListener('change', () => {
             const mode = scenario.value;
-            closureField.hidden = mode !== 'closure';
-            if (mode !== 'closure') document.getElementById('closed-road').value = '';
+            closureField.hidden = !['closure', 'accident'].includes(mode);
+            document.getElementById('scenario-road-label').textContent = mode === 'closure' ? 'Closed Road Name' : 'Affected Road Name';
+            if (!['closure', 'accident'].includes(mode)) document.getElementById('closed-road').value = '';
             document.getElementById('departure-band').value = mode === 'off_peak'
                 ? 'off_peak'
                 : mode === 'peak' ? 'peak' : '';

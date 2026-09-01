@@ -9,12 +9,44 @@ from app.traffic_config import SCENARIO_ETA_MULTIPLIERS
 from services.here_traffic_service import fetch_traffic_aware_routes
 from services.osrm_service import fetch_real_routes
 from services.route_decision_engine import RouteDecisionEngine
+from services.route_comparison import annotate_route_comparison
 from services.traffic_service import TRAFFIC_ENGINE
 
 _ENGINE = None
 _GENERIC_ROAD_WORDS = {"road", "street", "avenue", "lane", "highway", "route"}
 _TRAFFIC_SCORE = {"Light": 25.0, "Moderate": 55.0, "Heavy": 85.0}
 _VALID_TRAFFIC = frozenset(_TRAFFIC_SCORE)
+_SCENARIO_MULTIPLIERS = {"accident": 1.45, "heavy_rain": 1.22, "rush_hour": 1.18, "major_event": 1.30}
+
+
+def _next_traffic_level(level):
+    return {"Light": "Moderate", "Moderate": "Heavy", "Heavy": "Heavy", "Unknown": "Moderate"}.get(level, "Moderate")
+
+
+def _scenario_effect(conditions, road_names, levels, sources):
+    """Return deterministic route-specific scenario effects and honest provenance."""
+    kind = str(conditions.get("scenario_type") or "none")
+    affected = str(conditions.get("affected_road") or "").strip()
+    matches = [index for index, name in enumerate(road_names) if _road_matches(affected, name)]
+    applies = kind in {"heavy_rain", "rush_hour", "major_event"} or (kind == "accident" and bool(matches))
+    if not applies:
+        return 1.0, levels, sources, None
+    changed = list(levels)
+    indices = matches if kind == "accident" else list(range(len(changed)))
+    for index in indices:
+        if index < len(changed):
+            changed[index] = "Heavy" if kind == "accident" else _next_traffic_level(changed[index])
+    changed_sources = list(sources)
+    for index in indices:
+        if index < len(changed_sources):
+            changed_sources[index] = "SIMULATED"
+    description = {
+        "accident": f"Simulated accident on {affected} increases delay on matching route sections.",
+        "heavy_rain": "Simulated heavy rain reduces expected road speeds across the route.",
+        "rush_hour": "Simulated rush-hour demand increases corridor pressure.",
+        "major_event": "Simulated destination event demand increases approach-road pressure.",
+    }[kind]
+    return _SCENARIO_MULTIPLIERS[kind], changed, changed_sources, description
 
 
 def _scenario_explanation(scenario, road_names, level):
@@ -241,6 +273,15 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
     conditions["time_band"] = scenario if hypothetical else _time_band(conditions)
     conditions.setdefault("weather", "clear")
     conditions.setdefault("incident", "none")
+    scenario_type = str(conditions.get("scenario_type") or "none")
+    if scenario_type == "rush_hour":
+        conditions["time_band"] = "peak"
+    elif scenario_type == "heavy_rain":
+        conditions["weather"] = "storm"
+    elif scenario_type in {"accident", "major_event"}:
+        conditions["incident"] = "major"
+    if scenario_type == "road_closed" and conditions.get("affected_road"):
+        conditions["closed_road"] = conditions["affected_road"]
     traffic_engine = traffic_engine or TRAFFIC_ENGINE
     # Always obtain inferred traffic snapshot — used as fallback for segments
     # without provider coverage, regardless of traffic mode setting.
@@ -271,6 +312,15 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         effective = _effective_route_traffic(route, model_state, allow_provider=not hypothetical)
         level = effective["traffic"]
         segment_traffic = effective["segment_traffic"]
+        scenario_multiplier, segment_traffic, segment_sources, scenario_detail = _scenario_effect(
+            conditions, road_summary, segment_traffic, effective["segment_sources"]
+        )
+        if scenario_detail:
+            level, scenario_score = _weighted_level(segment_traffic, route.get("traffic_geometry"), model_state.get("segment_distances"))
+            effective["traffic_score"] = scenario_score
+            effective["segment_sources"] = segment_sources
+            effective["traffic_source_label"] = "SIMULATED" if all(source == "SIMULATED" for source in segment_sources) else "MIXED"
+            effective["traffic_source"] = "Simulated Scenario" if effective["traffic_source_label"] == "SIMULATED" else "Mixed Observed/Inferred and Simulated Scenario"
         traffic_source_label = effective["traffic_source_label"]
         traffic_source_full = effective["traffic_source"]
         segment_diagnostics = []
@@ -282,12 +332,12 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
                 "model_reference_road": (diagnostic.get("road_name")
                                          if provider_road and provider_road != diagnostic.get("road_name") else None),
             })
-        provider_notice = (f"{scenario.replace('_', '-').title()} scenario uses inferred traffic conditions."
+        provider_notice = (scenario_detail if scenario_detail else f"{scenario.replace('_', '-').title()} scenario uses inferred traffic conditions."
                            if hypothetical else None if traffic_source_label == "HERE" else (
             "Some traffic sections use inferred estimates." if traffic_source_label == "MIXED"
             else "HERE traffic is unavailable; traffic is estimated from the inferred traffic model."
         ))
-        eta_basis = ("HERE traffic-aware duration adjusted for the selected vehicle" if traffic_source_label == "HERE"
+        eta_basis = ("Scenario-adjusted mapped-road duration" if scenario_detail else "HERE traffic-aware duration adjusted for the selected vehicle" if traffic_source_label == "HERE"
                      else "Road duration adjusted by effective segment traffic and vehicle type")
 
         model_segments = []
@@ -314,6 +364,8 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         )
         if hypothetical:
             traffic_eta = round(traffic_eta * SCENARIO_ETA_MULTIPLIERS[scenario], 2)
+        if scenario_multiplier > 1.0:
+            traffic_eta = round(traffic_eta * scenario_multiplier, 2)
         calculated_free_flow = calculate_real_route_time(
             route.get("base_duration", route["duration"]), route["distance"], vehicle, "Light"
         )
@@ -366,7 +418,8 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "retrieved_at": route.get("retrieved_at"),
             "segment_diagnostics": segment_diagnostics,
             "traffic_scenario": scenario,
-            "scenario_explanation": _scenario_explanation(scenario, road_summary, level),
+            "scenario_explanation": scenario_detail or _scenario_explanation(scenario, road_summary, level),
+            "scenario_type": scenario_type,
             "segments": model_segments,
         })
     if not candidates:
@@ -389,7 +442,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
     if not eligible:
         return {"error":"No real-world route satisfies the active vehicle restrictions.",
             "rejected_candidates":[item["decision"] for item in evaluated],"routing_mode":"real-world-only"}
-    options = eligible[:4]
+    options = annotate_route_comparison(eligible[:3])
     recommendation_reason = _recommendation_reason(options[0], options[1:])
     recommended = options[0]
     for index, item in enumerate(options):
@@ -400,6 +453,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         item["free_flow_eta_seconds"] = round(float(item.get("free_flow_eta") or 0) * 60)
         item["traffic_adjusted_eta_seconds"] = round(float(item.get("traffic_adjusted_eta") or item["time"]) * 60)
         item["route_cost"] = item.get("decision", {}).get("route_cost")
+        item["rules_fired"] = list(item.get("decision", {}).get("rules_fired", []))
         item["comparison_to_recommended"] = None if index == 0 else _comparison_to_recommended(recommended, item)
         item["recommendation_reason"] = (
             recommendation_reason if index == 0 else {
@@ -449,9 +503,15 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         "traffic_model_available":best.get("traffic_model_available",True),
         "traffic_snapshot_id":best.get("traffic_snapshot_id"),
         "traffic_scenario": scenario,
+        "scenario_type": scenario_type,
         "scenario_explanation": best.get("scenario_explanation"),
         "provider_coverage":best.get("provider_coverage"),
         "route_id":best.get("route_id"),"route_cost":best.get("route_cost"),
+        "route_label":best.get("route_label"),
+        "characteristics":best.get("characteristics",[]),
+        "confidence":best.get("confidence"),
+        "confidence_basis":best.get("confidence_basis",[]),
+        "rules_fired":best.get("rules_fired",[]),
         "route_type":best.get("route_type"),"major_roads":best.get("major_roads",[]),
         "distance_km":best.get("distance_km"),
         "free_flow_eta_seconds":best.get("free_flow_eta_seconds"),
