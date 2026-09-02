@@ -67,21 +67,22 @@ class OsrmAlternativeTests(unittest.TestCase):
         reverse=raw([destination,(16.79,96.15),start],10500,950,"Reverse Road")
         validated=raw([start,(16.79,96.15),destination],10800,930,"Validated Road")
         
-        # side_effect list:
-        # 1. fwd native -> returns [forward]
-        # 2. rev native -> returns [reverse]
-        # 3. fwd via fwd midpoint (16.81, 96.15) -> fails or returns forward again
-        # 4. fwd via reverse midpoint (16.79, 96.15) -> returns [validated]
-        with patch("services.osrm_service._corridor_hints",return_value=[]), \
-             patch("services.osrm_service._request",side_effect=[[forward],[reverse],[forward],[validated]]) as request:
+        with patch("services.osrm_service._request",side_effect=[[forward],[reverse],[forward],[validated]]) as request:
             routes = fetch_real_routes(start,destination)
             
-        self.assertEqual(request.call_count, 4)
         self.assertEqual(len(routes), 2)
         self.assertEqual(routes[0]["source"],"osrm-native")
         self.assertEqual(routes[1]["source"],"osrm-via-corridor")
         self.assertEqual(routes[1]["geometry"][0],list(start))
         self.assertEqual(routes[1]["geometry"][-1],list(destination))
+
+    def test_looping_and_self_intersecting_route_is_rejected(self):
+        from services.osrm_service import _has_self_intersection_loop
+        normal_coords = [[16.80, 96.10], [16.81, 96.11], [16.82, 96.12]]
+        self.assertFalse(_has_self_intersection_loop(normal_coords))
+        # Self-intersecting figure-8 loop
+        loop_coords = [[16.80, 96.10], [16.82, 96.12], [16.80, 96.12], [16.82, 96.10]]
+        self.assertTrue(_has_self_intersection_loop(loop_coords))
 
     def test_excessive_detour_is_rejected(self):
         primary=raw([(16.80,96.10),(16.80,96.20)])

@@ -97,17 +97,22 @@ def predict_route_traffic(route: dict, period: str, now=None, engine=None) -> di
     free_flow_eta = float(route.get("free_flow_eta") or max(0.0, current_eta - current_delay) or current_eta)
     delay = max(0.0, estimated_eta - free_flow_eta)
 
-    reason = "Current selected-route conditions"
+    reason = "Current conditions along this route"
     if period != "now":
-        reason = future["reasons"][0].replace("Yangon time period:", "Expected period:")
         if future.get("rush_hour") or "rush" in str(future.get("time_period", "")).lower():
             reason = "Higher demand is expected during the rush-hour period"
+        elif projected_score < current_score - 5:
+            reason = "Traffic is expected to ease during this period"
+        elif projected_score > current_score + 5:
+            reason = "Traffic is expected to build during this period"
+        else:
+            reason = "Conditions are expected to remain steady"
     return {
-        "period": period,
-        "traffic": expected_level,
-        "estimated_eta": round(estimated_eta, 2),
-        "expected_delay": round(delay, 2),
-        "reason": reason,
+        "period": str(period),
+        "traffic": str(expected_level),
+        "estimated_eta": round(float(estimated_eta), 2),
+        "expected_delay": round(float(delay), 2),
+        "reason": str(reason),
         "traffic_source": "INFERRED",
         "forecast_type": "CURRENT_ROUTE" if period == "now" else "INFERRED_ROUTE_FORECAST",
         "is_live": False,

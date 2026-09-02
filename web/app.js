@@ -85,9 +85,12 @@
                 periodLabel.textContent = labels[period] || 'Traffic Outlook';
                 output.appendChild(periodLabel);
 
+                const formatFn = typeof window.formatRouteDuration === 'function'
+                    ? window.formatRouteDuration
+                    : (m) => `${Math.round(m)} min`;
                 const metrics = [
-                    ['Expected Traffic', traffic],
-                    ['Travel Time', window.formatRouteDuration(travelTime)]
+                    ['Expected Traffic', String(traffic)],
+                    ['Travel Time', String(formatFn(travelTime))]
                 ];
                 metrics.forEach(([label, value], index) => {
                     const item = document.createElement('span');
@@ -95,15 +98,15 @@
                         item.dataset.level = traffic;
                         item.style.setProperty('--route-traffic-color', YangonTrafficColors.css(traffic));
                     }
-                    const heading = document.createElement('small'); heading.textContent = label;
-                    const detail = document.createElement('strong'); detail.textContent = value;
+                    const heading = document.createElement('small'); heading.textContent = String(label);
+                    const detail = document.createElement('strong'); detail.textContent = String(value);
                     item.append(heading, detail); output.appendChild(item);
                 });
 
                 if (period !== 'now' && typeof data.reason === 'string' && data.reason.trim()) {
                     const reasonBox = document.createElement('span');
                     const rHeading = document.createElement('small'); rHeading.textContent = 'Reason';
-                    const rDetail = document.createElement('strong'); rDetail.style.fontWeight = 'normal'; rDetail.textContent = data.reason.trim();
+                    const rDetail = document.createElement('strong'); rDetail.style.fontWeight = 'normal'; rDetail.textContent = String(data.reason).trim();
                     reasonBox.append(rHeading, rDetail);
                     output.appendChild(reasonBox);
                 }

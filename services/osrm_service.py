@@ -166,41 +166,63 @@ def _is_diverse(candidate, accepted):
     return True
 
 
-def _corridor_hints(start_coord, destination_coord):
-    """Return two generic side-corridor hints without claiming road geometry."""
-    direct = _km(start_coord, destination_coord)
-    if direct < 0.35:
-        return []
-    mid_lat = (start_coord[0] + destination_coord[0]) / 2
-    mid_lon = (start_coord[1] + destination_coord[1]) / 2
-    north = destination_coord[0] - start_coord[0]
-    east = (destination_coord[1] - start_coord[1]) * math.cos(math.radians(mid_lat))
-    length = max(1e-9, math.hypot(north, east))
-    offset_km = min(1.4, max(0.3, direct * 0.18))
-    lat_offset = (-east / length) * offset_km / 111.0
-    lon_offset = (north / length) * offset_km / (111.0 * math.cos(math.radians(mid_lat)))
-    return [
-        (mid_lat + lat_offset, mid_lon + lon_offset),
-        (mid_lat - lat_offset, mid_lon - lon_offset),
-    ]
+def _ccw(a, b, c):
+    return (c[1] - a[1]) * (b[0] - a[0]) > (b[1] - a[1]) * (c[0] - a[0])
+
+
+def _segments_intersect(a, b, c, d):
+    return _ccw(a, c, d) != _ccw(b, c, d) and _ccw(a, b, c) != _ccw(a, b, d)
+
+
+def _has_self_intersection_loop(coords):
+    """Detect non-adjacent self-intersections in route geometry."""
+    n = len(coords)
+    if n < 4:
+        return False
+    step = 1 if n <= 40 else max(1, n // 35)
+    pts = coords[::step]
+    if pts[-1] != coords[-1]:
+        pts.append(coords[-1])
+    m = len(pts)
+    for i in range(m - 3):
+        p1, p2 = pts[i], pts[i + 1]
+        for j in range(i + 2, m - 1):
+            if i == 0 and j == m - 2 and pts[0] == pts[-1]:
+                continue
+            p3, p4 = pts[j], pts[j + 1]
+            if _segments_intersect(p1, p2, p3, p4):
+                return True
+    return False
 
 
 def _is_practical_corridor(candidate, primary, start_coord, destination_coord):
     geometry = candidate.get("geometry") or []
     if len(geometry) < 2:
         return False
-    if _km(geometry[0], start_coord) > 0.2 or _km(geometry[-1], destination_coord) > 0.2:
+    if _km(geometry[0], start_coord) > 0.3 or _km(geometry[-1], destination_coord) > 0.3:
         return False
-    return (
-        float(candidate["distance"]) <= float(primary["distance"]) * MAX_CORRIDOR_DISTANCE_RATIO + 1.5
-        and float(candidate["duration"]) <= float(primary["duration"]) * MAX_CORRIDOR_DURATION_RATIO + 4.5
-    )
+    if _has_self_intersection_loop(geometry):
+        return False
+
+    cand_dist = float(candidate["distance"])
+    cand_dur = float(candidate["duration"])
+    prim_dist = max(0.1, float(primary["distance"]))
+    prim_dur = max(0.1, float(primary["duration"]))
+
+    if prim_dist <= 3.0:
+        max_dist = min(prim_dist * 2.5, prim_dist + 2.2)
+        max_dur = min(prim_dur * 2.5, prim_dur + 4.5)
+    else:
+        max_dist = min(prim_dist * 1.60, prim_dist + 4.5)
+        max_dur = min(prim_dur * 1.70, prim_dur + 6.5)
+
+    return cand_dist <= max_dist and cand_dur <= max_dur
 
 
 def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, timeout=DEFAULT_SEARCH_BUDGET_SECONDS):
     deadline = time.monotonic() + max(2.0, float(timeout))
-    native_timeout = min(3.2, max(1.4, float(timeout) * 0.45)) # Budget split
-    
+    native_timeout = min(3.2, max(1.4, float(timeout) * 0.45))
+
     # 1 & 2. Get forward and reverse natively
     try:
         fwd_raw = _request([start_coord, destination_coord], alternatives, native_timeout)
@@ -222,52 +244,45 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
     accepted = []
     for index, raw in enumerate(fwd_raw):
         source = "valhalla" if len(fwd_raw) == 1 and raw.get("_valhalla") else "osrm-native"
-        record = _route_record(raw, index, "Fastest real-road corridor" if index == 0 else f"OSRM alternative {index}", source)
-        if record and (not accepted or _is_diverse(record, accepted)):
-            accepted.append(record)
+        label = "Direct corridor" if index == 0 else f"Alternative {index + 1}"
+        record = _route_record(raw, index, label, source)
+        if record and not _has_self_intersection_loop(record["geometry"]):
+            if not accepted or _is_diverse(record, accepted):
+                accepted.append(record)
 
     if not accepted:
         raise RoadRoutingUnavailable("OSRM returned routes without usable geometry.")
-        
+
     target_count = min(TARGET_ROUTE_COUNT, max(1, int(alternatives)))
-    
-    # 3 & 4. Extract corridor signatures (midpoints) from BOTH sets
-    midpoints = []
+    primary = accepted[0]
+
+    # 3. Extract candidate corridor waypoints from real road geometries (fwd + rev)
+    candidate_waypoints = []
     for raw in fwd_raw + rev_raw:
         geom = raw.get("geometry", {}).get("coordinates", []) if isinstance(raw.get("geometry"), dict) else raw.get("geometry", [])
-        if len(geom) < 3: continue
-        
-        # OSRM geojson is [lon, lat], but _request_valhalla is also mapped to [[lon, lat]... ] wait, _route_record flips it?
-        # Let's extract midpoints from the raw geometry using the same format as _request expects (lat, lon)
-        if isinstance(geom[0], list) and len(geom[0]) == 2:
-            lon, lat = geom[len(geom)//2]
-            midpoint = (lat, lon)
-            
-            # Ensure it's not basically the start/end point
-            if _km(start_coord, midpoint) > 0.35 and _km(midpoint, destination_coord) > 0.35:
-                # Ensure it's diverse from other midpoints
-                if not any(_km(m, midpoint) < 0.25 for m in midpoints):
-                    midpoints.append(midpoint)
+        if len(geom) < 3:
+            continue
+        for frac in (0.35, 0.50, 0.65):
+            idx = int(len(geom) * frac)
+            lon, lat = geom[idx]
+            pt = (lat, lon)
+            if _km(start_coord, pt) > 0.10 and _km(pt, destination_coord) > 0.10:
+                if not any(_km(m, pt) < 0.15 for m in candidate_waypoints):
+                    candidate_waypoints.append(pt)
 
-    # Add the generic offset hints as fallbacks
-    for hint in _corridor_hints(start_coord, destination_coord):
-        if not any(_km(m, hint) < 0.25 for m in midpoints):
-            midpoints.append(hint)
-
-    # 5. Fresh-route A->B through the combined corridor hints
-    primary = accepted[0]
-    for midpoint in midpoints:
+    # 4. Fresh-route A->B legally through the discovered corridor waypoints
+    for midpoint in candidate_waypoints:
         if len(accepted) >= target_count or deadline - time.monotonic() < 0.7:
             break
         try:
             raw_routes = _request([start_coord, midpoint, destination_coord], False, min(1.4, max(0.7, deadline - time.monotonic())))
-            record = _route_record(raw_routes[0], len(accepted), "Validated alternate corridor", "osrm-via-corridor")
+            record = _route_record(raw_routes[0], len(accepted), f"Alternative {len(accepted) + 1}", "osrm-via-corridor")
         except (RoadRoutingUnavailable, IndexError, KeyError, TypeError, ValueError):
             continue
-            
+
         if record and _is_practical_corridor(record, primary, start_coord, destination_coord) and _is_diverse(record, accepted):
             accepted.append(record)
-            
+
     return accepted[:TARGET_ROUTE_COUNT]
 
 def fetch_real_routes(start_coord,destination_coord,alternatives=3,timeout=DEFAULT_SEARCH_BUDGET_SECONDS):

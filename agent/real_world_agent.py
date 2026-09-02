@@ -89,30 +89,31 @@ def _recommendation_reason(best, alternatives):
     distance_difference = round(float(best["distance"]) - float(alternative["distance"]), 2)
     delay_advantage = round(float(alternative.get("traffic_delay", 0)) - float(best.get("traffic_delay", 0)), 2)
     heavy_difference = int(best.get("heavy_segments", 0)) - int(alternative.get("heavy_segments", 0))
-    dominated = bool(eta_advantage >= 0 and distance_difference >= 0 and heavy_difference <= 0)
     severity = {"Light": 1, "Moderate": 2, "Heavy": 3}
     best_level = str(best.get("traffic") or "Unknown")
-    alternative_level = str(alternative.get("traffic") or "Unknown")
-    traffic_improvement = severity.get(alternative_level, 2) - severity.get(best_level, 2)
+    alt_level = str(alternative.get("traffic") or "Unknown")
+    traffic_improvement = severity.get(alt_level, 2) - severity.get(best_level, 2)
     
     time_tol = _practical_time_tolerance(float(best["time"]))
-    
     if traffic_improvement > 0:
         primary = "lower_congestion_with_practical_detour"
-        if alternative_level == "Heavy":
-            explanation = "The recommended route avoids heavy traffic with only a small detour."
+        if alt_level == "Heavy":
+            explanation = "Avoids heavy traffic along the alternative corridor while remaining a practical route."
         else:
-            explanation = "The recommended route has lighter traffic with only a small increase in travel time."
+            explanation = "Uses a less congested corridor while remaining a practical route."
     elif traffic_improvement < 0:
         primary = "avoid_unreasonable_detour"
-        explanation = "The recommended route is selected because Alternative 1 requires a substantial detour despite having lighter traffic."
+        explanation = "Alternative route requires a significant detour without enough traffic benefit."
     else:
         if abs(eta_advantage) > time_tol:
             primary = "lower_travel_time"
-            explanation = f"Both routes have similar traffic conditions, but the recommended route is {_format_minutes(eta_advantage)} faster."
+            explanation = "Traffic conditions are similar, so the faster and more direct route is recommended."
         else:
             primary = "best_practical_traffic_balance"
-            explanation = "Both routes have similar traffic conditions. The recommended route is the more direct option."
+            if distance_difference < -0.3 or eta_advantage > 1.2:
+                explanation = "Traffic conditions are similar, so the more direct route is recommended."
+            else:
+                explanation = "Traffic conditions are similar; recommended as the most practical corridor."
             
     return {
         "recommended_route_id": best_id, "primary_reason": primary,
@@ -125,26 +126,32 @@ def _recommendation_reason(best, alternatives):
 
 
 def _comparison_to_recommended(best, alternative):
-    """Build the user-facing comparison once from ranked backend metrics."""
+    """Build concise, natural traffic-oriented comparison explanation without micro-numbers."""
     eta_delta = round(float(alternative["time"]) - float(best["time"]), 2)
     distance_delta = round(float(alternative["distance"]) - float(best["distance"]), 2)
     heavy_delta = int(alternative.get("heavy_segments", 0)) - int(best.get("heavy_segments", 0))
     
-    time_tol = _practical_time_tolerance(float(best["time"]))
-    dist_tol = _practical_distance_tolerance(float(best["distance"]))
+    severity = {"Light": 1, "Moderate": 2, "Heavy": 3, "Unknown": 2}
+    best_sev = severity.get(str(best.get("traffic") or "Unknown"), 2)
+    alt_sev = severity.get(str(alternative.get("traffic") or "Unknown"), 2)
     
-    parts = []
-    if abs(eta_delta) > time_tol:
-        parts.append(f"{_format_minutes(eta_delta)} {'slower' if eta_delta > 0 else 'faster'}")
-    if abs(distance_delta) > dist_tol:
-        parts.append(f"{abs(distance_delta):.2f} km {'longer' if distance_delta > 0 else 'shorter'}")
-        
-    explanation = " and ".join(parts).capitalize() + "." if parts else ""
-    if explanation:
-        if heavy_delta < 0:
-            explanation = explanation.rstrip(".") + f", but avoids {abs(heavy_delta)} Heavy segment(s)."
-        elif heavy_delta > 0:
-            explanation = explanation.rstrip(".") + f" and includes {heavy_delta} additional Heavy segment(s)."
+    if alt_sev > best_sev:
+        if distance_delta > 1.0 or eta_delta > 2.0:
+            explanation = "Higher congestion and longer journey than the recommended route."
+        else:
+            explanation = "Faces heavier traffic than the recommended route."
+    elif alt_sev < best_sev:
+        if distance_delta > 1.5 or eta_delta > 3.0:
+            explanation = "Lighter traffic, but requires a significant detour from the main corridor."
+        else:
+            explanation = "Lighter traffic with a small reasonable detour."
+    else:
+        if abs(distance_delta) <= 0.4 and abs(eta_delta) <= 1.0:
+            explanation = "Similar traffic and journey length."
+        elif distance_delta > 0 or eta_delta > 0:
+            explanation = "Similar traffic, but a longer alternative than the direct corridor."
+        else:
+            explanation = "Similar traffic conditions along this alternative."
             
     return {
         "eta_difference_minutes": eta_delta,
@@ -265,6 +272,17 @@ def _effective_route_traffic(route, model_state, allow_provider=True):
             "inferred_coverage_percent": inferred, "unknown_coverage_percent": unknown}
 
 
+def _normalize_display_route(start: str, road_summary: list[str], destination: str) -> list[str]:
+    names = [start]
+    for name in road_summary:
+        cleaned = str(name).strip()
+        if cleaned and cleaned != names[-1] and cleaned != destination:
+            names.append(cleaned)
+    if names[-1] != destination:
+        names.append(destination)
+    return names
+
+
 def _filter_practical_alternatives(candidates):
     if not candidates:
         return []
@@ -292,25 +310,25 @@ def _filter_practical_alternatives(candidates):
             
         if prim_dist <= 3.0:
             if traffic_advantage <= 0:
-                if dist_ratio > 1.25 or dist_diff > 0.5:
+                if dist_ratio > 2.4 or dist_diff > 1.8:
                     continue
-                if time_ratio > 1.3 or time_diff > 2.0:
+                if time_ratio > 2.4 or time_diff > 3.0:
                     continue
             else:
-                if dist_ratio > 1.6 or dist_diff > 1.5:
+                if dist_ratio > 2.5 or dist_diff > 2.2:
                     continue
-                if time_ratio > 1.7 or time_diff > 4.0:
+                if time_ratio > 2.5 or time_diff > 4.5:
                     continue
         else:
             if traffic_advantage <= 0:
-                if dist_ratio > 1.15 or dist_diff > 2.0:
+                if dist_ratio > 1.45 or dist_diff > 3.5:
                     continue
-                if time_ratio > 1.2 or time_diff > 3.0:
+                if time_ratio > 1.55 or time_diff > 5.0:
                     continue
             else:
-                if dist_ratio > 1.4 or dist_diff > 4.0:
+                if dist_ratio > 1.60 or dist_diff > 5.0:
                     continue
-                if time_ratio > 1.5 or time_diff > 6.0:
+                if time_ratio > 1.70 or time_diff > 7.0:
                     continue
                     
         practical.append(cand)
@@ -446,7 +464,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         candidates.append({
             "candidate_id": route["provider_id"], "route": [start, destination],
             # Provider/corridor labels are internal metadata, not road names.
-            "display_route": [start, *road_summary, destination],
+            "display_route": _normalize_display_route(start, road_summary, destination),
             "distance": route["distance"],
             # HERE duration already includes traffic. For inferred traffic, apply
             # the inferred level multiplier; vehicle characteristics also apply.

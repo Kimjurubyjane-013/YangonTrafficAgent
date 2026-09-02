@@ -1294,7 +1294,13 @@
             header.append(star, title);
 
             const routePath = document.createElement('ol'); routePath.className = 'route-option-path';
-            (opt.display_route || opt.route).forEach(name => {
+            const rawRoads = opt.display_route || opt.route || [];
+            const cleanRoads = [];
+            rawRoads.forEach(name => {
+                const str = String(name || '').trim();
+                if (str && str !== cleanRoads[cleanRoads.length - 1]) cleanRoads.push(str);
+            });
+            cleanRoads.forEach(name => {
                 const item = document.createElement('li'); item.textContent = name; routePath.appendChild(item);
             });
 
@@ -1824,10 +1830,9 @@
                 );
                 camera3D.lookAt(px, 1.5, pz);
 
-                const overallFraction = elapsed / totalDurationMs;
-
+                const segLevel = (typeof segmentTraffic[segIndex] === 'object' ? segmentTraffic[segIndex]?.traffic || segmentTraffic[segIndex]?.level : segmentTraffic[segIndex]) || 'Normal';
                 document.getElementById('sim-hud').innerText =
-                    `Traffic: ${segmentTraffic[segIndex]} | ${Math.round(overallFraction * 100)}% complete`;
+                    `Traffic: ${segLevel} | ${Math.round(overallFraction * 100)}% complete`;
 
                 renderer3D.render(scene3D, camera3D);
 
