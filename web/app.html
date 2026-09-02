@@ -19,8 +19,8 @@
     * { box-sizing: border-box; font-family: Arial, sans-serif; }
     body {
         margin: 0; min-height: 100vh; display: flex; flex-direction: column;
-        background: #e9edf1;
-        color: #1d2b36;
+        background: #F8F9FC;
+        color: #111827;
     }
 
     .main {
@@ -30,7 +30,7 @@
 
     .panel {
         background: #fff;
-        border: 1px solid #dfe6ec;
+        border: 1px solid #E5E7EB;
         border-radius: 12px; padding: 16px;
         overflow: hidden; box-shadow: 0 1px 2px rgba(14, 25, 38, 0.04);
     }
@@ -44,8 +44,8 @@
 
     #map, #three-canvas {
         flex: 1; min-height: 510px; border-radius: 10px; margin-top: 10px;
-        border: 1px solid #cfd8df; overflow: hidden;
-        background: #edf2f6;
+        border: 1px solid #E5E7EB; overflow: hidden;
+        background: #F5F3FF;
         box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
     }
     #three-canvas { display: none; position: relative; }
@@ -55,7 +55,7 @@
         display: none; position: absolute; z-index: 12; top: 12px; left: 12px;
         width: min(420px, calc(100% - 24px)); padding: 12px;
         grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;
-        background: rgba(8, 20, 31, .88); color: #fff; border: 1px solid rgba(255,255,255,.16);
+        background: #131924; color: #fff; border: 1px solid rgba(255,255,255,.16);
         border-radius: 12px; backdrop-filter: blur(8px); box-shadow: 0 8px 24px rgba(0,0,0,.28);
     }
     .sim-hud.visible { display: grid; }
@@ -67,11 +67,11 @@
     .sim-controls {
         display: none; position: absolute; z-index: 13; left: 12px; right: 12px; bottom: 12px;
         align-items: center; gap: 8px; padding: 9px; border-radius: 12px;
-        background: rgba(8, 20, 31, .88); backdrop-filter: blur(8px);
+        background: #131924; backdrop-filter: blur(8px);
     }
     .sim-controls.visible { display: flex; }
     .sim-controls button, .sim-controls select { width: auto; margin: 0; min-height: 36px; padding: 8px 12px; }
-    .sim-controls button { background: #176b8f; }
+    .sim-controls button { background: #7C3AED; }
     .sim-controls [data-action="exit"] { margin-left: auto; background: #a43c3c; }
 
     #map-error {
@@ -82,17 +82,17 @@
     }
 
     h2 {
-        margin: 0 0 14px 0; color: #1d2b36; font-size: clamp(1.2rem, 2vw, 1.7rem);
+        margin: 0 0 14px 0; color: #111827; font-size: clamp(1.2rem, 2vw, 1.7rem);
         letter-spacing: -0.02em; font-weight: 700;
     }
-    h3 { margin: 16px 0 8px 0; font-size: 15px; color: #1d2b36; }
+    h3 { margin: 16px 0 8px 0; font-size: 15px; color: #111827; }
 
-    label { display: block; font-weight: 600; margin: 12px 0 5px; color: #2d3d4d; }
+    label { display: block; font-weight: 600; margin: 12px 0 5px; color: #111827; }
 
     select {
         width: 100%; padding: 9px 10px; border-radius: 8px;
-        border: 1px solid #d0d9df; background: #f9fbfc;
-        font-size: 14px; color: #1f2d3b;
+        border: 1px solid #E5E7EB; background: #FFFFFF;
+        font-size: 14px; color: #111827;
     }
 
     button {
@@ -107,36 +107,36 @@
     button:active:not(:disabled) { opacity: 0.9; }
     button:disabled { opacity: 0.42; cursor: not-allowed; }
 
-    .btn-find { background: #0f5f9c; }
-    .btn-reset { background: #0d7e84; }
-    .btn-sim { background: #0a8a93; }
+    .btn-find { background: #7C3AED; }
+    .btn-reset { background: #F5F3FF; color: #111827; border: 1px solid #E5E7EB; }
+    .btn-sim { background: #7C3AED; }
 
     .status {
-        margin-top: 15px; font-style: italic; color: #4e6578; line-height: 1.5;
+        margin-top: 15px; font-style: italic; color: #64748B; line-height: 1.5;
         min-height: 24px;
     }
 
     .legend {
-        margin-top: 14px; font-size: 13px; color: #40586d; display: flex;
+        margin-top: 14px; font-size: 13px; color: #64748B; display: flex;
         gap: 12px; flex-wrap: wrap; align-items: center;
     }
     .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 5px; vertical-align: middle; }
 
     .ai-panel {
         background: #fff;
-        border: 1px solid #dfe6ec;
+        border: 1px solid #E5E7EB;
         border-radius: 12px; margin: 0 16px 16px 16px; padding: 16px;
         min-height: 110px; box-shadow: 0 1px 2px rgba(14, 25, 38, 0.04);
     }
 
     .result p {
-        margin: 8px 0; color: #2c3e50; background: #f6f8fa;
-        border: 1px solid #edf1f4; border-radius: 8px; padding: 10px 12px;
+        margin: 8px 0; color: #111827; background: #F5F3FF;
+        border: 1px solid #E5E7EB; border-radius: 8px; padding: 10px 12px;
     }
 
     .car-icon {
         font-size: 22px; text-align: center; line-height: 34px;
-        width: 34px; height: 34px; background: #0B5394;
+        width: 34px; height: 34px; background: #7C3AED;
         border-radius: 50%; border: 3px solid white;
         box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     }
@@ -144,7 +144,7 @@
     .compass {
         position: absolute; top: 62px; right: 12px;
         width: 34px; height: 34px; border-radius: 50%;
-        background: rgba(11, 23, 35, 0.8); color: #cfe0f0;
+        background: #0D1117; color: #cfe0f0;
         display: none; align-items: center; justify-content: center;
         font-size: 12px; font-weight: 700; z-index: 10;
         box-shadow: 0 8px 16px rgba(0,0,0,0.18);
@@ -153,7 +153,7 @@
 
     .nav-hud {
         position: absolute; bottom: 12px; left: 12px; right: 12px;
-        background: rgba(11, 23, 35, 0.84); color: #eef4fa;
+        background: #0D1117; color: #eef4fa;
         border-radius: 16px; padding: 12px 18px;
         display: none; z-index: 10;
         justify-content: space-around; align-items: center;
@@ -182,16 +182,16 @@
     }
 
     .route-option {
-        background: #f8fafb;
+        background: #FFFFFF;
         border-radius: 8px; padding: 10px 12px;
         margin-bottom: 8px; font-size: 13px; cursor: pointer;
-        border: 1px solid #e4ebf0; color: #2c3e50;
+        border: 1px solid #E5E7EB; color: #111827;
         transition: border-color 0.15s ease, background 0.15s ease;
     }
 
-    .route-option:hover { border-color: #c9d6df; }
+    .route-option:hover { border-color: #7C3AED; }
     .route-option.active {
-        border-color: #9ad9b5; background: #edfdf3;
+        border-color: #7C3AED; background: #F5F3FF;
     }
 
     .route-option .badge {
@@ -236,7 +236,7 @@
         display: none; position: absolute; z-index: 1001; top: 70px; left: 28px;
         width: min(430px, calc(100% - 56px)); padding: 11px 13px;
         grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px;
-        background: rgba(8, 24, 38, 0.92); color: #fff; border-radius: 12px;
+        background: #131924; color: #fff; border-radius: 12px;
         box-shadow: 0 8px 24px rgba(0,0,0,.25); backdrop-filter: blur(8px);
     }
     .map-sim-panel.visible { display: grid; }
@@ -263,7 +263,7 @@
     /* Leaflet base styles - inlined so we don't depend on an
        extra CSS CDN request that could also fail */
     .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
-    .leaflet-container{overflow:hidden;background:#e7edf2}
+    .leaflet-container{overflow:hidden;background:#F5F3FF}
     .leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow{-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
     .leaflet-tile::selection{background:transparent}
     .leaflet-safari .leaflet-tile{image-rendering:-webkit-optimize-contrast}
@@ -313,7 +313,7 @@
     .leaflet-popup-pane,.leaflet-control{cursor:auto}
     .leaflet-dragging .leaflet-grab,.leaflet-dragging .leaflet-grab .leaflet-interactive,.leaflet-dragging .leaflet-marker-draggable{cursor:move;cursor:-webkit-grabbing;cursor:-moz-grabbing;cursor:grabbing}
     .leaflet-marker-icon.leaflet-interactive,.leaflet-image-layer.leaflet-interactive,.leaflet-pane>svg path.leaflet-interactive,svg.leaflet-image-layer.leaflet-interactive path{pointer-events:visiblePainted;pointer-events:auto}
-    .leaflet-container{background:#12253d;outline-offset:1px;-webkit-tap-highlight-color:transparent}
+    .leaflet-container{background:#111620;outline-offset:1px;-webkit-tap-highlight-color:transparent}
     .leaflet-container a{color:#0078A8}
     .leaflet-zoom-box{border:2px dotted #38f;background:rgba(255,255,255,.5)}
     .leaflet-container-touch{-ms-touch-action:none;touch-action:none}
