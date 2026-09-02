@@ -89,7 +89,12 @@ def _road_name_key(value: str) -> str:
     text = re.sub(r"\brd\b", "road", text)
     text = re.sub(r"\bst\b", "street", text)
     text = re.sub(r"\bave\b", "avenue", text)
-    return "".join(re.findall(r"[a-z0-9]+", text))
+    from services.osrm_service import BURMESE_ROAD_NAMES
+    for burmese, transliterated in BURMESE_ROAD_NAMES.items():
+        if burmese in text:
+            text = transliterated.casefold()
+            break
+    return "".join(re.findall(r"\w+", text, flags=re.UNICODE))
 
 
 class TrafficEngine:
@@ -309,35 +314,36 @@ class TrafficEngine:
                     geometry=()) -> dict:
         snapshot = snapshot or self.get_snapshot()
         states = []
-        
-        # If OSRM provides data, try to match by name and geometry
-        if road_names or geometry:
+
+        def route_distance(state):
+            midpoint = ((state.coordinates[0][0] + state.coordinates[1][0]) / 2,
+                        (state.coordinates[0][1] + state.coordinates[1][1]) / 2)
+            return min(self._coordinate_distance_km(midpoint, point) for point in geometry) if geometry else 0
+
+        # Tier 1: Exact or Alias Name Matching within corridor proximity
+        if road_names:
             requested_names = {_road_name_key(name) for name in road_names if name}
             named = [state for state in snapshot.roads.values() if _road_name_key(state.road_name) in requested_names]
-            
-            def route_distance(state):
-                midpoint = ((state.coordinates[0][0] + state.coordinates[1][0]) / 2,
-                            (state.coordinates[0][1] + state.coordinates[1][1]) / 2)
-                return min(self._coordinate_distance_km(midpoint, point) for point in geometry) if geometry else 0
-
             if named:
                 nearby = [state for state in named if route_distance(state) <= 0.65] if geometry else named
                 if nearby:
                     states = sorted(nearby, key=route_distance) if geometry else named
-            
-            # If names failed but we have geometry, find any close segments
-            if not states and geometry:
-                all_nearby = [state for state in snapshot.roads.values() if route_distance(state) <= 0.35]
-                if all_nearby:
-                    states = sorted(all_nearby, key=route_distance)
-                    
-        # Only fallback to directional graph path if we still have absolutely nothing
-        if not states:
+
+        # Tier 2: Topological Graph Shortest Path between Endpoints
+        if not states and start in self.repository.locations and destination in self.repository.locations:
             path = self._shortest_path(start, destination)
-            for a, b in zip(path, path[1:]):
-                road = self.repository.by_edge.get((a, b))
-                if road and road.id in snapshot.roads:
-                    states.append(snapshot.roads[road.id])
+            if len(path) >= 2:
+                for a, b in zip(path, path[1:]):
+                    road = self.repository.by_edge.get((a, b))
+                    if road and road.id in snapshot.roads:
+                        states.append(snapshot.roads[road.id])
+
+        # Tier 3: Strict Spatial Proximity only as a last resort
+        if not states and geometry:
+            all_nearby = [state for state in snapshot.roads.values() if route_distance(state) <= 0.25]
+            if all_nearby:
+                states = sorted(all_nearby, key=route_distance)
+
         if not states:
             return {"traffic_level":"Moderate","segment_traffic":["Moderate"],"road_ids":[],
                 "average_score":50.0,"estimated_delay_minutes":0.0,"heavy_segments":0,

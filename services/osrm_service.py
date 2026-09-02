@@ -124,13 +124,17 @@ def _english_road_names(route):
                     if burmese in raw:
                         english = transliterated
                         break
+                if not english:
+                    cleaned_raw = re.sub(r"\s+", " ", raw).strip(" ,.-")
+                    if cleaned_raw:
+                        english = cleaned_raw
             if not english:
                 continue
             canonical = re.sub(r"\brd\b", "road", english.casefold())
             canonical = re.sub(r"\bst\b", "street", canonical)
             canonical = re.sub(r"\bave\b", "avenue", canonical)
             canonical = re.sub(r"\bblvd\b", "boulevard", canonical)
-            key = re.sub(r"[^a-z0-9]", "", canonical)
+            key = "".join(re.findall(r"\w+", canonical, flags=re.UNICODE))
             if key and key not in seen:
                 seen.add(key)
                 names.append(english)
