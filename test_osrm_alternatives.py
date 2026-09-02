@@ -67,7 +67,13 @@ class OsrmAlternativeTests(unittest.TestCase):
         reverse=raw([destination,(16.79,96.15),start],10500,950,"Reverse Road")
         validated=raw([start,(16.79,96.15),destination],10800,930,"Validated Road")
         
-        with patch("services.osrm_service._request",side_effect=[[forward],[reverse],[forward],[validated]]) as request:
+        def mock_req(coords, *args, **kwargs):
+            if len(coords) == 2:
+                return [forward] if coords[0] == start else [reverse]
+            mid = coords[1]
+            return [validated] if mid[0] < 16.805 else [forward]
+            
+        with patch("services.osrm_service._request", side_effect=mock_req):
             routes = fetch_real_routes(start,destination)
             
         self.assertEqual(len(routes), 2)

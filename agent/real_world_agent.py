@@ -310,14 +310,14 @@ def _filter_practical_alternatives(candidates):
             
         if prim_dist <= 3.0:
             if traffic_advantage <= 0:
-                if dist_ratio > 2.4 or dist_diff > 1.8:
+                if dist_ratio > 2.5 or dist_diff > 2.0:
                     continue
-                if time_ratio > 2.4 or time_diff > 3.0:
+                if time_ratio > 2.5 or time_diff > 4.0:
                     continue
             else:
-                if dist_ratio > 2.5 or dist_diff > 2.2:
+                if dist_ratio > 2.6 or dist_diff > 2.4:
                     continue
-                if time_ratio > 2.5 or time_diff > 4.5:
+                if time_ratio > 2.6 or time_diff > 4.8:
                     continue
         else:
             if traffic_advantage <= 0:

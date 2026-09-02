@@ -20,7 +20,7 @@ MAX_CORRIDOR_DISTANCE_RATIO = 1.65
 MAX_CORRIDOR_DURATION_RATIO = 1.80
 TARGET_ROUTE_COUNT = 3
 CACHE_TTL_SECONDS = 600
-DEFAULT_SEARCH_BUDGET_SECONDS = 6.5
+DEFAULT_SEARCH_BUDGET_SECONDS = 8.5
 _CACHE, _CACHE_LOCK = {}, RLock()
 _REVERSE_CORRIDOR_CHECKED = set()
 
@@ -256,6 +256,14 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
     target_count = min(TARGET_ROUTE_COUNT, max(1, int(alternatives)))
     primary = accepted[0]
 
+    # Calculate general bearing from start to destination
+    lat1, lon1 = math.radians(start_coord[0]), math.radians(start_coord[1])
+    lat2, lon2 = math.radians(destination_coord[0]), math.radians(destination_coord[1])
+    dlon = lon2 - lon1
+    y = math.sin(dlon) * math.cos(lat2)
+    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+    bearing = (math.degrees(math.atan2(y, x)) + 360) % 360
+
     # 3. Extract candidate corridor waypoints from real road geometries (fwd + rev)
     candidate_waypoints = []
     for raw in fwd_raw + rev_raw:
@@ -267,8 +275,16 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
             lon, lat = geom[idx]
             pt = (lat, lon)
             if _km(start_coord, pt) > 0.10 and _km(pt, destination_coord) > 0.10:
-                if not any(_km(m, pt) < 0.15 for m in candidate_waypoints):
+                if not any(_km(m, pt) < 0.08 for m in candidate_waypoints):
                     candidate_waypoints.append(pt)
+                # Add generic lateral offsets (+/- 45m) to resolve divided dual-carriageway directionality
+                for angle in [(bearing + 90) % 360, (bearing - 90) % 360]:
+                    rad = math.radians(angle)
+                    d_lat = 0.045 / 111.0 * math.cos(rad)
+                    d_lon = 0.045 / (111.0 * math.cos(math.radians(lat))) * math.sin(rad)
+                    offset_pt = (lat + d_lat, lon + d_lon)
+                    if not any(_km(m, offset_pt) < 0.02 for m in candidate_waypoints):
+                        candidate_waypoints.append(offset_pt)
 
     # 4. Fresh-route A->B legally through the discovered corridor waypoints
     for midpoint in candidate_waypoints:
