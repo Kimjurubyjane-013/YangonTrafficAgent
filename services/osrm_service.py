@@ -67,15 +67,64 @@ def _request_valhalla(coordinates, timeout):
         raise RoadRoutingUnavailable("The real-road services are temporarily unavailable. Check your connection and try again.")
 
 
+BURMESE_ROAD_NAMES: dict[str, str] = {
+    "ပြည်လမ်း": "Pyay Road",
+    "ဦးဝီစာရလမ်း": "U Wisara Road",
+    "ဦးဝီစာရလမ်း": "U Wisara Road",
+    "ဓမ္မစေတီလမ်း": "Dhammazedi Road",
+    "ရွှေတိဂုံဘုရားလမ်း": "Shwedagon Pagoda Road",
+    "ရွှေတိဂုံလမ်း": "Shwedagon Pagoda Road",
+    "ဗဟိုလမ်း": "Baho Road",
+    "ကမ္ဘာအေးဘုရားလမ်း": "Kabar Aye Pagoda Road",
+    "ကမ္ဘာအေးလမ်း": "Kabar Aye Pagoda Road",
+    "အနော်ရထာလမ်း": "Anawrahta Road",
+    "ဗိုလ်ချုပ်အောင်ဆန်းလမ်း": "Bogyoke Aung San Road",
+    "ဗိုလ်ချုပ်လမ်း": "Bogyoke Aung San Road",
+    "အာဇာနည်လမ်း": "Arzar Ni Road",
+    "ရွှေဂုံတိုင်လမ်း": "Shwegondaing Road",
+    "ကျွန်းတောလမ်း": "Kyun Taw Road",
+    "နာနတ်တောလမ်း": "Nar Nat Taw Road",
+    "နာနတ်တော်လမ်း": "Nar Nat Taw Road",
+    "ဟံသာဝတီလမ်း": "Hanthawaddy Road",
+    "တက္ကသိုလ်ရိပ်သာလမ်း": "University Avenue Road",
+    "ဝေဇယန္တာလမ်း": "Waizayantar Road",
+    "ပါရမီလမ်း": "Parami Road",
+    "ဘုရင့်နောင်လမ်း": "Bayint Naung Road",
+    "ဘုရင့်နောင်လမ်း": "Bayint Naung Road",
+    "ကမ်းနားလမ်း": "Strand Road",
+    "နတ်မောက်လမ်း": "Nat Mauk Road",
+    "လေးထောင့်ကန်လမ်း": "Lay Daungkan Road",
+    "လေးထောင့်ကန်လမ်း": "Lay Daungkan Road",
+    "သထုံလမ်း": "Thaton Road",
+    "ရှမ်းကုန်းလမ်း": "Shan Kone Street",
+    "လှည်းတန်းလမ်း": "Hledan Road",
+    "ပန်းဆိုးတန်းလမ်း": "Pansodan Road",
+    "လမ်းမတော်လမ်း": "Lanmadaw Road",
+    "လသာလမ်း": "Latha Street",
+    "ဆူးလေဘုရားလမ်း": "Sule Pagoda Road",
+    "မဟာဗန္ဓုလလမ်း": "Maha Bandula Road",
+    "သိမ်ဖြူလမ်း": "Thein Phyu Road",
+    "အလုံလမ်း": "Ahlone Road",
+}
+
+
 def _english_road_names(route):
     names, seen = [], set()
     for leg in route.get("legs", []):
         for step in leg.get("steps", []):
             raw = str(step.get("name") or step.get("ref") or "").strip()
-            english = raw.encode("ascii", "ignore").decode("ascii")
-            english = re.sub(r"\s*[-|/]+\s*", " ", english)
-            english = re.sub(r"\s+", " ", english).strip(" ,.-")
-            if not re.search(r"[A-Za-z]", english):
+            ascii_text = raw.encode("ascii", "ignore").decode("ascii")
+            ascii_text = re.sub(r"\s*[-|/]+\s*", " ", ascii_text)
+            ascii_text = re.sub(r"\s+", " ", ascii_text).strip(" ,.-")
+            if re.search(r"[A-Za-z]", ascii_text):
+                english = ascii_text
+            else:
+                english = ""
+                for burmese, transliterated in BURMESE_ROAD_NAMES.items():
+                    if burmese in raw:
+                        english = transliterated
+                        break
+            if not english:
                 continue
             canonical = re.sub(r"\brd\b", "road", english.casefold())
             canonical = re.sub(r"\bst\b", "street", canonical)
@@ -83,7 +132,8 @@ def _english_road_names(route):
             canonical = re.sub(r"\bblvd\b", "boulevard", canonical)
             key = re.sub(r"[^a-z0-9]", "", canonical)
             if key and key not in seen:
-                seen.add(key); names.append(english)
+                seen.add(key)
+                names.append(english)
     return names[:3]
 
 

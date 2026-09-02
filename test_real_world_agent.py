@@ -54,7 +54,7 @@ class RealWorldPipelineTests(unittest.TestCase):
             {"name":"Hanthawaddy Road"},
             {"name":"Hanthawaddy Road"},
         ]}]}
-        self.assertEqual(_english_road_names(route),["Nar Nat Taw Road","Hanthawaddy Road"])
+        self.assertEqual(_english_road_names(route), ["Nar Nat Taw Road", "Kabar Aye Pagoda Road", "Hanthawaddy Road"])
 
     def test_vehicle_durations_are_distinct_and_realistic(self):
         car=calculate_real_route_time(10,8,"Car")
