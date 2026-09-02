@@ -244,10 +244,10 @@
     .map-sim-panel small { color: #abc0d0; font-size: 9px; text-transform: uppercase; letter-spacing: .05em; }
     .map-sim-controls {
         display: none; position: absolute; z-index: 1001; left: 28px; right: 28px; bottom: 28px;
-        gap: 8px; padding: 9px; border-radius: 12px; background: rgba(8,24,38,.92);
+        gap: 8px; padding: 9px; border-radius: 12px; background: rgba(13,17,23,0.92);
     }
     .map-sim-controls.visible { display: flex; }
-    .map-sim-controls button { width: auto; margin: 0; min-height: 36px; padding: 8px 14px; background: #137798; }
+    .map-sim-controls button { width: auto; margin: 0; min-height: 36px; padding: 8px 14px; background: #7C3AED; }
     .map-sim-controls #map-sim-exit { margin-left: auto; background: #a43c3c; }
 
     .map-source-notice {
@@ -314,7 +314,7 @@
     .leaflet-dragging .leaflet-grab,.leaflet-dragging .leaflet-grab .leaflet-interactive,.leaflet-dragging .leaflet-marker-draggable{cursor:move;cursor:-webkit-grabbing;cursor:-moz-grabbing;cursor:grabbing}
     .leaflet-marker-icon.leaflet-interactive,.leaflet-image-layer.leaflet-interactive,.leaflet-pane>svg path.leaflet-interactive,svg.leaflet-image-layer.leaflet-interactive path{pointer-events:visiblePainted;pointer-events:auto}
     .leaflet-container{background:#111620;outline-offset:1px;-webkit-tap-highlight-color:transparent}
-    .leaflet-container a{color:#0078A8}
+    .leaflet-container a{color:#7C3AED}
     .leaflet-zoom-box{border:2px dotted #38f;background:rgba(255,255,255,.5)}
     .leaflet-container-touch{-ms-touch-action:none;touch-action:none}
     .leaflet-bar{box-shadow:0 1px 5px rgba(0,0,0,.65);border-radius:4px}
@@ -957,7 +957,7 @@
 
         for (const name in LOCATION_COORDS) {
             L.circleMarker(LOCATION_COORDS[name], {
-                radius: 6, color: '#1f4461', weight: 2,
+                radius: 6, color: '#6D28D9', weight: 2,
                 fillColor: '#ffffff', fillOpacity: 1
             })
                 .bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -8], className: 'loc-label' })
@@ -1122,7 +1122,7 @@
             if (index === selectedIndex) return;
             alternativeLegs.forEach((legCoords, legIndex) => {
                 const alternative = L.polyline(legCoords, {
-                    color: '#52718f', weight: 4, opacity: 0.5,
+                    color: '#A78BFA', weight: 4, opacity: 0.5,
                     lineCap: 'round', lineJoin: 'round', dashArray: '10, 8'
                 }).addTo(map);
                 alternative.bindTooltip(
@@ -1158,7 +1158,7 @@
 
             // Neutral casing keeps every traffic color readable over map detail.
             const glow = L.polyline(legCoords, {
-                color: '#26343d', weight: 11, opacity: 0.46,
+                color: '#6D28D9', weight: 11, opacity: 0.46,
                 lineCap: 'round', lineJoin: 'round', interactive: false
             }).addTo(map);
             routeLayers.push(glow);
