@@ -7,7 +7,10 @@ from algorithms.vehicle import VEHICLE_SPEED, calculate_real_route_time
 from app.runtime_config import traffic_mode, yangon_now
 from app.traffic_config import SCENARIO_ETA_MULTIPLIERS
 from services.here_traffic_service import fetch_traffic_aware_routes
-from services.osrm_service import fetch_real_routes
+from services.osrm_service import (
+    fetch_real_routes, _has_backtracking_or_hairpin,
+    _has_leave_and_rejoin_excursion, _has_self_intersection_loop, _overlap
+)
 from services.route_decision_engine import RouteDecisionEngine
 from services.route_comparison import annotate_route_comparison
 from services.traffic_service import TRAFFIC_ENGINE
@@ -295,6 +298,14 @@ def _filter_practical_alternatives(candidates):
     practical = [primary]
     
     for cand in candidates[1:]:
+        cand_geom = cand.get("geometry", [])
+        if _has_self_intersection_loop(cand_geom):
+            continue
+        if _has_backtracking_or_hairpin(cand_geom, cand.get("steps")):
+            continue
+        if _has_leave_and_rejoin_excursion(cand, primary):
+            continue
+
         cand_dist = float(cand["distance"])
         cand_time = float(cand["time"])
         dist_diff = cand_dist - prim_dist
@@ -305,6 +316,10 @@ def _filter_practical_alternatives(candidates):
         cand_level = levels.get(cand["overall_traffic"], 2)
         traffic_advantage = prim_level - cand_level
         
+        # Dominated candidate check: longer and slower without traffic benefit
+        if cand_dist > prim_dist + 0.05 and cand_time > prim_time + 0.05 and traffic_advantage <= 0:
+            continue
+
         if cand_dist > prim_dist * 2.5:
             continue
             

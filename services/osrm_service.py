@@ -23,6 +23,11 @@ CACHE_TTL_SECONDS = 600
 DEFAULT_SEARCH_BUDGET_SECONDS = 8.5
 _CACHE, _CACHE_LOCK = {}, RLock()
 _REVERSE_CORRIDOR_CHECKED = set()
+AUDIT_STATS = {
+    "routes_rejected_as_loops": 0,
+    "routes_rejected_as_dominated": 0,
+    "routes_rejected_as_near_duplicates": 0,
+}
 
 
 class RoadRoutingUnavailable(RuntimeError):
@@ -163,6 +168,17 @@ def _route_record(route, provider_id, variant_label, source):
     if len(geometry) < 2:
         return None
     duration_seconds = float(route["duration"])
+    steps = []
+    for leg in route.get("legs", []):
+        for s in leg.get("steps", []):
+            steps.append({
+                "name": str(s.get("name") or s.get("ref") or "").strip(),
+                "distance": float(s.get("distance", 0.0)),
+                "duration": float(s.get("duration", 0.0)),
+                "type": s.get("maneuver", {}).get("type", "") if isinstance(s.get("maneuver"), dict) else "",
+                "modifier": s.get("maneuver", {}).get("modifier", "") if isinstance(s.get("maneuver"), dict) else "",
+                "location": s.get("maneuver", {}).get("location", []) if isinstance(s.get("maneuver"), dict) else [],
+            })
     return {"provider_id": provider_id, "distance": round(float(route["distance"])/1000, 2),
         "duration": round(duration_seconds/60, 2), "base_duration": round(duration_seconds/60, 2),
         "route_duration_seconds": round(duration_seconds), "base_duration_seconds": round(duration_seconds),
@@ -171,12 +187,25 @@ def _route_record(route, provider_id, variant_label, source):
         "traffic_data_available": False, "traffic_source": "Real-time provider unavailable",
         "provider": "OSRM/OpenStreetMap", "provider_timestamp": None,
         "geometry": [[lat,lon] for lon,lat in geometry], "road_names": _english_road_names(route),
-        "variant_label": variant_label, "source": source}
+        "variant_label": variant_label, "source": source, "steps": steps}
 
 
 def _km(a, b):
     lat = math.radians((a[0]+b[0])/2)
     return math.hypot((a[0]-b[0])*111.0, (a[1]-b[1])*111.0*math.cos(lat))
+
+
+def _bearing(p1, p2):
+    lat1, lon1 = math.radians(p1[0]), math.radians(p1[1])
+    lat2, lon2 = math.radians(p2[0]), math.radians(p2[1])
+    dlon = lon2 - lon1
+    y = math.sin(dlon) * math.cos(lat2)
+    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+    return (math.degrees(math.atan2(y, x)) + 360) % 360
+
+
+def _angle_diff(b1, b2):
+    return abs((b2 - b1 + 180) % 360 - 180)
 
 
 def _sample(points, count=24):
@@ -249,6 +278,110 @@ def _has_self_intersection_loop(coords):
     return False
 
 
+def _has_backtracking_or_hairpin(coords, steps=None):
+    """Detect mid-route backtracking or U-turn excursions without false positives on origin/dest access."""
+    if steps:
+        total_dist = sum(s.get("distance", 0.0) for s in steps)
+        dist_so_far = 0.0
+        for s in steps:
+            dist_so_far += s.get("distance", 0.0)
+            if s.get("modifier") == "uturn" or s.get("type") == "uturn":
+                # Legitimate U-turns only occur in terminal origin/destination access (<200m)
+                if dist_so_far > 200.0 and (total_dist - dist_so_far) > 200.0:
+                    return True
+
+    n = len(coords)
+    if n < 4:
+        return False
+    cum_dist = [0.0]
+    for i in range(1, n):
+        cum_dist.append(cum_dist[-1] + _km(coords[i-1], coords[i]) * 1000.0)
+    total_len = cum_dist[-1]
+    for i in range(n - 2):
+        d_start = cum_dist[i]
+        if d_start < 200.0 or (total_len - d_start) < 200.0:
+            continue
+        seg1_len = cum_dist[i+1] - cum_dist[i]
+        if seg1_len < 5.0:
+            continue
+        b1 = _bearing(coords[i], coords[i+1])
+        for j in range(i + 1, n - 1):
+            lookahead_dist = cum_dist[j+1] - cum_dist[i+1]
+            if lookahead_dist > 350.0:
+                break
+            seg2_len = cum_dist[j+1] - cum_dist[j]
+            if seg2_len < 5.0:
+                continue
+            b2 = _bearing(coords[j], coords[j+1])
+            diff = _angle_diff(b1, b2)
+            if diff > 140.0:
+                dist_to_seg = min(_km(coords[j+1], coords[i]), _km(coords[j+1], coords[i+1])) * 1000.0
+                if dist_to_seg < 40.0:
+                    return True
+    return False
+
+
+def _has_leave_and_rejoin_excursion(candidate, primary):
+    """Detect candidate leaving the primary corridor and rejoining it nearby without reason."""
+    cand_coords = candidate.get("geometry", [])
+    prim_coords = primary.get("geometry", [])
+    if len(cand_coords) < 3 or len(prim_coords) < 3:
+        return False
+
+    cand_steps = candidate.get("steps", [])
+    if cand_steps:
+        names = [s.get("name") for s in cand_steps if s.get("name")]
+        for i, name in enumerate(names):
+            if len(name) < 3:
+                continue
+            for j in range(i + 2, min(i + 6, len(names))):
+                if names[j] == name and all(names[k] != name for k in range(i + 1, j)):
+                    side_dist = sum(s.get("distance", 0.0) for s in cand_steps[i+1:j])
+                    if side_dist < 700.0:
+                        return True
+
+    dists = []
+    for pt in cand_coords:
+        min_d = min(_km(pt, prim_pt) * 1000.0 for prim_pt in prim_coords)
+        dists.append(min_d)
+
+    left_at = None
+    max_dev = 0.0
+    for i, d in enumerate(dists):
+        if left_at is None:
+            if d > 50.0:
+                left_at = i
+                max_dev = d
+        else:
+            if d > max_dev:
+                max_dev = d
+            if d < 30.0 and max_dev > 45.0:
+                rejoined_at = i
+                cand_sub_len = sum(_km(cand_coords[k], cand_coords[k+1]) * 1000.0 for k in range(left_at - 1, rejoined_at))
+                pt_left = cand_coords[left_at - 1]
+                pt_rejoin = cand_coords[rejoined_at]
+                chord_dist = _km(pt_left, pt_rejoin) * 1000.0
+                if chord_dist < 400.0 and cand_sub_len > chord_dist + 70.0:
+                    return True
+                left_at = None
+                max_dev = 0.0
+    return False
+
+
+def _is_dominated_corridor(candidate, primary):
+    """A waypoint-generated candidate is dominated if longer and slower without corridor separation."""
+    cand_dist = float(candidate["distance"])
+    cand_dur = float(candidate["duration"])
+    prim_dist = float(primary["distance"])
+    prim_dur = float(primary["duration"])
+    if cand_dist > prim_dist + 0.05 and cand_dur > prim_dur + 0.05:
+        forward = _overlap(candidate["geometry"], primary["geometry"])
+        reverse = _overlap(primary["geometry"], candidate["geometry"])
+        if max(forward, reverse) >= 0.75:
+            return True
+    return False
+
+
 def _is_practical_corridor(candidate, primary, start_coord, destination_coord):
     geometry = candidate.get("geometry") or []
     if len(geometry) < 2:
@@ -256,6 +389,12 @@ def _is_practical_corridor(candidate, primary, start_coord, destination_coord):
     if _km(geometry[0], start_coord) > 0.3 or _km(geometry[-1], destination_coord) > 0.3:
         return False
     if _has_self_intersection_loop(geometry):
+        return False
+    if _has_backtracking_or_hairpin(geometry, candidate.get("steps")):
+        return False
+    if _has_leave_and_rejoin_excursion(candidate, primary):
+        return False
+    if _is_dominated_corridor(candidate, primary):
         return False
 
     cand_dist = float(candidate["distance"])
@@ -326,19 +465,20 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
             continue
         for frac in (0.35, 0.50, 0.65):
             idx = int(len(geom) * frac)
-            lon, lat = geom[idx]
-            pt = (lat, lon)
-            if _km(start_coord, pt) > 0.10 and _km(pt, destination_coord) > 0.10:
-                if not any(_km(m, pt) < 0.08 for m in candidate_waypoints):
-                    candidate_waypoints.append(pt)
-                # Add generic lateral offsets (+/- 45m) to resolve divided dual-carriageway directionality
-                for angle in [(bearing + 90) % 360, (bearing - 90) % 360]:
-                    rad = math.radians(angle)
-                    d_lat = 0.045 / 111.0 * math.cos(rad)
-                    d_lon = 0.045 / (111.0 * math.cos(math.radians(lat))) * math.sin(rad)
-                    offset_pt = (lat + d_lat, lon + d_lon)
-                    if not any(_km(m, offset_pt) < 0.02 for m in candidate_waypoints):
-                        candidate_waypoints.append(offset_pt)
+            if idx < len(geom):
+                lon, lat = geom[idx]
+                pt = (lat, lon)
+                if _km(start_coord, pt) > 0.10 and _km(pt, destination_coord) > 0.10:
+                    if not any(_km(m, pt) < 0.08 for m in candidate_waypoints):
+                        candidate_waypoints.append(pt)
+                    # Add generic lateral offsets (+/- 45m) to resolve divided dual-carriageway directionality
+                    for angle in [(bearing + 90) % 360, (bearing - 90) % 360]:
+                        rad = math.radians(angle)
+                        d_lat = 0.045 / 111.0 * math.cos(rad)
+                        d_lon = 0.045 / (111.0 * math.cos(math.radians(lat))) * math.sin(rad)
+                        offset_pt = (lat + d_lat, lon + d_lon)
+                        if not any(_km(m, offset_pt) < 0.02 for m in candidate_waypoints):
+                            candidate_waypoints.append(offset_pt)
 
     # 4. Fresh-route A->B legally through the discovered corridor waypoints
     for midpoint in candidate_waypoints:
@@ -350,10 +490,24 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
         except (RoadRoutingUnavailable, IndexError, KeyError, TypeError, ValueError):
             continue
 
-        if record and _is_practical_corridor(record, primary, start_coord, destination_coord) and _is_diverse(record, accepted):
+        if record:
+            if (_has_self_intersection_loop(record["geometry"])
+                    or _has_backtracking_or_hairpin(record["geometry"], record.get("steps"))
+                    or _has_leave_and_rejoin_excursion(record, primary)):
+                AUDIT_STATS["routes_rejected_as_loops"] += 1
+                continue
+            if _is_dominated_corridor(record, primary):
+                AUDIT_STATS["routes_rejected_as_dominated"] += 1
+                continue
+            if not _is_practical_corridor(record, primary, start_coord, destination_coord):
+                continue
+            if not _is_diverse(record, accepted):
+                AUDIT_STATS["routes_rejected_as_near_duplicates"] += 1
+                continue
             accepted.append(record)
 
     return accepted[:TARGET_ROUTE_COUNT]
+
 
 def fetch_real_routes(start_coord,destination_coord,alternatives=3,timeout=DEFAULT_SEARCH_BUDGET_SECONDS):
     key=(tuple(start_coord),tuple(destination_coord),int(alternatives))
