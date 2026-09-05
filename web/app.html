@@ -884,13 +884,9 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         <h3>Why This Route</h3>
         <p id="analysis-reason">Find a route to see its recommendation.</p>
     </section>
-    <section class="analysis-section">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <div class="route-agent-avatar" aria-hidden="true" style="width: 24px; height: 24px; min-width: 24px; margin: 0;"><i></i><i></i><span></span></div>
-            <h3 style="margin: 0;">YGN Assistant Recommendation</h3>
-        </div>
-        <div id="analysis-assistant-rec" style="background: var(--surface-soft); padding: 12px; border-radius: 8px; border: 1px solid var(--border-soft); color: var(--text-secondary);">
-            Find a route to see the assistant's recommendation.
+    <section class="analysis-section" style="margin-top: 24px; margin-bottom: 24px;">
+        <div id="analysis-assistant-rec">
+            <div class="assistant-card" style="padding: 24px; border: 1px solid var(--border-soft); border-radius: 12px;">Find a route to see the assistant's recommendation.</div>
         </div>
     </section>
     <details class="analysis-technical">
@@ -1630,23 +1626,15 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         document.getElementById('analysis-traffic').textContent = trafficLabel === 'Inferred'
             ? `${levelText} · Inferred`
             : trafficLabel === 'Mixed' ? `${levelText} · Mixed` : `${levelText}`;
-        document.getElementById('analysis-roads').textContent = roads.length
-            ? roads.join(' → ')
-            : 'The route follows mapped streets between the selected locations.';
 
-        const routePosition = optionIndex === 0 ? 'This route is recommended' : `This is ${opt.route_label || `Route ${optionIndex + 1}`}`;
-        const backendReason = opt.recommendation_reason?.explanation;
-        const conditionReason = `It combines a travel time of ${formatDuration(opt.time)} with ${String(opt.traffic || 'moderate').toLowerCase()} traffic.`;
-        document.getElementById('analysis-reason').textContent = `${routePosition}. ${backendReason || conditionReason}`;
-        const rules = opt.rules_fired || opt.decision?.rules_fired || [];
-        document.getElementById('analysis-rules').textContent = rules.length
-            ? rules.join(' · ')
-            : 'No route restriction or penalty rule was activated.';
 
+
+        let shortReason = '';
         let assistantText = '';
         if (optionIndex === 0) {
             if (allOptionsData.length <= 1) {
-                assistantText = "This is the practical legal route available for the selected journey.";
+                assistantText = "This route is recommended as the most practical available option based on road accessibility, traffic conditions, and travel time.";
+                shortReason = "This route is recommended. This is the only eligible real-road route returned for the journey.";
             } else {
                 const alt = allOptionsData[1];
                 const thisTrafficLevel = YangonTrafficColors.normalize(opt.traffic) || 'moderate';
@@ -1656,41 +1644,90 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
                 const t2 = trafficLevels[altTrafficLevel.toLowerCase()] || 2;
 
                 if (t1 < t2) {
-                    if (opt.distance > alt.distance || opt.time > alt.time) {
-                        assistantText = "Recommended because it reduces congestion while keeping the detour reasonable.";
-                    } else {
-                        assistantText = "Recommended because it avoids heavier congestion with a reasonable travel time.";
-                    }
+                    assistantText = "This route is recommended because it avoids heavier congestion while maintaining a reasonable travel time and practical route.";
+                    shortReason = "Recommended for avoiding heavier congestion on alternative routes.";
                 } else if (t1 === t2) {
                     if (opt.time < alt.time) {
-                        assistantText = "Recommended because traffic conditions are similar, but this route is faster and more direct.";
+                        assistantText = "This route is recommended because traffic conditions are similar, while this option provides a faster and more direct journey.";
+                        shortReason = "Recommended as the faster and more direct option among routes with similar traffic.";
                     } else {
-                        assistantText = "Recommended because it provides a practical balance between traffic conditions and travel time.";
+                        assistantText = "This route is recommended because it offers a practical balance of traffic conditions, travel time, distance, and road accessibility.";
+                        shortReason = "Recommended for its practical balance of traffic conditions and travel time.";
                     }
                 } else {
-                    assistantText = "Recommended because it provides the fastest overall journey despite some congestion.";
+                    assistantText = "Although traffic is currently heavy, this route remains the most suitable available option based on accessibility, travel time, and overall route practicality.";
+                    shortReason = "Recommended as the most practical overall option despite current heavy traffic.";
                 }
             }
         } else {
             assistantText = "This route is a valid alternative, but it may have heavier traffic or a longer travel time than the recommended path.";
+            shortReason = "Alternative route.";
         }
 
-        const routeString = roads.length ? roads.join(' → ') : (route.join(' → ') || 'Selected route');
+        document.getElementById('analysis-reason').textContent = shortReason;
+
+        const rules = opt.rules_fired || opt.decision?.rules_fired || [];
+        document.getElementById('analysis-rules').textContent = rules.length
+            ? rules.join(' · ')
+            : 'No route restriction or penalty rule was activated.';
+
+        const originName = route[0] || 'Origin';
+        const destinationName = route.at(-1) || 'Destination';
+        const rawRoads = (opt.road_names || route.slice(1, -1)).filter(Boolean);
+        const deduplicatedRoads = [];
+        for (const road of rawRoads) {
+            if (deduplicatedRoads.length === 0 || deduplicatedRoads[deduplicatedRoads.length - 1] !== road) {
+                deduplicatedRoads.push(road);
+            }
+        }
+        
+        const finalChain = [];
+        for (const segment of [originName, ...deduplicatedRoads, destinationName]) {
+            if (finalChain.length === 0 || finalChain[finalChain.length - 1] !== segment) {
+                finalChain.push(segment);
+            }
+        }
+        const routeString = finalChain.join(' → ');
+        document.getElementById('analysis-roads').textContent = routeString;
+
         document.getElementById('analysis-assistant-rec').innerHTML = `
-            <div style="margin-bottom: 12px;">
-                <strong style="display: block; color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">Recommended route:</strong>
-                <span style="color: var(--text-secondary); line-height: 1.4;">${routeString}</span>
-            </div>
-            <div style="margin-bottom: 12px;">
-                <strong style="display: block; color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">Reason:</strong>
-                <span style="color: var(--text-secondary); line-height: 1.4;">${assistantText}</span>
-            </div>
-            <div>
-                <strong style="display: block; color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">What the system considered:</strong>
-                <span style="color: var(--text-muted); font-size: 11px; line-height: 1.4;">Traffic condition · Travel time · Distance · Road suitability</span>
+            <div class="assistant-card">
+                <div class="assistant-card-header">
+                    <span class="assistant-sparkle">✨</span>
+                    <h3>YGN Assistant Recommendation</h3>
+                </div>
+                <div class="assistant-card-body">
+                    <div class="assistant-card-visual">
+                        <div class="agent-robot" aria-hidden="true" style="transform: scale(0.65); transform-origin: top center; margin-bottom: -50px;">
+                            <div class="robot-antenna"><b></b></div>
+                            <div class="robot-head"><i></i><i></i><span></span></div>
+                            <div class="robot-body"><b>YGN</b><span></span><span></span><span></span></div>
+                        </div>
+                        <div class="assistant-speech-bubble">Here's my<br>recommendation!</div>
+                    </div>
+                    <div class="assistant-card-content">
+                        <div class="assistant-card-col">
+                            <strong>Recommended Route</strong>
+                            <p>${routeString}</p>
+                        </div>
+                        <div class="assistant-card-col">
+                            <strong>Reason</strong>
+                            <p>${assistantText}</p>
+                        </div>
+                        <div class="assistant-card-col">
+                            <strong>What the System Considered</strong>
+                            <div class="assistant-pill-container">
+                                <span class="assistant-pill">Traffic Conditions</span>
+                                <span class="assistant-pill">Travel Time</span>
+                                <span class="assistant-pill">Distance</span>
+                                <span class="assistant-pill">Road Suitability</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
-
+        
         const alternatives = document.getElementById('analysis-alternatives');
         const alternativesSection = document.getElementById('analysis-alternatives-section');
         alternatives.replaceChildren();

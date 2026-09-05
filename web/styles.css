@@ -576,3 +576,47 @@ body[data-theme=dark] .btn-reset { border-color: rgba(167,139,250,0.2) !importan
 .route-option { padding: 16px !important; }
 .route-characteristics { margin-top: 10px !important; }
 
+/* --- UI UPGRADE: Assistant Card --- */
+.assistant-card { background: #F8F5FF !important; border: 1px solid #E9D5FF !important; border-radius: 12px; padding: 24px; color: #171526; }
+.assistant-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.assistant-card-header h3 { margin: 0; color: #5B21B6 !important; font-size: 16px !important; font-weight: 700; }
+.assistant-card-body { display: grid; grid-template-columns: 200px 1fr; gap: 32px; align-items: start; }
+.assistant-card-visual { position: relative; text-align: center; }
+.assistant-speech-bubble { background: #FFFFFF; border: 1px solid #D6CCFF; color: #6D28D9; padding: 8px 12px; border-radius: 12px 12px 12px 0; font-size: 11px; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(109,40,217,0.06); position: relative; margin-top: -10px; }
+.assistant-card-content { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.assistant-card-col strong { display: block; font-size: 11px; color: #5B21B6; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.assistant-card-col p { margin: 0; font-size: 13px; line-height: 1.45; color: #42385C; }
+.assistant-pill-container { display: flex; flex-wrap: wrap; gap: 8px; }
+.assistant-pill { background: #EEDDFF; color: #6D28D9; font-size: 11px; padding: 4px 10px; border-radius: 99px; font-weight: 600; }
+
+body[data-theme=dark] .assistant-card { background: #1A1528 !important; border-color: #4C1D95 !important; }
+body[data-theme=dark] .assistant-card-header h3 { color: #E9D5FF !important; }
+body[data-theme=dark] .assistant-card-col strong { color: #C4B5FD; }
+body[data-theme=dark] .assistant-card-col p { color: #D1C5EC; }
+body[data-theme=dark] .assistant-speech-bubble { background: #2E2545; border-color: #6D28D9; color: #E9D5FF; }
+body[data-theme=dark] .assistant-pill { background: #3B2B5C; color: #E9D5FF; }
+
+@media (max-width: 900px) {
+    .assistant-card-body { grid-template-columns: 1fr; gap: 24px; }
+    .assistant-card-content { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+    .assistant-card-content { grid-template-columns: 1fr; }
+}
+
+/* --- UI UPGRADE: Journey Summary Cards --- */
+.analysis-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0; }
+.analysis-facts div { background: #FFFFFF; border: 1px solid #E6E1EF; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; }
+.analysis-facts span { font-size: 11px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.analysis-facts strong { font-size: 15px; color: #111827; }
+
+body[data-theme=dark] .analysis-facts div { background: #1E1B2E; border-color: #3B2B5C; }
+body[data-theme=dark] .analysis-facts span { color: #9CA3AF; }
+body[data-theme=dark] .analysis-facts strong { color: #F9FAFB; }
+
+@media (max-width: 768px) {
+    .analysis-facts { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+    .analysis-facts { grid-template-columns: 1fr; }
+}
