@@ -747,7 +747,7 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         <button class="btn-reset" id="reset-btn" type="button">Reset Journey</button>
         <button class="btn-sim" id="sim-btn" type="button" disabled>Start Simulation</button>
 
-        <div class="status" id="status">Loading...</div>
+        <div class="status" id="status"></div>
 
         <div class="legend">
             <span class="traffic-light"></span> Light
@@ -1168,7 +1168,7 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
             loadTileProvider(0);
 
             mapReady = true;
-            document.getElementById('status').innerText = 'Ready';
+            document.getElementById('status').innerText = '';
             showMapView();
 
         } catch (e) {
@@ -2192,7 +2192,7 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         simulation3D.onExit = () => {
             simRunning = false;
             document.getElementById('sim-btn').disabled = false;
-            document.getElementById('status').innerText = 'Ready';
+            document.getElementById('status').innerText = '';
             showMapView();
             YangonAppState.set({ phase: YangonAppState.phases.READY });
         };
@@ -2269,7 +2269,7 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
                 drawStaticNetwork();
             }
 
-            document.getElementById('status').innerText = 'Ready';
+            document.getElementById('status').innerText = '';
 
         } catch (e) {
             console.error('populateDropdowns failed:', e);
@@ -2514,7 +2514,7 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         document.getElementById('analysis-btn').disabled = true;
         document.getElementById('forecast-period').value = 'now';
         document.getElementById('forecast-result').hidden = true;
-        document.getElementById('status').innerText = 'Ready';
+        document.getElementById('status').innerText = '';
         document.getElementById('sim-btn').disabled = true;
         document.getElementById('nav-hud-2d').classList.remove('visible');
         YangonAppState.set({ phase: YangonAppState.phases.IDLE });
