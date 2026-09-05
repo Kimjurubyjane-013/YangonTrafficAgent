@@ -75,15 +75,7 @@
                 if (!traffic || !Number.isFinite(travelTime) || !Number.isFinite(expectedDelay)) {
                     throw new Error('Traffic Outlook returned incomplete route information.');
                 }
-                const labels = { now:'Current Traffic', plus_30:'+30 Min', plus_60:'+1 Hour', evening_rush:'Evening Rush' };
                 output.replaceChildren();
-
-                const periodLabel = document.createElement('div');
-                periodLabel.className = 'outlook-period';
-                periodLabel.style.fontWeight = 'bold';
-                periodLabel.style.marginBottom = '8px';
-                periodLabel.textContent = labels[period] || 'Traffic Outlook';
-                output.appendChild(periodLabel);
 
                 const formatFn = typeof window.formatRouteDuration === 'function'
                     ? window.formatRouteDuration
@@ -105,6 +97,7 @@
 
                 if (period !== 'now' && typeof data.reason === 'string' && data.reason.trim()) {
                     const reasonBox = document.createElement('span');
+                    reasonBox.className = 'reason-box';
                     const rHeading = document.createElement('small'); rHeading.textContent = 'Reason';
                     const rDetail = document.createElement('strong'); rDetail.style.fontWeight = 'normal'; rDetail.textContent = String(data.reason).trim();
                     reasonBox.append(rHeading, rDetail);
