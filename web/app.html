@@ -885,12 +885,26 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         <p id="analysis-reason">Find a route to see its recommendation.</p>
     </section>
     <section class="analysis-section">
-        <h3>Rules Applied</h3>
-        <p id="analysis-rules">No decision rules have been evaluated yet.</p>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <div class="route-agent-avatar" aria-hidden="true" style="width: 24px; height: 24px; min-width: 24px; margin: 0;"><i></i><i></i><span></span></div>
+            <h3 style="margin: 0;">YGN Assistant Recommendation</h3>
+        </div>
+        <div id="analysis-assistant-rec" style="background: var(--surface-soft); padding: 12px; border-radius: 8px; border: 1px solid var(--border-soft); color: var(--text-secondary);">
+            Find a route to see the assistant's recommendation.
+        </div>
     </section>
     <details class="analysis-technical">
         <summary>Technical Details</summary>
-        <p id="analysis-source">Technical route details will appear after a search.</p>
+        <div style="margin-top: 12px; display: grid; gap: 12px;">
+            <div>
+                <strong style="display: block; color: var(--text); margin-bottom: 4px;">Rules Applied</strong>
+                <p id="analysis-rules" style="margin: 0;">No decision rules have been evaluated yet.</p>
+            </div>
+            <div>
+                <strong style="display: block; color: var(--text); margin-bottom: 4px;">Source Data</strong>
+                <p id="analysis-source" style="margin: 0;">Technical route details will appear after a search.</p>
+            </div>
+        </div>
     </details>
     <section class="analysis-section" id="analysis-alternatives-section" hidden>
         <h3>Other Available Routes</h3>
@@ -1628,6 +1642,54 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         document.getElementById('analysis-rules').textContent = rules.length
             ? rules.join(' · ')
             : 'No route restriction or penalty rule was activated.';
+
+        let assistantText = '';
+        if (optionIndex === 0) {
+            if (allOptionsData.length <= 1) {
+                assistantText = "This is the practical legal route available for the selected journey.";
+            } else {
+                const alt = allOptionsData[1];
+                const thisTrafficLevel = YangonTrafficColors.normalize(opt.traffic) || 'moderate';
+                const altTrafficLevel = YangonTrafficColors.normalize(alt.traffic) || 'moderate';
+                const trafficLevels = { 'light': 1, 'moderate': 2, 'heavy': 3 };
+                const t1 = trafficLevels[thisTrafficLevel.toLowerCase()] || 2;
+                const t2 = trafficLevels[altTrafficLevel.toLowerCase()] || 2;
+
+                if (t1 < t2) {
+                    if (opt.distance > alt.distance || opt.time > alt.time) {
+                        assistantText = "Recommended because it reduces congestion while keeping the detour reasonable.";
+                    } else {
+                        assistantText = "Recommended because it avoids heavier congestion with a reasonable travel time.";
+                    }
+                } else if (t1 === t2) {
+                    if (opt.time < alt.time) {
+                        assistantText = "Recommended because traffic conditions are similar, but this route is faster and more direct.";
+                    } else {
+                        assistantText = "Recommended because it provides a practical balance between traffic conditions and travel time.";
+                    }
+                } else {
+                    assistantText = "Recommended because it provides the fastest overall journey despite some congestion.";
+                }
+            }
+        } else {
+            assistantText = "This route is a valid alternative, but it may have heavier traffic or a longer travel time than the recommended path.";
+        }
+
+        const routeString = roads.length ? roads.join(' → ') : (route.join(' → ') || 'Selected route');
+        document.getElementById('analysis-assistant-rec').innerHTML = `
+            <div style="margin-bottom: 12px;">
+                <strong style="display: block; color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">Recommended route:</strong>
+                <span style="color: var(--text-secondary); line-height: 1.4;">${routeString}</span>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <strong style="display: block; color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">Reason:</strong>
+                <span style="color: var(--text-secondary); line-height: 1.4;">${assistantText}</span>
+            </div>
+            <div>
+                <strong style="display: block; color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">What the system considered:</strong>
+                <span style="color: var(--text-muted); font-size: 11px; line-height: 1.4;">Traffic condition · Travel time · Distance · Road suitability</span>
+            </div>
+        `;
 
         const alternatives = document.getElementById('analysis-alternatives');
         const alternativesSection = document.getElementById('analysis-alternatives-section');
