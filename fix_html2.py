@@ -1,0 +1,122 @@
+﻿import sys
+
+with open('web/app.html', 'r', encoding='utf-8') as f:
+    content = f.read()
+
+start_marker = "const routePosition = optionIndex === 0 ? 'This route is recommended' :"
+end_marker = "const alternatives = document.getElementById('analysis-alternatives');"
+
+start_idx = content.find(start_marker)
+end_idx = content.find(end_marker)
+
+if start_idx == -1 or end_idx == -1:
+    print("Markers not found!")
+    sys.exit(1)
+
+new_js = '''let shortReason = '';
+        let assistantText = '';
+        if (optionIndex === 0) {
+            if (allOptionsData.length <= 1) {
+                assistantText = "This route is recommended as the most practical available option based on road accessibility, traffic conditions, and travel time.";
+                shortReason = "This route is recommended. This is the only eligible real-road route returned for the journey.";
+            } else {
+                const alt = allOptionsData[1];
+                const thisTrafficLevel = YangonTrafficColors.normalize(opt.traffic) || 'moderate';
+                const altTrafficLevel = YangonTrafficColors.normalize(alt.traffic) || 'moderate';
+                const trafficLevels = { 'light': 1, 'moderate': 2, 'heavy': 3 };
+                const t1 = trafficLevels[thisTrafficLevel.toLowerCase()] || 2;
+                const t2 = trafficLevels[altTrafficLevel.toLowerCase()] || 2;
+
+                if (t1 < t2) {
+                    assistantText = "This route is recommended because it avoids heavier congestion while maintaining a reasonable travel time and practical route.";
+                    shortReason = "Recommended for avoiding heavier congestion on alternative routes.";
+                } else if (t1 === t2) {
+                    if (opt.time < alt.time) {
+                        assistantText = "This route is recommended because traffic conditions are similar, while this option provides a faster and more direct journey.";
+                        shortReason = "Recommended as the faster and more direct option among routes with similar traffic.";
+                    } else {
+                        assistantText = "This route is recommended because it offers a practical balance of traffic conditions, travel time, distance, and road accessibility.";
+                        shortReason = "Recommended for its practical balance of traffic conditions and travel time.";
+                    }
+                } else {
+                    assistantText = "Although traffic is currently heavy, this route remains the most suitable available option based on accessibility, travel time, and overall route practicality.";
+                    shortReason = "Recommended as the most practical overall option despite current heavy traffic.";
+                }
+            }
+        } else {
+            assistantText = "This route is a valid alternative, but it may have heavier traffic or a longer travel time than the recommended path.";
+            shortReason = "Alternative route.";
+        }
+
+        document.getElementById('analysis-reason').textContent = shortReason;
+
+        const rules = opt.rules_fired || opt.decision?.rules_fired || [];
+        document.getElementById('analysis-rules').textContent = rules.length
+            ? rules.join(' \u00B7 ')
+            : 'No route restriction or penalty rule was activated.';
+
+        const originName = route[0] || 'Origin';
+        const destinationName = route.at(-1) || 'Destination';
+        const rawRoads = (opt.road_names || route.slice(1, -1)).filter(Boolean);
+        const deduplicatedRoads = [];
+        for (const road of rawRoads) {
+            if (deduplicatedRoads.length === 0 || deduplicatedRoads[deduplicatedRoads.length - 1] !== road) {
+                deduplicatedRoads.push(road);
+            }
+        }
+        
+        const finalChain = [];
+        for (const segment of [originName, ...deduplicatedRoads, destinationName]) {
+            if (finalChain.length === 0 || finalChain[finalChain.length - 1] !== segment) {
+                finalChain.push(segment);
+            }
+        }
+        const routeString = finalChain.join(' \u2192 ');
+        document.getElementById('analysis-roads').textContent = routeString;
+
+        document.getElementById('analysis-assistant-rec').innerHTML = 
+            <div class="assistant-card">
+                <div class="assistant-card-header">
+                    <span class="assistant-sparkle">\u2728</span> 
+                    <h3>YGN Assistant Recommendation</h3>
+                </div>
+                <div class="assistant-card-body">
+                    <div class="assistant-card-visual">
+                        <div class="agent-robot" aria-hidden="true" style="transform: scale(0.65); transform-origin: top center; margin-bottom: -50px;">
+                            <div class="robot-antenna"><b></b></div>
+                            <div class="robot-head"><i></i><i></i><span></span></div>
+                            <div class="robot-body"><b>YGN</b><span></span><span></span><span></span></div>
+                        </div>
+                        <div class="assistant-speech-bubble">Here's my<br>recommendation!</div>
+                    </div>
+                    
+                    <div class="assistant-card-content">
+                        <div class="assistant-card-col">
+                            <strong>Recommended Route</strong>
+                            <p>\</p>
+                        </div>
+                        <div class="assistant-card-col">
+                            <strong>Reason</strong>
+                            <p>\</p>
+                        </div>
+                        <div class="assistant-card-col">
+                            <strong>What the System Considered</strong>
+                            <div class="assistant-pill-container">
+                                <span class="assistant-pill">Traffic Conditions</span>
+                                <span class="assistant-pill">Travel Time</span>
+                                <span class="assistant-pill">Distance</span>
+                                <span class="assistant-pill">Road Suitability</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ;
+        
+        '''
+
+content = content[:start_idx] + new_js + content[end_idx:]
+
+with open('web/app.html', 'w', encoding='utf-8') as f:
+    f.write(content)
+

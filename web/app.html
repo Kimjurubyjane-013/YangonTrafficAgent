@@ -869,19 +869,37 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         <span id="analysis-traffic" class="analysis-traffic">—</span>
     </div>
     <div class="analysis-facts">
-        <div><span>Origin</span><strong id="analysis-origin">—</strong></div>
-        <div><span>Destination</span><strong id="analysis-destination">—</strong></div>
-        <div><span>Vehicle</span><strong id="analysis-vehicle">—</strong></div>
-        <div><span>Distance</span><strong id="analysis-distance">—</strong></div>
-        <div><span>Travel Time</span><strong id="analysis-time">—</strong></div>
-        <div><span>Delay</span><strong id="analysis-delay">—</strong></div>
+        <div>
+            <span class="fact-icon fact-icon--origin"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.4 7-12a7 7 0 1 0-14 0c0 5.6 7 12 7 12z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.4" stroke="currentColor" stroke-width="2"/></svg></span>
+            <div class="fact-text"><span>Origin</span><strong id="analysis-origin">—</strong></div>
+        </div>
+        <div>
+            <span class="fact-icon fact-icon--destination"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 21V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 4h11l-2.5 3.5L17 11H6" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
+            <div class="fact-text"><span>Destination</span><strong id="analysis-destination">—</strong></div>
+        </div>
+        <div>
+            <span class="fact-icon fact-icon--vehicle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 16v-3.5L6 8h12l2 4.5V16" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M4 16h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8" cy="16.5" r="1.6" fill="currentColor"/><circle cx="16" cy="16.5" r="1.6" fill="currentColor"/></svg></span>
+            <div class="fact-text"><span>Vehicle</span><strong id="analysis-vehicle">—</strong></div>
+        </div>
+        <div>
+            <span class="fact-icon fact-icon--distance"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 21 4 19.2V4.8L9 3v18z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 21 20 19.2V4.8L15 3v18z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 3v18M15 3v18" stroke="currentColor" stroke-width="2"/></svg></span>
+            <div class="fact-text"><span>Distance</span><strong id="analysis-distance">—</strong></div>
+        </div>
+        <div>
+            <span class="fact-icon fact-icon--time"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+            <div class="fact-text"><span>Travel Time</span><strong id="analysis-time">—</strong></div>
+        </div>
+        <div>
+            <span class="fact-icon fact-icon--delay"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 3h12M6 21h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7 3c0 4.5 3 5.5 5 7 2-1.5 5-2.5 5-7M7 21c0-4.5 3-5.5 5-7 2 1.5 5 2.5 5 7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
+            <div class="fact-text"><span>Delay</span><strong id="analysis-delay">—</strong></div>
+        </div>
     </div>
     <section class="analysis-section">
-        <h3>Roads Used</h3>
+        <h3><span class="section-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 19c2-1 4-1.5 8-1.5s6 .5 8 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7 19 10 5h4l3 14" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12h6" stroke="currentColor" stroke-width="2" stroke-dasharray="1.5 2.5" stroke-linecap="round"/></svg></span>Roads Used</h3>
         <p id="analysis-roads">Route details will appear after a search.</p>
     </section>
     <section class="analysis-section">
-        <h3>Why This Route</h3>
+        <h3><span class="section-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M7 3h7l4 4v14H7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 3v4h4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 12.5h5M9.5 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>Why This Route</h3>
         <p id="analysis-reason">Find a route to see its recommendation.</p>
     </section>
     <section class="analysis-section" style="margin-top: 24px; margin-bottom: 24px;">
@@ -1698,11 +1716,19 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
                 </div>
                 <div class="assistant-card-body">
                     <div class="assistant-card-visual">
-                        <div class="agent-robot" aria-hidden="true" style="transform: scale(0.65); transform-origin: top center; margin-bottom: -50px;">
-                            <div class="robot-antenna"><b></b></div>
-                            <div class="robot-head"><i></i><i></i><span></span></div>
-                            <div class="robot-body"><b>YGN</b><span></span><span></span><span></span></div>
-                        </div>
+                        <svg class="assistant-robot-icon" viewBox="0 0 120 150" aria-hidden="true">
+                            <circle cx="60" cy="10" r="5" fill="#8B5CF6"/>
+                            <line x1="60" y1="15" x2="60" y2="26" stroke="#6D28D9" stroke-width="3"/>
+                            <rect x="15" y="26" width="90" height="62" rx="24" fill="#F4F1FF" stroke="#6D28D9" stroke-width="7"/>
+                            <circle cx="45" cy="56" r="7" fill="#8B5CF6"/>
+                            <circle cx="75" cy="56" r="7" fill="#8B5CF6"/>
+                            <path d="M48 70 Q60 78 72 70" stroke="#6D28D9" stroke-width="3" fill="none" stroke-linecap="round"/>
+                            <rect x="22" y="86" width="76" height="58" rx="18" fill="#6D28D9"/>
+                            <text x="60" y="112" text-anchor="middle" font-family="inherit" font-size="15" font-weight="700" letter-spacing="2" fill="#FFFFFF">YGN</text>
+                            <circle cx="50" cy="128" r="4" fill="#A78BFA"/>
+                            <circle cx="60" cy="128" r="4" fill="#8B5CF6"/>
+                            <circle cx="70" cy="128" r="4" fill="#A78BFA"/>
+                        </svg>
                         <div class="assistant-speech-bubble">Here's my<br>recommendation!</div>
                     </div>
                     <div class="assistant-card-content">
