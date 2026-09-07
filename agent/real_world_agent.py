@@ -316,8 +316,11 @@ def _filter_practical_alternatives(candidates):
         cand_level = levels.get(cand["overall_traffic"], 2)
         traffic_advantage = prim_level - cand_level
         
-        # Dominated candidate check: longer and slower without traffic benefit
-        if cand_dist > prim_dist + 0.05 and cand_time > prim_time + 0.05 and traffic_advantage <= 0:
+        # Dominated candidate check on the same corridor: longer and slower without traffic benefit
+        forward_overlap = _overlap(cand_geom, primary.get("geometry", []))
+        reverse_overlap = _overlap(primary.get("geometry", []), cand_geom)
+        is_same_corridor = min(forward_overlap, reverse_overlap) >= 0.50
+        if is_same_corridor and cand_dist > prim_dist + 0.05 and cand_time > prim_time + 0.05 and traffic_advantage <= 0:
             continue
 
         if cand_dist > prim_dist * 2.5:

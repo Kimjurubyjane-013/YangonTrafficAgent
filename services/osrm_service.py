@@ -286,8 +286,8 @@ def _has_backtracking_or_hairpin(coords, steps=None):
         for s in steps:
             dist_so_far += s.get("distance", 0.0)
             if s.get("modifier") == "uturn" or s.get("type") == "uturn":
-                # Legitimate U-turns only occur in terminal origin/destination access (<200m)
-                if dist_so_far > 200.0 and (total_dist - dist_so_far) > 200.0:
+                # Legitimate U-turns occur in terminal origin/destination access (<450m)
+                if dist_so_far > 450.0 and (total_dist - dist_so_far) > 450.0:
                     return True
 
     n = len(coords)
@@ -299,7 +299,8 @@ def _has_backtracking_or_hairpin(coords, steps=None):
     total_len = cum_dist[-1]
     for i in range(n - 2):
         d_start = cum_dist[i]
-        if d_start < 200.0 or (total_len - d_start) < 200.0:
+        # Protect origin and destination access zones (450m)
+        if d_start < 450.0 or (total_len - d_start) < 450.0:
             continue
         seg1_len = cum_dist[i+1] - cum_dist[i]
         if seg1_len < 5.0:
@@ -330,24 +331,42 @@ def _has_leave_and_rejoin_excursion(candidate, primary):
 
     cand_steps = candidate.get("steps", [])
     if cand_steps:
-        names = [s.get("name") for s in cand_steps if s.get("name")]
+        total_cand_dist = sum(s.get("distance", 0.0) for s in cand_steps)
+        dist_so_far = 0.0
+        names = []
+        step_dists = []
+        for s in cand_steps:
+            names.append(s.get("name") or "")
+            step_dists.append(dist_so_far)
+            dist_so_far += s.get("distance", 0.0)
+
         for i, name in enumerate(names):
             if len(name) < 3:
                 continue
             for j in range(i + 2, min(i + 6, len(names))):
                 if names[j] == name and all(names[k] != name for k in range(i + 1, j)):
-                    side_dist = sum(s.get("distance", 0.0) for s in cand_steps[i+1:j])
-                    if side_dist < 700.0:
-                        return True
+                    # Protect terminal destination access (<200m to destination)
+                    if (total_cand_dist - step_dists[j]) > 200.0:
+                        side_dist = sum(s.get("distance", 0.0) for s in cand_steps[i+1:j])
+                        if side_dist < 700.0:
+                            return True
 
     dists = []
     for pt in cand_coords:
         min_d = min(_km(pt, prim_pt) * 1000.0 for prim_pt in prim_coords)
         dists.append(min_d)
 
+    cum_cand = [0.0]
+    for k in range(1, len(cand_coords)):
+        cum_cand.append(cum_cand[-1] + _km(cand_coords[k-1], cand_coords[k]) * 1000.0)
+    total_cand_len = cum_cand[-1]
+
     left_at = None
     max_dev = 0.0
     for i, d in enumerate(dists):
+        # Ignore deviations that end near destination (< 200m)
+        if (total_cand_len - cum_cand[i]) < 200.0:
+            continue
         if left_at is None:
             if d > 50.0:
                 left_at = i
@@ -357,7 +376,7 @@ def _has_leave_and_rejoin_excursion(candidate, primary):
                 max_dev = d
             if d < 30.0 and max_dev > 45.0:
                 rejoined_at = i
-                cand_sub_len = sum(_km(cand_coords[k], cand_coords[k+1]) * 1000.0 for k in range(left_at - 1, rejoined_at))
+                cand_sub_len = cum_cand[rejoined_at] - cum_cand[left_at - 1]
                 pt_left = cand_coords[left_at - 1]
                 pt_rejoin = cand_coords[rejoined_at]
                 chord_dist = _km(pt_left, pt_rejoin) * 1000.0
@@ -457,28 +476,34 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
     x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
     bearing = (math.degrees(math.atan2(y, x)) + 360) % 360
 
-    # 3. Extract candidate corridor waypoints from real road geometries (fwd + rev)
+    # 3. Extract candidate corridor waypoints from real road geometries (prioritizing rev_raw then fwd_raw)
     candidate_waypoints = []
-    for raw in fwd_raw + rev_raw:
-        geom = raw.get("geometry", {}).get("coordinates", []) if isinstance(raw.get("geometry"), dict) else raw.get("geometry", [])
-        if len(geom) < 3:
-            continue
-        for frac in (0.35, 0.50, 0.65):
-            idx = int(len(geom) * frac)
-            if idx < len(geom):
-                lon, lat = geom[idx]
-                pt = (lat, lon)
-                if _km(start_coord, pt) > 0.10 and _km(pt, destination_coord) > 0.10:
-                    if not any(_km(m, pt) < 0.08 for m in candidate_waypoints):
-                        candidate_waypoints.append(pt)
-                    # Add generic lateral offsets (+/- 45m) to resolve divided dual-carriageway directionality
-                    for angle in [(bearing + 90) % 360, (bearing - 90) % 360]:
-                        rad = math.radians(angle)
-                        d_lat = 0.045 / 111.0 * math.cos(rad)
-                        d_lon = 0.045 / (111.0 * math.cos(math.radians(lat))) * math.sin(rad)
-                        offset_pt = (lat + d_lat, lon + d_lon)
-                        if not any(_km(m, offset_pt) < 0.02 for m in candidate_waypoints):
-                            candidate_waypoints.append(offset_pt)
+    for raw_source in [rev_raw, fwd_raw]:
+        for raw in raw_source:
+            geom = raw.get("geometry", {}).get("coordinates", []) if isinstance(raw.get("geometry"), dict) else raw.get("geometry", [])
+            if len(geom) < 3:
+                continue
+            for frac in (0.45, 0.60, 0.35):
+                idx = int(len(geom) * frac)
+                if 1 <= idx < len(geom) - 1:
+                    lon, lat = geom[idx]
+                    pt = (lat, lon)
+                    if _km(start_coord, pt) > 0.12 and _km(pt, destination_coord) > 0.12:
+                        prev_pt = (geom[idx-1][1], geom[idx-1][0])
+                        next_pt = (geom[idx+1][1], geom[idx+1][0])
+                        road_bearing = _bearing(prev_pt, next_pt)
+                        for lat_offset_m in [30.0, -30.0, 0.0]:
+                            if lat_offset_m == 0.0:
+                                offset_pt = pt
+                            else:
+                                angle = (road_bearing + (90 if lat_offset_m > 0 else -90)) % 360
+                                rad = math.radians(angle)
+                                d = abs(lat_offset_m) / 1000.0
+                                d_lat = d / 111.0 * math.cos(rad)
+                                d_lon = d / (111.0 * math.cos(math.radians(lat))) * math.sin(rad)
+                                offset_pt = (lat + d_lat, lon + d_lon)
+                            if not any(_km(m, offset_pt) < 0.05 for m in candidate_waypoints):
+                                candidate_waypoints.append(offset_pt)
 
     # 4. Fresh-route A->B legally through the discovered corridor waypoints
     for midpoint in candidate_waypoints:
@@ -505,6 +530,11 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
                 AUDIT_STATS["routes_rejected_as_near_duplicates"] += 1
                 continue
             accepted.append(record)
+
+    accepted.sort(key=lambda r: (float(r["duration"]), float(r["distance"])))
+    for i, r in enumerate(accepted):
+        r["provider_id"] = i
+        r["variant_label"] = "Direct corridor" if i == 0 else f"Alternative {i + 1}"
 
     return accepted[:TARGET_ROUTE_COUNT]
 
