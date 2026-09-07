@@ -78,6 +78,7 @@ BURMESE_ROAD_NAMES: dict[str, str] = {
     "ဦးဝီစာရလမ်း": "U Wisara Road",
     "ဓမ္မစေတီလမ်း": "Dhammazedi Road",
     "ရွှေတိဂုံဘုရားလမ်း": "Shwedagon Pagoda Road",
+    "ရွှေတိဂုံ ဘုရားလမ်း": "Shwedagon Pagoda Road",
     "ရွှေတိဂုံလမ်း": "Shwedagon Pagoda Road",
     "ဗဟိုလမ်း": "Baho Road",
     "ကမ္ဘာအေးဘုရားလမ်း": "Kabar Aye Pagoda Road",
@@ -110,10 +111,20 @@ BURMESE_ROAD_NAMES: dict[str, str] = {
     "မဟာဗန္ဓုလလမ်း": "Maha Bandula Road",
     "သိမ်ဖြူလမ်း": "Thein Phyu Road",
     "အလုံလမ်း": "Ahlone Road",
+    "မြို့မကျောင်းလမ်း": "Myoma Kyaung Street",
+    "ဆူးလေလမ်း": "Sule Pagoda Road",
+    "အလံပြဘုရားလမ်း": "Alan Pya Pagoda Road",
+    "အလံပြလမ်း": "Alan Pya Pagoda Road",
+    "ဗညားဒလလမ်း": "Banyadala Road",
+    "ဆရာစံလမ်း": "Sayar San Road",
+    "ကန်ရိပ်သာလမ်း": "Kan Yeik Tha Road",
+    "မင်းရဲကျော်စွာလမ်း": "Min Ye Kyaw Swa Road",
+    "ရှင်စောပုလမ်း": "Shin Saw Pu Road",
+    "အင်းစိန်လမ်း": "Insein Road",
 }
 
 
-def _english_road_names(route):
+def _english_road_names(route, limit=None):
     names, seen = [], set()
     for leg in route.get("legs", []):
         for step in leg.get("steps", []):
@@ -143,7 +154,7 @@ def _english_road_names(route):
             if key and key not in seen:
                 seen.add(key)
                 names.append(english)
-    return names[:3]
+    return names[:limit] if limit is not None else names
 
 
 def _request(coordinates, alternatives, timeout):

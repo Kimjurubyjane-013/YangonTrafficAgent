@@ -117,7 +117,12 @@
             const previous = start.value;
             start.value = destination.value;
             destination.value = previous;
-            if (start.value && destination.value && start.value !== destination.value) window.findRoute();
+            if (typeof window.clearRouteDisplay === 'function') {
+                window.clearRouteDisplay();
+            }
+            if (start.value && destination.value && start.value !== destination.value) {
+                window.findRoute();
+            }
         });
         const scenario = document.getElementById('scenario-mode');
         const closureField = document.getElementById('closure-field');

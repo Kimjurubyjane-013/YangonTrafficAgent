@@ -69,7 +69,7 @@ def decode_flexible_polyline(encoded: str) -> list[list[float]]:
     return coordinates
 
 
-def _english_road_names(route: dict) -> list[str]:
+def _english_road_names(route: dict, limit: int | None = None) -> list[str]:
     names: list[str] = []
     seen: set[str] = set()
     for section in route.get("sections", []):
@@ -83,7 +83,7 @@ def _english_road_names(route: dict) -> list[str]:
                 if key and re.search(r"[A-Za-z]", english) and key not in seen:
                     seen.add(key)
                     names.append(english)
-    return names[:3]
+    return names[:limit] if limit is not None else names
 
 
 def _traffic_level(duration_seconds: float, base_seconds: float) -> str:

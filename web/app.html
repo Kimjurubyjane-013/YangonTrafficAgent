@@ -2524,6 +2524,7 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
             return;
         }
 
+        clearRouteDisplay();
         showMapView();
         document.getElementById('status').innerText = '🔍 Finding real roads and alternatives…';
         const slowSearchNotice = setTimeout(() => {
@@ -2653,6 +2654,38 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         if (mode === 'closure') conditions.scenario_type = 'road_closed';
         if (closedRoad) conditions.affected_road = closedRoad;
         return conditions;
+    }
+
+    function clearRouteDisplay() {
+        if (simulation3D) simulation3D.reset();
+        clearMap();
+        if (typeof clearRouteHighlight === 'function') clearRouteHighlight();
+        currentRouteCoords = null; currentRouteLegs = null;
+        currentRouteNames = null; currentSegmentTraffic = null;
+        allOptionsData = []; activeOptionIndex = 0;
+        const optionsEl = document.getElementById('route-options');
+        if (optionsEl) optionsEl.replaceChildren();
+        document.getElementById('r-route').innerText = 'Route: Calculating…';
+        document.getElementById('r-distance').innerText = 'Distance: —';
+        document.getElementById('r-time').innerText = 'Travel Time: —';
+        delete document.getElementById('r-time').dataset.level;
+        document.getElementById('r-traffic').innerText = 'Traffic: Calculating…';
+        delete document.getElementById('r-traffic').dataset.level;
+        const resultCard = document.querySelector('.result');
+        if (resultCard) resultCard.style.removeProperty('--route-traffic-color');
+        document.getElementById('r-scenario').innerText = '';
+        document.getElementById('r-scenario').hidden = true;
+        document.getElementById('route-why').hidden = true;
+        document.getElementById('route-provenance').hidden = true;
+        document.getElementById('route-provenance').textContent = '';
+        document.getElementById('route-comparison').hidden = true;
+        document.getElementById('route-comparison').replaceChildren();
+        document.getElementById('unknown-legend-item').hidden = true;
+        const hud = document.getElementById('nav-hud-2d');
+        if (hud) hud.classList.remove('visible');
+        document.getElementById('sim-btn').disabled = true;
+        document.getElementById('ai-text').innerText = 'Finding real roads and alternatives…';
+        document.getElementById('decision-details-text').innerText = 'Route evidence will appear after search.';
     }
 
     function clearFailedRoute(message) {
@@ -2902,6 +2935,8 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
     }
 
     let backendDataInitialized = false;
+    window.findRoute = findRoute;
+    window.clearRouteDisplay = clearRouteDisplay;
     window.getSelectedRoute = () => allOptionsData[activeOptionIndex] || null;
     window.formatRouteDuration = formatDuration;
     function initializeBackendData() {

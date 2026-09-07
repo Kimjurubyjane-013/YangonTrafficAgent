@@ -266,6 +266,9 @@ def _effective_route_traffic(route, model_state, allow_provider=True):
         else:
             levels.append("Unknown"); sources.append("UNKNOWN")
     level, score = _weighted_level(levels, route.get("traffic_geometry"), model_state.get("segment_distances"))
+    if not provider_sources and model_state.get("traffic_level") in _VALID_TRAFFIC:
+        level = model_state["traffic_level"]
+        score = model_state.get("average_score", score)
     provider, inferred, unknown = _coverage_from_sources(sources)
     label = "HERE" if provider == 100 else "INFERRED" if inferred == 100 else "UNKNOWN" if unknown == 100 else "MIXED"
     description = {"HERE": "HERE Real-Time Traffic", "INFERRED": "Inferred Traffic Model", "MIXED": "Mixed Traffic Data", "UNKNOWN": "Traffic Data Unavailable"}[label]
@@ -411,10 +414,17 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         road_summary = route["road_names"]
         has_real_traffic = bool(route.get("traffic_data_available")) and not hypothetical
 
+        # Collect all roads traversed from route road_names and step names
+        all_candidate_roads = list(route.get("road_names", ()))
+        for step in route.get("steps", []):
+            sname = step.get("name")
+            if sname and sname not in all_candidate_roads:
+                all_candidate_roads.append(sname)
+
         # Always compute inferred model state — used as segment fallback even
         # when HERE provides the route-level traffic.
         model_state = traffic_engine.route_state(
-            start, destination, route.get("road_names", ()), traffic_snapshot, route.get("geometry", ())
+            start, destination, all_candidate_roads, traffic_snapshot, route.get("geometry", ())
         )
 
         effective = _effective_route_traffic(route, model_state, allow_provider=not hypothetical)
@@ -433,12 +443,10 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         traffic_source_full = effective["traffic_source"]
         segment_diagnostics = []
         for index, diagnostic in enumerate(model_state.get("segment_diagnostics", [])):
-            provider_road = road_summary[min(index, len(road_summary) - 1)] if road_summary else None
+            road_name = diagnostic.get("road_name")
             segment_diagnostics.append({
                 **diagnostic,
-                "road_name": provider_road or diagnostic.get("road_name"),
-                "model_reference_road": (diagnostic.get("road_name")
-                                         if provider_road and provider_road != diagnostic.get("road_name") else None),
+                "road_name": road_name,
             })
         provider_notice = (scenario_detail if scenario_detail else f"{scenario.replace('_', '-').title()} scenario uses inferred traffic conditions."
                            if hypothetical else None if traffic_source_label == "HERE" else (

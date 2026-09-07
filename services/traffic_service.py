@@ -320,16 +320,29 @@ class TrafficEngine:
                         (state.coordinates[0][1] + state.coordinates[1][1]) / 2)
             return min(self._coordinate_distance_km(midpoint, point) for point in geometry) if geometry else 0
 
+        def route_progress(state):
+            if not geometry:
+                return 0
+            midpoint = ((state.coordinates[0][0] + state.coordinates[1][0]) / 2,
+                        (state.coordinates[0][1] + state.coordinates[1][1]) / 2)
+            return min(range(len(geometry)), key=lambda i: self._coordinate_distance_km(midpoint, geometry[i]))
+
         # Tier 1: Exact or Alias Name Matching within corridor proximity
         if road_names:
             requested_names = {_road_name_key(name) for name in road_names if name}
             named = [state for state in snapshot.roads.values() if _road_name_key(state.road_name) in requested_names]
             if named:
-                nearby = [state for state in named if route_distance(state) <= 0.65] if geometry else named
+                nearby = [state for state in named if route_distance(state) <= 0.70] if geometry else named
                 if nearby:
-                    states = sorted(nearby, key=route_distance) if geometry else named
+                    states = sorted(nearby, key=lambda s: (route_progress(s), s.road_id)) if geometry else sorted(nearby, key=lambda s: s.road_id)
 
-        # Tier 2: Topological Graph Shortest Path between Endpoints
+        # Tier 2: Spatial Proximity along actual route geometry (when geometry is available)
+        if not states and geometry:
+            all_nearby = [state for state in snapshot.roads.values() if route_distance(state) <= 0.35]
+            if all_nearby:
+                states = sorted(all_nearby, key=lambda s: (route_progress(s), s.road_id))
+
+        # Tier 3: Topological Graph Shortest Path between Endpoints (fallback when no geometry or no nearby roads)
         if not states and start in self.repository.locations and destination in self.repository.locations:
             path = self._shortest_path(start, destination)
             if len(path) >= 2:
@@ -337,12 +350,6 @@ class TrafficEngine:
                     road = self.repository.by_edge.get((a, b))
                     if road and road.id in snapshot.roads:
                         states.append(snapshot.roads[road.id])
-
-        # Tier 3: Strict Spatial Proximity only as a last resort
-        if not states and geometry:
-            all_nearby = [state for state in snapshot.roads.values() if route_distance(state) <= 0.25]
-            if all_nearby:
-                states = sorted(all_nearby, key=route_distance)
 
         if not states:
             return {"traffic_level":"Moderate","segment_traffic":["Moderate"],"road_ids":[],
