@@ -230,20 +230,15 @@ class Api:
                 self._last_result = result
         return result
 
-    def compare_route_scenario(self, vehicle, start, destination, scenario_type, affected_road=None):
-        allowed = {"accident", "heavy_rain", "rush_hour", "road_closed", "major_event"}
+    def compare_route_scenario(self, vehicle, start, destination, scenario_type):
+        allowed = {"heavy_rain", "rush_hour"}
         if scenario_type not in allowed:
             message = "Unknown scenario type."
-            return {"error": message, "error_details": {"code": "invalid_scenario", "message": message}}
-        if scenario_type in {"accident", "road_closed"} and not affected_road:
-            message = "Select an affected road for this scenario."
             return {"error": message, "error_details": {"code": "invalid_scenario", "message": message}}
         before = self.find_route(vehicle, start, destination, {"traffic_scenario": "current"})
         if before.get("error"):
             return before
         conditions = {"traffic_scenario": "current", "scenario_type": scenario_type}
-        if affected_road:
-            conditions["affected_road"] = affected_road
         after = self.find_route(vehicle, start, destination, conditions)
         if after.get("error"):
             return after
@@ -252,7 +247,6 @@ class Api:
             "scenario_type": scenario_type,
             "scenario_label": "SIMULATED",
             "is_live": False,
-            "affected_road": affected_road,
             "before": before,
             "after": after,
             "changes": {

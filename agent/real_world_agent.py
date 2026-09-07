@@ -389,10 +389,6 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         conditions["time_band"] = "peak"
     elif scenario_type == "heavy_rain":
         conditions["weather"] = "storm"
-    elif scenario_type in {"accident", "major_event"}:
-        conditions["incident"] = "major"
-    if scenario_type == "road_closed" and conditions.get("affected_road"):
-        conditions["closed_road"] = conditions["affected_road"]
     traffic_engine = traffic_engine or TRAFFIC_ENGINE
     # Always obtain inferred traffic snapshot — used as fallback for segments
     # without provider coverage, regardless of traffic mode setting.

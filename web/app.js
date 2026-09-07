@@ -125,17 +125,10 @@
             }
         });
         const scenario = document.getElementById('scenario-mode');
-        const closureField = document.getElementById('closure-field');
-        scenario.addEventListener('change', () => {
-            const mode = scenario.value;
-            closureField.hidden = !['closure', 'accident'].includes(mode);
-            document.getElementById('scenario-road-label').textContent = mode === 'closure' ? 'Closed Road Name' : 'Affected Road Name';
-            if (!['closure', 'accident'].includes(mode)) document.getElementById('closed-road').value = '';
-            document.getElementById('departure-band').value = mode === 'peak' ? 'peak' : '';
-        });
+        
         YangonAppState.subscribe(({ phase }) => {
             const busy = phase === YangonAppState.phases.LOADING || phase === YangonAppState.phases.SIMULATING || phase === YangonAppState.phases.PAUSED;
-            ['find-btn','start','destination','vehicle','swap-route','scenario-mode','closed-road'].forEach(id => { document.getElementById(id).disabled = busy; });
+            ['find-btn','start','destination','vehicle','swap-route','scenario-mode'].forEach(id => { document.getElementById(id).disabled = busy; });
             document.body.dataset.phase = phase;
             document.getElementById('find-btn').setAttribute('aria-busy', String(phase === YangonAppState.phases.LOADING));
         });

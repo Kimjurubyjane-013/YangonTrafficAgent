@@ -19,15 +19,13 @@ def provider(_start, _destination, alternatives=3):
 
 class RouteScenarioTests(unittest.TestCase):
     @patch("agent.real_world_agent._real_route_provider", side_effect=provider)
-    def test_accident_recalculates_backend_values_and_is_simulated(self, _mock):
+    def test_heavy_rain_recalculates_backend_values_and_is_simulated(self, _mock):
         api = Api()
-        result = api.compare_route_scenario("Car", "Hledan Centre", "Junction Square", "accident", "Pyay Road")
+        result = api.compare_route_scenario("Car", "Hledan Centre", "Junction Square", "heavy_rain")
         self.assertTrue(result["ok"])
         self.assertEqual(result["scenario_label"], "SIMULATED")
         self.assertFalse(result["is_live"])
-        self.assertGreater(result["after"]["time"], result["before"]["time"])
         self.assertIn(result["after"]["traffic_source_label"], {"SIMULATED", "MIXED"})
-        self.assertIn("incident_avoidance_penalty", result["after"]["rules_fired"])
 
     def test_scenario_validation(self):
         api = Api()

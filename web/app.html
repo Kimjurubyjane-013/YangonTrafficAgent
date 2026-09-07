@@ -835,20 +835,13 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         <details class="journey-conditions" id="journey-conditions">
             <summary>What-If Scenario <span>Optional</span></summary>
             <label for="scenario-mode">Scenario</label>
+            <small class="scenario-helper">Compare routes under different simulated journey conditions.</small>
             <select id="scenario-mode">
-                <option value="current">No Scenario</option>
-                <option value="accident">Accident</option>
-                <option value="closure">Road Closure</option>
+                <option value="current">Normal Conditions</option>
                 <option value="heavy_rain">Heavy Rain</option>
                 <option value="peak">Rush Hour</option>
-                <option value="major_event">Major Event</option>
+                <option value="off_peak">Off-Peak Hours</option>
             </select>
-            <input id="departure-band" type="hidden" value="">
-            <div id="closure-field" hidden>
-                <label for="closed-road" id="scenario-road-label">Affected Road Name</label>
-                <input id="closed-road" type="text" maxlength="80" placeholder="Example: Pyay Road" autocomplete="off">
-                <small>Enter a road name shown in the route. This scenario is not a live incident.</small>
-            </div>
         </details>
 
         <button class="btn-find" id="find-btn" type="button">Find Route</button>
@@ -2653,18 +2646,21 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
     function getJourneyConditions() {
         const conditions = {};
         const mode = document.getElementById('scenario-mode').value;
-        const timeBand = document.getElementById('departure-band').value;
-        const closedRoad = document.getElementById('closed-road').value.trim();
-        if (timeBand) conditions.time_band = timeBand;
-        conditions.traffic_scenario = ['current', 'off_peak', 'peak'].includes(mode)
-            ? mode
-            : (timeBand || 'current');
-        if (mode === 'accident') conditions.scenario_type = 'accident';
-        if (mode === 'heavy_rain') conditions.scenario_type = 'heavy_rain';
-        if (mode === 'peak') conditions.scenario_type = 'rush_hour';
-        if (mode === 'major_event') conditions.scenario_type = 'major_event';
-        if (mode === 'closure') conditions.scenario_type = 'road_closed';
-        if (closedRoad) conditions.affected_road = closedRoad;
+        
+        if (mode === 'peak' || mode === 'off_peak') {
+            conditions.time_band = mode;
+        }
+        
+        conditions.traffic_scenario = ['current', 'off_peak', 'peak'].includes(mode) ? mode : 'current';
+        
+        if (mode === 'heavy_rain') {
+            conditions.scenario_type = 'heavy_rain';
+        } else if (mode === 'peak') {
+            conditions.scenario_type = 'rush_hour';
+        } else {
+            conditions.scenario_type = 'none';
+        }
+        
         return conditions;
     }
 

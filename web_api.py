@@ -30,7 +30,6 @@ class RoutePayload(BaseModel):
 
 class ScenarioPayload(RoutePayload):
     scenario_type: Any = None
-    affected_road: Any = None
 
 
 class RoutePredictionPayload(BaseModel):
@@ -139,7 +138,7 @@ def route(payload: RoutePayload):
 def route_scenario(payload: ScenarioPayload):
     result = application_api.compare_route_scenario(
         payload.vehicle, payload.start, payload.destination,
-        payload.scenario_type, payload.affected_road,
+        payload.scenario_type
     )
     if not result.get("error"):
         return result
