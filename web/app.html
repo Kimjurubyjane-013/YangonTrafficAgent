@@ -589,66 +589,45 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
     <!-- Main dashboard content — always shown when data is available -->
     <div id="dashboard-available" hidden>
 
-    <!-- Traffic Health + Metric Cards -->
-    <section class="traffic-summary-grid" aria-label="Traffic Status Summary">
-        <article class="health-card">
-            <div class="health-card-copy">
-                <span>Traffic Health <small id="health-source-badge" class="source-badge">â€”</small></span>
-                <strong><b id="health-score">—</b><small>/ 100</small></strong>
-                <em id="health-label">Loading</em>
-                <p id="health-explanation">Checking monitored roads…</p>
-            </div>
-            <div class="health-gauge" aria-hidden="true"><i id="health-meter-fill"></i><span></span></div>
-            <small id="health-period">Current Traffic Period</small>
-        </article>
-        <div class="traffic-metric-grid">
-            <article class="traffic-stat light"><span><i aria-hidden="true"></i>Light Roads</span><strong id="light-count">—</strong><small>Free flowing</small></article>
-            <article class="traffic-stat moderate"><span><i aria-hidden="true"></i>Moderate Roads</span><strong id="moderate-count">—</strong><small>Slowing</small></article>
-            <article class="traffic-stat heavy"><span><i aria-hidden="true"></i>Heavy Roads</span><strong id="heavy-count">—</strong><small>High congestion</small></article>
-            <article class="traffic-stat heavy" id="heavy-segments-card"><span><i aria-hidden="true"></i>Heavy Segments</span><strong id="heavy-segments">—</strong><small>Within supported coverage</small></article>
-        </div>
-    </section>
+        <!-- KPI Cards -->
+        <section class="traffic-metric-grid" aria-label="Traffic Status Summary" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+            <article class="traffic-stat" id="overall-condition-card">
+                <span><i aria-hidden="true"></i>Overall Traffic Condition</span>
+                <strong id="overall-condition">—</strong>
+                <small>Current inferred traffic level</small>
+            </article>
+            <article class="traffic-stat neutral">
+                <span><i aria-hidden="true"></i>Supported Townships</span>
+                <strong id="township-count">—</strong>
+                <small>Current prototype coverage</small>
+            </article>
+            <article class="traffic-stat neutral">
+                <span><i aria-hidden="true"></i>Analyzed Roads</span>
+                <strong id="segment-count">—</strong>
+                <small>Roads included in traffic analysis</small>
+            </article>
+            <article class="traffic-stat neutral">
+                <span><i aria-hidden="true"></i>Traffic Source</span>
+                <strong id="traffic-source">—</strong>
+                <small>Model-based traffic estimate</small>
+            </article>
+        </section>
 
-    <!-- Insights: Hotspots + Best Flowing -->
-    <section class="dashboard-lists">
-        <article class="dashboard-card">
-            <div class="dashboard-card-head">
-                <div><span>Priority Monitoring</span><h2>Congestion Hotspots</h2></div>
-                <small id="hotspot-source-badge" class="source-badge">—</small>
-            </div>
-            <div id="hotspot-list" class="ranked-road-list"></div>
-        </article>
-        <article class="dashboard-card">
-            <div class="dashboard-card-head">
-                <div><span>Network Performance</span><h2 id="best-flow-title">Best Flowing Roads</h2></div>
-                <small id="best-flow-source-badge" class="source-badge">—</small>
-            </div>
-            <div id="best-flow-list" class="ranked-road-list"></div>
-        </article>
-    </section>
-
-    <!-- Coverage card -->
-    <section class="coverage-card" id="coverage-card" aria-label="Traffic Data Coverage">
-        <div class="coverage-head">
-            <div class="panel-kicker">Data Provenance</div>
-            <h3 class="coverage-title">Traffic Data Coverage</h3>
-            <small id="coverage-source-badge" class="source-badge">â€”</small>
-        </div>
-        <div class="coverage-bars" id="coverage-bars"></div>
-        <p class="coverage-note" id="provider-status-note">—</p>
-    </section>
-
-    <!-- Township Traffic Summary -->
-    <section class="township-summary-section" id="township-summary-section" aria-label="Traffic by Supported Township">
-        <div class="dashboard-card-head">
-            <div>
-                <span>Supported Area Breakdown</span>
-                <h2>Traffic by Township</h2>
-            </div>
-            <small class="coverage-note-inline">Data: Inferred model · <span id="township-count">—</span> townships · <span id="segment-count">—</span> segments</small>
-        </div>
-        <div id="township-grid" class="township-grid" aria-live="polite"></div>
-    </section>
+        <!-- Insights: Hotspots + Best Flowing -->
+        <section class="dashboard-lists" style="margin-top: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+            <article class="dashboard-card">
+                <div class="dashboard-card-head">
+                    <div><h2>Congestion Hotspots</h2></div>
+                </div>
+                <div id="hotspot-list" class="ranked-road-list"></div>
+            </article>
+            <article class="dashboard-card">
+                <div class="dashboard-card-head">
+                    <div><h2 id="best-flow-title">Best Flowing Roads</h2></div>
+                </div>
+                <div id="best-flow-list" class="ranked-road-list"></div>
+            </article>
+        </section>
 
     </div><!-- /dashboard-available -->
 

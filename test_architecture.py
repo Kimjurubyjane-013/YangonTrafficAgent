@@ -39,9 +39,9 @@ class ArchitectureTests(unittest.TestCase):
         request,error=validate_route_request("Car","Hledan Centre","Junction Square",{"weather":"rain","ignored":1})
         self.assertIsNone(error); self.assertEqual(request.conditions,{"weather":"rain"})
         self.assertIsNotNone(validate_route_request("Jet","Hledan Centre","Junction Square")[1])
-        request,error=validate_route_request("Car","Hledan Centre","Junction Square",{"closed_road":"Pyay Road","incident":"major"})
-        self.assertIsNone(error); self.assertEqual(request.conditions["closed_road"],"Pyay Road")
-        self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Junction Square",{"closed_road":"\u4e2d\u6587"})[1])
+        request,error=validate_route_request("Car","Hledan Centre","Junction Square",{"scenario_type":"heavy_rain","incident":"major"})
+        self.assertIsNone(error); self.assertEqual(request.conditions["scenario_type"],"heavy_rain")
+        self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Junction Square",{"scenario_type":"fake"})[1])
         self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Junction Square",{"time_band":"tomorrow"})[1])
         request,error=validate_route_request("Car","Hledan Centre","Junction Square",{"traffic_scenario":"off_peak"})
         self.assertIsNone(error); self.assertEqual(request.conditions["traffic_scenario"],"off_peak")
@@ -62,11 +62,10 @@ class ArchitectureTests(unittest.TestCase):
         html=(root/"web"/"app.html").read_text(encoding="utf-8")
         css=(root/"web"/"styles.css").read_text(encoding="utf-8")
         for element_id in ("home-view","planner-view","home-plan-route","theme-toggle","ai-text","decision-details-text",
-            "scenario-mode","departure-band","closed-road","analysis-view","analysis-btn",
+            "scenario-mode","analysis-view","analysis-btn",
             "analysis-back","route-provenance","route-comparison","nav-dashboard","dashboard-view",
-            "health-score","hotspot-list","best-flow-list","route-why","forecast-period","forecast-result",
-            "dashboard-available","dashboard-error-row","retry-traffic","refresh-traffic",
-            "coverage-bars","provider-status-note"):
+            "hotspot-list","best-flow-list","route-why","forecast-period","forecast-result",
+            "dashboard-available","dashboard-error-row","retry-traffic","refresh-traffic"):
             self.assertIn(f'id="{element_id}"',html)
         for removed_id in ("nav-traffic","nav-simulation","traffic-map-view","dashboard-map","legacy-home-view"):
             self.assertNotIn(f'id="{removed_id}"',html)
@@ -98,7 +97,7 @@ class ArchitectureTests(unittest.TestCase):
         self.assertNotIn("dashboard-map-wrap",css)
         self.assertNotIn("dashboard-map-legend",css)
         self.assertIn('id="dashboard-error-row"',html)
-        self.assertIn("data.unknown_coverage_percent",dashboard)
+        self.assertIn("overall_condition",dashboard)
         self.assertIn("byId('dashboard-available').hidden = true",dashboard)
 
     def test_browser_transport_and_vercel_entrypoint_are_present(self):
@@ -192,7 +191,7 @@ class ArchitectureTests(unittest.TestCase):
 
     def test_scenario_and_normal_result_ui_are_truthful_and_clean(self):
         html=(Path(__file__).parent/"web"/"app.html").read_text(encoding="utf-8")
-        self.assertIn('<option value="current">No Scenario</option>', html)
+        self.assertIn('<option value="current">Normal Conditions</option>', html)
         self.assertIn('<option value="peak">Rush Hour</option>', html)
         self.assertIn('conditions.traffic_scenario', html)
         self.assertIn('id="r-scenario"', html)
@@ -214,9 +213,6 @@ class ArchitectureTests(unittest.TestCase):
             self.assertIn(f"src-badge-{source}", css)
         self.assertNotIn("route-src-${sourceKind}", html)
         self.assertNotIn("srcBadge.style.background", html)
-        for badge_id in ("hotspot-source-badge", "best-flow-source-badge",
-                         "health-source-badge", "coverage-source-badge"):
-            self.assertIn(badge_id, dashboard)
 
     def test_outlook_renders_structured_fields_without_object_stringification(self):
         root = Path(__file__).parent

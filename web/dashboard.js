@@ -23,15 +23,7 @@
     function providerStatusNote(data) {
         const mode = trafficModeLabel(data);
         if (mode === 'Real-Time') return 'HERE real-time traffic is active for all monitored roads.';
-        if (mode === 'Real Provider') return 'HERE real-time traffic active — all data is provider-backed.';
-        if (mode === 'Mixed') {
-            const pct = Number(data.provider_coverage_percent || 0);
-            const ipct = Number(data.inferred_coverage_percent || 0);
-            return `HERE matched ${pct.toFixed(0)}% of roads. Remaining ${ipct.toFixed(0)}% estimated by inferred traffic model.`;
-        }
-        return 'HERE traffic unavailable — all data estimated by inferred traffic model based on time-of-day, road type, and context.';
     }
-
     function roadSourceBadge(road) {
         const src = String(road.source || road.traffic_source || '').toLowerCase();
         if (src.includes('here')) return 'HERE';
@@ -49,8 +41,6 @@
         return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Yangon' });
     }
 
-    // ----------------------------------------------------------------
-    // Health explanation from effective traffic data
     // ----------------------------------------------------------------
     function healthExplanation(data) {
         const total = Number(data.total_roads || (data.roads || []).length || 0);
@@ -117,88 +107,29 @@
     // ----------------------------------------------------------------
     // Coverage bars
     // ----------------------------------------------------------------
-    function renderCoverageBars(data) {
-        const container = byId('coverage-bars');
-        if (!container) return;
-        container.replaceChildren();
-
-        const provPct = Number(data.provider_coverage_percent || 0);
-        const infPct = Number(data.inferred_coverage_percent || 0);
-        const unkPct = Number.isFinite(Number(data.unknown_coverage_percent))
-            ? Number(data.unknown_coverage_percent)
-            : Math.max(0, 100 - provPct - infPct);
-
-        const bars = [
-            { label: 'HERE', pct: provPct, cls: 'cov-provider' },
-            { label: 'Inferred', pct: infPct, cls: 'cov-inferred' },
-            { label: 'Unknown', pct: unkPct, cls: 'cov-unknown' },
-        ];
-
-        bars.forEach(({ label, pct, cls }) => {
-            if (pct <= 0) return;
-            const item = document.createElement('div');
-            item.className = `coverage-item ${cls}`;
-
-            const bar = document.createElement('div');
-            bar.className = 'coverage-bar-track';
-            const fill = document.createElement('div');
-            fill.className = 'coverage-bar-fill';
-            fill.style.width = `${pct}%`;
-            bar.appendChild(fill);
-
-            const labelEl = document.createElement('span');
-            labelEl.className = 'coverage-label';
-            labelEl.textContent = label;
-
-            const pctEl = document.createElement('span');
-            pctEl.className = 'coverage-pct';
-            pctEl.textContent = `${pct.toFixed(0)}%`;
-
-            const meta = document.createElement('div');
-            meta.className = 'coverage-meta';
-            meta.append(labelEl, pctEl);
-
-            item.append(meta, bar);
-            container.appendChild(item);
-        });
-    }
-
-    // ----------------------------------------------------------------
-    // Township Breakdown
-    // ----------------------------------------------------------------
-    function renderTownshipSummary(townships) {
-        const container = byId('township-grid');
+    function renderRoadList(id, roads, kind) {
+        const container = byId(id);
         if (!container) return;
         container.innerHTML = '';
-        if (!townships || !townships.length) {
-            container.innerHTML = '<div class="empty-state">No township data available.</div>';
+        if (!roads || roads.length === 0) {
+            container.innerHTML = '<div class="empty-state">No relevant data</div>';
             return;
         }
 
-        townships.forEach(t => {
-            const card = document.createElement('div');
-            card.className = 'township-card';
+        roads.forEach((road) => {
+            const row = document.createElement('div');
+            row.className = 'road-row';
             
-            const levelClass = trafficLevel(t.traffic_level).toLowerCase();
-            const segmentsText = t.heavy_segments > 0 ? `${t.heavy_segments} heavy segments` : 'All segments clear';
-
-            card.innerHTML = `
-                <div class="township-card-head">
-                    <h3>${t.township}</h3>
-                    <span class="traffic-badge ${levelClass}">${t.traffic_level}</span>
+            const levelClass = trafficLevel(road.traffic_level).toLowerCase();
+            const badge = `<span class="traffic-badge ${levelClass}">${road.traffic_level}</span>`;
+            
+            row.innerHTML = `
+                <div class="road-name-group">
+                    <strong>${road.road_name || road.name || road.road_id}</strong>
                 </div>
-                <div class="township-card-body">
-                    <div class="township-stat">
-                        <small>Traffic</small>
-                        <strong>${t.traffic_score || '—'}</strong>
-                    </div>
-                    <div class="township-stat">
-                        <small>Hotspots</small>
-                        <strong>${segmentsText}</strong>
-                    </div>
-                </div>
+                ${badge}
             `;
-            container.appendChild(card);
+            container.appendChild(row);
         });
     }
 
@@ -220,21 +151,19 @@
         setText('context-rush', data.rush_hour ? 'Active' : 'Inactive');
         setText('context-provider-updated', data.provider_updated_at ? formatTime(data.provider_updated_at) : '—');
 
-        // Traffic Health
-        const score = Number(data.traffic_health_score);
-        setText('health-score', Number.isFinite(score) ? score.toFixed(0) : '—');
-        setText('health-label', data.traffic_health_label || 'Current Conditions');
-        setText('health-explanation', healthExplanation(data));
-        setText('health-period', `${titleCase(data.time_period)} Traffic Period`);
-        const gauge = byId('health-meter-fill');
-        if (gauge) gauge.style.setProperty('--health-value', `${Math.max(0, Math.min(100, score || 0)) * 1.8}deg`);
+        // New KPI Cards
+        const overallCondition = data.overall_condition || 'Light';
+        setText('overall-condition', overallCondition);
+        const conditionCard = byId('overall-condition-card');
+        if (conditionCard) {
+            conditionCard.className = `traffic-stat ${overallCondition.toLowerCase()}`;
+        }
 
-        // Metric cards (light / moderate / heavy segment counts from supported roads)
-        setText('light-count', data.light_count ?? 0);
-        setText('moderate-count', data.moderate_count ?? 0);
-        setText('heavy-count', data.heavy_count ?? 0);
-        // Heavy Traffic Segments — replaces unreliable Avg. Speed
-        setText('heavy-segments', data.heavy_count ?? 0);
+        const supportedTownships = Number(data.supported_townships) || 0;
+        const supportedSegments = Number(data.supported_segments) || 0;
+        setText('township-count', supportedTownships);
+        setText('segment-count', supportedSegments);
+        setText('traffic-source', mode === 'Real-Time' ? 'Live Provider' : mode === 'Mixed' ? 'Mixed' : 'Inferred');
 
         // Hotspots and best flowing
         const hotspots = data.hotspots || data.most_congested || [];
@@ -243,30 +172,6 @@
         setText('best-flow-title', bestAreHeavy ? 'Best Available Flow' : 'Best Flowing Roads');
         renderRoadList('hotspot-list', hotspots, 'hotspot');
         renderRoadList('best-flow-list', best, 'best');
-
-        // Source badges on card heads
-        const srcBadgeText = mode === 'Real-Time' ? 'HERE' : mode === 'Mixed' ? 'MIXED' : mode === 'Unknown' ? 'UNKNOWN' : 'INFERRED';
-        ['hotspot-source-badge', 'best-flow-source-badge', 'health-source-badge', 'coverage-source-badge'].forEach(id => {
-            const sourceBadge = byId(id);
-            if (sourceBadge) {
-                sourceBadge.textContent = srcBadgeText;
-                sourceBadge.className = `source-badge src-badge-${srcBadgeText.toLowerCase()}`;
-            }
-        });
-
-        // Coverage bars
-        renderCoverageBars(data);
-
-        // Provider status note
-        setText('provider-status-note', providerStatusNote(data));
-
-        // Township breakdown
-        const townshipData = data.township_overview || [];
-        const supportedTownships = Number(data.supported_townships) || townshipData.length;
-        const supportedSegments = Number(data.supported_segments) || Number(data.total_roads) || 0;
-        setText('township-count', supportedTownships);
-        setText('segment-count', supportedSegments);
-        renderTownshipSummary(townshipData);
 
         // Subtitle — always reflects supported coverage, never claims citywide
         setText('dashboard-subtitle', mode === 'Real-Time'

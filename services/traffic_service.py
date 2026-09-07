@@ -262,28 +262,52 @@ class TrafficEngine:
 
     def congestion_hotspots(self, snapshot: TrafficSnapshot | None = None, limit: int = 8) -> list[dict]:
         snapshot = snapshot or self.get_snapshot()
+        supported_pois = set(poi for locs in self.repository.townships.values() for poi in locs)
         records = []
         for state in snapshot.roads.values():
+            road = self.repository.by_id[state.road_id]
+            if road.start not in supported_pois and road.end not in supported_pois:
+                continue
             rank = (
                 state.traffic_impact * HOTSPOT_WEIGHTS["impact"]
                 + state.traffic_score * HOTSPOT_WEIGHTS["score"]
                 + clamp(state.congestion_pressure / MAX_CONGESTION_PRESSURE * 100) * HOTSPOT_WEIGHTS["pressure"]
             )
             item = state.as_dict(); item["hotspot_rank_score"] = round(rank, 2); records.append(item)
-        records.sort(key=lambda item: (-item["hotspot_rank_score"], -item["estimated_delay_minutes"], item["road_id"]))
-        return records[:max(0, int(limit))]
+        
+        # Deduplicate by road name
+        seen = set()
+        deduped = []
+        for item in sorted(records, key=lambda i: (-i["hotspot_rank_score"], -i["estimated_delay_minutes"], i["road_id"])):
+            if item["road_name"] not in seen:
+                seen.add(item["road_name"])
+                deduped.append(item)
+                
+        return deduped[:max(0, int(limit))]
 
     def best_flowing_roads(self, snapshot: TrafficSnapshot | None = None, limit: int = 8) -> list[dict]:
         snapshot = snapshot or self.get_snapshot()
+        supported_pois = set(poi for locs in self.repository.townships.values() for poi in locs)
         records = []
         for state in snapshot.roads.values():
             road = self.repository.by_id[state.road_id]
+            if road.start not in supported_pois and road.end not in supported_pois:
+                continue
             delay_score = clamp(state.estimated_delay_minutes / 15.0 * 100)
             speed_loss = clamp((1 - state.average_speed_kmh / road.base_speed_kmh) * 100)
             rank = state.traffic_score * BEST_FLOW_WEIGHTS["score"] + delay_score * BEST_FLOW_WEIGHTS["delay"] + speed_loss * BEST_FLOW_WEIGHTS["speed_loss"]
             item = state.as_dict(); item["flow_rank_score"] = round(rank, 2); records.append(item)
-        records.sort(key=lambda item: (item["flow_rank_score"], -item["average_speed_kmh"], item["road_id"]))
-        return records[:max(0, int(limit))]
+            
+        # Deduplicate by road name
+        seen = set()
+        deduped = []
+        # sort best-flowing first
+        for item in sorted(records, key=lambda i: (i["flow_rank_score"], -i["average_speed_kmh"], i["road_id"])):
+            if item["road_name"] not in seen:
+                seen.add(item["road_name"])
+                deduped.append(item)
+                
+        return deduped[:max(0, int(limit))]
 
     def overview(self, at: datetime | None = None, force: bool = False) -> dict:
         snapshot = self.get_snapshot(at, force=force)

@@ -10,32 +10,17 @@ class DashboardCoverageTests(unittest.TestCase):
         overview = self.api.get_traffic_overview()
         self.assertEqual(overview["supported_townships"], len(ROAD_REPOSITORY.townships))
 
-    def test_unsupported_townships_excluded(self):
-        overview = self.api.get_traffic_overview()
-        township_data = overview.get("township_overview", [])
-        
-        # Verify that all townships in the overview are in our known supported townships
-        for item in township_data:
-            self.assertIn(item["township"], ROAD_REPOSITORY.townships)
+
 
     def test_no_average_speed_in_overview(self):
         overview = self.api.get_traffic_overview()
         self.assertNotIn("average_speed_kmh", overview)
         self.assertNotIn("average_speed", overview)
 
-    def test_heavy_segments_count_matches_data(self):
+    def test_overall_condition_exists(self):
         overview = self.api.get_traffic_overview()
-        self.assertIn("heavy_count", overview)
-        
-        # Count heavy segments manually
-        township_data = overview.get("township_overview", [])
-        total_heavy = sum(t["heavy_segments"] for t in township_data)
-        
-        # Inferred overall heavy count might include connecting corridors if they are congested,
-        # but the test requirements state: 
-        # "Heavy Traffic Segments count matches current supported traffic data"
-        self.assertIsInstance(overview["heavy_count"], int)
-        self.assertGreaterEqual(overview["heavy_count"], 0)
+        self.assertIn("overall_condition", overview)
+        self.assertIn(overview["overall_condition"], ["Light", "Moderate", "Heavy"])
 
     def test_inferred_traffic_is_labelled_honestly(self):
         overview = self.api.get_traffic_overview()
