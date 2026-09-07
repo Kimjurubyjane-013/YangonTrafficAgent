@@ -64,14 +64,6 @@
         return 'Traffic conditions are mixed across monitored roads.';
     }
 
-    // ----------------------------------------------------------------
-    // Average speed from road data
-    // ----------------------------------------------------------------
-    function computeAverageSpeed(roads) {
-        const withSpeed = (roads || []).filter(r => r.average_speed_kmh != null && r.average_speed_kmh > 0);
-        if (!withSpeed.length) return null;
-        return Math.round(withSpeed.reduce((sum, r) => sum + r.average_speed_kmh, 0) / withSpeed.length);
-    }
 
     // ----------------------------------------------------------------
     // Road list rows (hotspots / best flowing)
@@ -98,7 +90,6 @@
             name.textContent = road.road_name || 'Unnamed Road';
 
             const details = [level];
-            if (road.average_speed_kmh != null) details.push(`${road.average_speed_kmh} km/h`);
             if (kind === 'hotspot' && Number(road.estimated_delay_minutes) > 0) {
                 details.push(`+${Number(road.estimated_delay_minutes).toFixed(1)} min`);
             }
@@ -173,6 +164,45 @@
     }
 
     // ----------------------------------------------------------------
+    // Township Breakdown
+    // ----------------------------------------------------------------
+    function renderTownshipSummary(townships) {
+        const container = byId('township-grid');
+        if (!container) return;
+        container.innerHTML = '';
+        if (!townships || !townships.length) {
+            container.innerHTML = '<div class="empty-state">No township data available.</div>';
+            return;
+        }
+
+        townships.forEach(t => {
+            const card = document.createElement('div');
+            card.className = 'township-card';
+            
+            const levelClass = trafficLevel(t.traffic_level).toLowerCase();
+            const segmentsText = t.heavy_segments > 0 ? `${t.heavy_segments} heavy segments` : 'All segments clear';
+
+            card.innerHTML = `
+                <div class="township-card-head">
+                    <h3>${t.township}</h3>
+                    <span class="traffic-badge ${levelClass}">${t.traffic_level}</span>
+                </div>
+                <div class="township-card-body">
+                    <div class="township-stat">
+                        <small>Traffic</small>
+                        <strong>${t.traffic_score || '—'}</strong>
+                    </div>
+                    <div class="township-stat">
+                        <small>Hotspots</small>
+                        <strong>${segmentsText}</strong>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // ----------------------------------------------------------------
     // Main render — always renders if any data is present
     // ----------------------------------------------------------------
     function render(data) {
@@ -199,14 +229,12 @@
         const gauge = byId('health-meter-fill');
         if (gauge) gauge.style.setProperty('--health-value', `${Math.max(0, Math.min(100, score || 0)) * 1.8}deg`);
 
-        // Metric cards
+        // Metric cards (light / moderate / heavy segment counts from supported roads)
         setText('light-count', data.light_count ?? 0);
         setText('moderate-count', data.moderate_count ?? 0);
         setText('heavy-count', data.heavy_count ?? 0);
-
-        // Average speed
-        const avgSpeed = computeAverageSpeed(data.roads);
-        setText('avg-speed', avgSpeed != null ? String(avgSpeed) : '—');
+        // Heavy Traffic Segments — replaces unreliable Avg. Speed
+        setText('heavy-segments', data.heavy_count ?? 0);
 
         // Hotspots and best flowing
         const hotspots = data.hotspots || data.most_congested || [];
@@ -232,12 +260,20 @@
         // Provider status note
         setText('provider-status-note', providerStatusNote(data));
 
-        // Subtitle
+        // Township breakdown
+        const townshipData = data.township_overview || [];
+        const supportedTownships = Number(data.supported_townships) || townshipData.length;
+        const supportedSegments = Number(data.supported_segments) || Number(data.total_roads) || 0;
+        setText('township-count', supportedTownships);
+        setText('segment-count', supportedSegments);
+        renderTownshipSummary(townshipData);
+
+        // Subtitle — always reflects supported coverage, never claims citywide
         setText('dashboard-subtitle', mode === 'Real-Time'
-            ? 'Live traffic conditions powered by HERE real-time data.'
+            ? 'Current traffic conditions in supported townships — powered by HERE real-time data.'
             : mode === 'Mixed'
-                ? 'Traffic conditions from HERE provider and inferred model.'
-                : 'Traffic conditions estimated by inferred traffic model — not live provider data.');
+                ? 'Current traffic in supported townships — HERE provider and inferred model combined.'
+                : 'Traffic conditions estimated by inferred model for the supported coverage area. Not live provider data.');
         setState('', 'ready');
     }
 

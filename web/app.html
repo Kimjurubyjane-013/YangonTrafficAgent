@@ -568,7 +568,7 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
 <main class="traffic-dashboard" id="dashboard-view" hidden>
     <section class="dashboard-head">
         <div>
-            <div class="panel-kicker">Citywide Traffic Monitoring</div>
+            <div class="panel-kicker">Traffic Overview — Supported Townships</div>
             <h1>Yangon Traffic Intelligence</h1>
             <p id="dashboard-subtitle">Current traffic conditions and route insights.</p>
         </div>
@@ -605,7 +605,7 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
             <article class="traffic-stat light"><span><i aria-hidden="true"></i>Light Roads</span><strong id="light-count">—</strong><small>Free flowing</small></article>
             <article class="traffic-stat moderate"><span><i aria-hidden="true"></i>Moderate Roads</span><strong id="moderate-count">—</strong><small>Slowing</small></article>
             <article class="traffic-stat heavy"><span><i aria-hidden="true"></i>Heavy Roads</span><strong id="heavy-count">—</strong><small>High congestion</small></article>
-            <article class="traffic-stat neutral" id="avg-speed-card"><span><i aria-hidden="true"></i>Avg. Speed</span><strong id="avg-speed">—</strong><small>km/h citywide</small></article>
+            <article class="traffic-stat heavy" id="heavy-segments-card"><span><i aria-hidden="true"></i>Heavy Segments</span><strong id="heavy-segments">—</strong><small>Within supported coverage</small></article>
         </div>
     </section>
 
@@ -636,6 +636,18 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         </div>
         <div class="coverage-bars" id="coverage-bars"></div>
         <p class="coverage-note" id="provider-status-note">—</p>
+    </section>
+
+    <!-- Township Traffic Summary -->
+    <section class="township-summary-section" id="township-summary-section" aria-label="Traffic by Supported Township">
+        <div class="dashboard-card-head">
+            <div>
+                <span>Supported Area Breakdown</span>
+                <h2>Traffic by Township</h2>
+            </div>
+            <small class="coverage-note-inline">Data: Inferred model · <span id="township-count">—</span> townships · <span id="segment-count">—</span> segments</small>
+        </div>
+        <div id="township-grid" class="township-grid" aria-live="polite"></div>
     </section>
 
     </div><!-- /dashboard-available -->

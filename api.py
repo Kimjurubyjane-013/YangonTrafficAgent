@@ -95,11 +95,89 @@ class Api:
     def get_traffic_overview(self, force=False):
         try:
             if self._traffic_backend is not None:
-                return self._traffic_backend.overview(force=bool(force))
-            return self._traffic_engine.overview(force=bool(force))
+                base = self._traffic_backend.overview(force=bool(force))
+            else:
+                base = self._traffic_engine.overview(force=bool(force))
+            # Enrich with supported-coverage metadata so Dashboard has one API call
+            township_overview = self._compute_township_overview()
+            base["supported_townships"] = len(ROAD_REPOSITORY.townships)
+            base["supported_segments"] = len(ROAD_REPOSITORY.roads)
+            base["coverage_label"] = "Supported Township Coverage"
+            base["township_overview"] = township_overview
+            base["traffic_mode_label"] = "Inferred"  # always honest about source
+            return base
         except Exception:
             LOGGER.exception("Traffic overview failed")
             return {"error": "Traffic analysis is temporarily unavailable.", "error_details": {"code": "traffic_analysis_error", "message": "Traffic analysis is temporarily unavailable."}}
+
+    def get_township_overview(self):
+        """Return per-township traffic summary derived from the authoritative location dataset."""
+        try:
+            return self._compute_township_overview()
+        except Exception:
+            LOGGER.exception("Township overview failed")
+            return {"error": "Township overview is temporarily unavailable.", "error_details": {"code": "township_overview_error", "message": "Township overview is temporarily unavailable."}}
+
+    def _compute_township_overview(self):
+        """Aggregate current road traffic by supported township.
+
+        Aggregation rule (transparent and deterministic):
+          - For each township, collect all road segments whose start OR end POI
+            belongs to that township.
+          - Classify level as the majority traffic level across those segments.
+          - A single critical segment (score >= CRITICAL_CONGESTION_SCORE) upgrades
+            the township to Heavy if it represents >= 25% of township road distance.
+          - Townships with no road segments are excluded from the result.
+        """
+        from services.traffic_service import classify_traffic
+        snapshot = self._traffic_engine.get_snapshot()
+        townships = ROAD_REPOSITORY.townships  # dict: township -> [location_names]
+
+        result = []
+        for township, locations in sorted(townships.items()):
+            location_set = set(locations)
+            # Collect segments touching this township
+            segments = [
+                road for road in ROAD_REPOSITORY.roads
+                if road.start in location_set or road.end in location_set
+            ]
+            if not segments:
+                continue
+
+            states = [snapshot.roads[road.id] for road in segments if road.id in snapshot.roads]
+            if not states:
+                continue
+
+            total_distance = sum(
+                ROAD_REPOSITORY.by_id[s.road_id].distance_km for s in states
+            )
+            # Weighted average traffic score (by segment distance)
+            weighted_score = sum(
+                s.traffic_score * ROAD_REPOSITORY.by_id[s.road_id].distance_km
+                for s in states
+            ) / max(total_distance, 0.001)
+
+            level = classify_traffic(weighted_score)
+
+            # Critical-segment override: heavy if critical roads cover >= 25% of distance
+            critical_distance = sum(
+                ROAD_REPOSITORY.by_id[s.road_id].distance_km
+                for s in states if s.critical_congestion
+            )
+            if level != "Heavy" and total_distance > 0 and critical_distance / total_distance >= 0.25:
+                level = "Heavy"
+
+            heavy_count = sum(1 for s in states if s.traffic_level == "Heavy")
+            result.append({
+                "township": township,
+                "traffic_level": level,
+                "traffic_score": round(weighted_score, 1),
+                "segment_count": len(states),
+                "heavy_segments": heavy_count,
+                "poi_count": len(locations),
+            })
+
+        return result
 
     def get_traffic_prediction(self, period=None):
         try:
