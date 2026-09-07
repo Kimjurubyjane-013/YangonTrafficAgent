@@ -734,3 +734,124 @@ body[data-theme=dark] .section-icon         { background: #3B2B5C; color: #C4B5F
     .analysis-facts { grid-template-columns: 1fr !important; }
     .analysis-facts > div { min-height: 68px !important; }
 }
+/* =====================================================================
+   DASHBOARD REDESIGN OVERRIDES
+   ===================================================================== */
+/* Dashboard Hero */
+.dashboard-hero {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-bottom: 24px; padding: 24px;
+    border-bottom: 1px solid var(--border-soft);
+    position: relative; overflow: hidden;
+}
+.dashboard-title {
+    font-size: 36px; font-weight: 800; color: #3b2c6b;
+    margin: 0 0 8px 0; display: flex; align-items: center; gap: 16px;
+}
+body[data-theme=dark] .dashboard-title { color: #f2ebff; }
+.traffic-mode-pill {
+    font-size: 14px; font-weight: 700; padding: 6px 14px; border-radius: 20px;
+    background: #e4dbfa; color: #5a4494; display: inline-flex; align-items: center; gap: 6px;
+    vertical-align: middle;
+}
+body[data-theme=dark] .traffic-mode-pill { background: #473a70; color: #dac5ff; }
+#dashboard-subtitle { font-size: 16px; color: var(--text-secondary); margin: 0; }
+
+/* Dashboard Skyline (Subtle gradient if no image) */
+.dashboard-skyline {
+    position: absolute; right: 0; bottom: 0; width: 400px; height: 100px;
+    background: linear-gradient(to top, #f3f0fc, transparent);
+    opacity: 0.5; pointer-events: none; border-radius: 20px;
+}
+body[data-theme=dark] .dashboard-skyline { background: linear-gradient(to top, #262138, transparent); }
+
+/* KPI Cards */
+.traffic-metric-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px;
+}
+.traffic-stat {
+    background: #ffffff; border: 1px solid #eadeff; border-radius: 20px;
+    padding: 24px; display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 4px 12px rgba(114, 91, 158, 0.05);
+}
+body[data-theme=dark] .traffic-stat { background: #262138; border-color: #3b3152; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+.kpi-icon {
+    width: 54px; height: 54px; border-radius: 14px; background: #f3f0fc;
+    display: grid; place-items: center; font-size: 20px; flex-shrink: 0;
+}
+body[data-theme=dark] .kpi-icon { background: #352c4d; }
+.kpi-content small { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; color: #76649c; text-transform: uppercase; }
+.kpi-content strong { font-size: 32px; font-weight: 800; color: #2d1f54; display: block; margin: 4px 0 2px; }
+body[data-theme=dark] .kpi-content strong { color: #f2ebff; }
+.kpi-content .kpi-sub { font-size: 13px; color: var(--text-muted); }
+
+/* Dashboard Lists */
+.dashboard-lists {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;
+}
+@media(max-width: 1024px) { .dashboard-lists { grid-template-columns: 1fr; } }
+.dashboard-card {
+    background: #ffffff; border: 1px solid #eadeff; border-radius: 20px;
+    padding: 0; box-shadow: 0 4px 12px rgba(114, 91, 158, 0.05); overflow: hidden;
+    display: flex; flex-direction: column;
+}
+body[data-theme=dark] .dashboard-card { background: #262138; border-color: #3b3152; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+.dashboard-card-head {
+    display: flex; justify-content: space-between; align-items: center; padding: 20px 24px;
+    border-bottom: 1px solid var(--border-soft);
+}
+.card-head-left { display: flex; align-items: center; gap: 16px; }
+.card-icon { width: 44px; height: 44px; border-radius: 14px; background: #f3f0fc; }
+body[data-theme=dark] .card-icon { background: #352c4d; }
+.dashboard-card-head h2 { font-size: 20px; font-weight: 800; color: #2d1f54; margin: 0 0 4px; }
+body[data-theme=dark] .dashboard-card-head h2 { color: #f2ebff; }
+.card-subtitle { font-size: 14px; color: var(--text-muted); margin: 0; }
+.view-all-btn {
+    background: #f0ebfa; color: #5a4494; border: none; padding: 8px 16px;
+    border-radius: 20px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s;
+}
+.view-all-btn:hover { background: #e4dbfa; }
+body[data-theme=dark] .view-all-btn { background: #3b3152; color: #dac5ff; }
+body[data-theme=dark] .view-all-btn:hover { background: #473a70; }
+
+/* Table styles */
+.table-container { width: 100%; overflow-x: auto; }
+.road-table { width: 100%; border-collapse: collapse; text-align: left; }
+.road-table th {
+    padding: 14px 24px; font-size: 12px; font-weight: 800; text-transform: uppercase;
+    color: #76649c; border-bottom: 1px solid var(--border-soft); background: #faf8ff;
+}
+body[data-theme=dark] .road-table th { background: #2b253b; }
+.road-table td { padding: 18px 24px; border-bottom: 1px solid var(--border-soft); font-size: 15px; color: #2d1f54; }
+body[data-theme=dark] .road-table td { color: #f2ebff; }
+.road-table tbody tr:last-child td { border-bottom: none; }
+.muted-text { color: var(--text-secondary); font-size: 14px; }
+
+/* View all collapsed logic */
+tbody.collapsed tr:nth-child(n+6) { display: none; }
+
+/* Traffic Semantic Badges */
+.traffic-badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+    border-radius: 20px; font-size: 13px; font-weight: 700;
+}
+.traffic-badge.light { background: #e6f6eb; color: #1c7a40; }
+.traffic-badge.moderate { background: #fff0db; color: #a65a12; }
+.traffic-badge.heavy { background: #fde8e9; color: #b72b33; }
+
+body[data-theme=dark] .traffic-badge.light { background: #1c3826; color: #83d4a1; }
+body[data-theme=dark] .traffic-badge.moderate { background: #452b12; color: #ffb86b; }
+body[data-theme=dark] .traffic-badge.heavy { background: #4a1f22; color: #ff9198; }
+
+/* KPI Specifics */
+.kpi-light .kpi-icon, .flow-icon { background: #e6f6eb; color: #1c7a40; }
+.kpi-moderate .kpi-icon { background: #fff0db; color: #a65a12; }
+.kpi-heavy .kpi-icon, .hotspot-icon { background: #fde8e9; color: #b72b33; }
+body[data-theme=dark] .kpi-light .kpi-icon, body[data-theme=dark] .flow-icon { background: #1c3826; }
+body[data-theme=dark] .kpi-moderate .kpi-icon { background: #452b12; }
+body[data-theme=dark] .kpi-heavy .kpi-icon, body[data-theme=dark] .hotspot-icon { background: #4a1f22; }
+
+@media(max-width: 768px) {
+    .dashboard-hero { flex-direction: column; align-items: flex-start; gap: 16px; padding: 16px; }
+    .dashboard-title { font-size: 28px; flex-wrap: wrap; }
+}

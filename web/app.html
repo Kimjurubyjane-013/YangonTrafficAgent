@@ -566,72 +566,111 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
 </header>
 
 <main class="traffic-dashboard" id="dashboard-view" hidden>
-    <section class="dashboard-head">
-        <div>
-            <div class="panel-kicker">Traffic Overview — Supported Townships</div>
-            <h1>Yangon Traffic Intelligence</h1>
-            <p id="dashboard-subtitle">Current traffic conditions and route insights.</p>
+    <section class="dashboard-hero">
+        <div class="dashboard-hero-content">
+            <h1 class="dashboard-title">
+                Traffic Overview 
+                <span class="traffic-mode-pill" id="traffic-mode-pill">● Inferred</span>
+            </h1>
+            <p id="dashboard-subtitle">Current conditions across supported Yangon areas.</p>
         </div>
-        <button type="button" id="refresh-traffic" class="dashboard-refresh"><span aria-hidden="true">↻</span> Refresh</button>
+        <div class="dashboard-skyline"></div>
+        <button type="button" id="refresh-traffic" class="dashboard-refresh" style="position: absolute; right: 24px; top: 24px; z-index: 10;"><span aria-hidden="true">↻</span> Refresh</button>
     </section>
 
-    <!-- Status row -->
-    <div class="traffic-context" id="traffic-context" aria-live="polite">
-        <span><small>Yangon Time</small><strong id="context-snapshot">—</strong></span>
-        <span><small>Traffic Mode</small><strong id="context-live">Loading</strong></span>
-        <span><small>Current Period</small><strong id="context-period">—</strong></span>
-        <span><small>Rush Hour</small><strong id="context-rush">—</strong></span>
-        <span><small>Last Updated</small><strong id="context-provider-updated">—</strong></span>
+    <div id="dashboard-available" hidden>
+        <section class="traffic-metric-grid" aria-label="Traffic Status Summary">
+            <article class="traffic-stat" id="overall-condition-card">
+                <div class="kpi-icon kpi-flow-wave"></div>
+                <div class="kpi-content">
+                    <small>OVERALL TRAFFIC CONDITION</small>
+                    <strong id="overall-condition">Light</strong>
+                    <span class="kpi-sub">Current inferred traffic level</span>
+                </div>
+            </article>
+            <article class="traffic-stat neutral">
+                <div class="kpi-icon kpi-map-pin"></div>
+                <div class="kpi-content">
+                    <small>SUPPORTED TOWNSHIPS</small>
+                    <strong id="township-count">11</strong>
+                    <span class="kpi-sub">Selected coverage</span>
+                </div>
+            </article>
+            <article class="traffic-stat neutral">
+                <div class="kpi-icon kpi-road"></div>
+                <div class="kpi-content">
+                    <small>ANALYZED ROADS</small>
+                    <strong id="segment-count">36</strong>
+                    <span class="kpi-sub">Traffic network</span>
+                </div>
+            </article>
+            <article class="traffic-stat neutral">
+                <div class="kpi-icon kpi-clock"></div>
+                <div class="kpi-content">
+                    <small>LAST UPDATED</small>
+                    <strong id="last-updated-time">1:18 AM</strong>
+                    <span class="kpi-sub">Yangon Time</span>
+                </div>
+            </article>
+        </section>
+
+        <section class="dashboard-lists">
+            <article class="dashboard-card">
+                <div class="dashboard-card-head">
+                    <div class="card-head-left">
+                        <div class="card-icon hotspot-icon"></div>
+                        <div>
+                            <h2>Congestion Hotspots</h2>
+                            <p class="card-subtitle">Most affected supported roads.</p>
+                        </div>
+                    </div>
+                    <button class="view-all-btn" onclick="toggleRoadList('hotspot-list', this)">View all →</button>
+                </div>
+                <div class="table-container">
+                    <table class="road-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Road Name</th>
+                                <th>Township / Area</th>
+                                <th>Traffic Level</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hotspot-list" class="collapsed">
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="dashboard-card">
+                <div class="dashboard-card-head">
+                    <div class="card-head-left">
+                        <div class="card-icon flow-icon"></div>
+                        <div>
+                            <h2 id="best-flow-title">Best Flowing Roads</h2>
+                            <p class="card-subtitle">Smoothest roads right now.</p>
+                        </div>
+                    </div>
+                    <button class="view-all-btn" onclick="toggleRoadList('best-flow-list', this)">View all →</button>
+                </div>
+                <div class="table-container">
+                    <table class="road-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Road Name</th>
+                                <th>Township / Area</th>
+                                <th>Traffic Level</th>
+                            </tr>
+                        </thead>
+                        <tbody id="best-flow-list" class="collapsed">
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
     </div>
 
-    <div class="dashboard-state" id="dashboard-state" role="status" hidden>Loading current traffic intelligence…</div>
-
-    <!-- Main dashboard content — always shown when data is available -->
-    <div id="dashboard-available" hidden>
-
-        <!-- KPI Cards -->
-        <section class="traffic-metric-grid" aria-label="Traffic Status Summary" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-            <article class="traffic-stat" id="overall-condition-card">
-                <span><i aria-hidden="true"></i>Overall Traffic Condition</span>
-                <strong id="overall-condition">—</strong>
-                <small>Current inferred traffic level</small>
-            </article>
-            <article class="traffic-stat neutral">
-                <span><i aria-hidden="true"></i>Supported Townships</span>
-                <strong id="township-count">—</strong>
-                <small>Current prototype coverage</small>
-            </article>
-            <article class="traffic-stat neutral">
-                <span><i aria-hidden="true"></i>Analyzed Roads</span>
-                <strong id="segment-count">—</strong>
-                <small>Roads included in traffic analysis</small>
-            </article>
-            <article class="traffic-stat neutral">
-                <span><i aria-hidden="true"></i>Traffic Source</span>
-                <strong id="traffic-source">—</strong>
-                <small>Model-based traffic estimate</small>
-            </article>
-        </section>
-
-        <!-- Insights: Hotspots + Best Flowing -->
-        <section class="dashboard-lists" style="margin-top: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
-            <article class="dashboard-card">
-                <div class="dashboard-card-head">
-                    <div><h2>Congestion Hotspots</h2></div>
-                </div>
-                <div id="hotspot-list" class="ranked-road-list"></div>
-            </article>
-            <article class="dashboard-card">
-                <div class="dashboard-card-head">
-                    <div><h2 id="best-flow-title">Best Flowing Roads</h2></div>
-                </div>
-                <div id="best-flow-list" class="ranked-road-list"></div>
-            </article>
-        </section>
-
-    </div><!-- /dashboard-available -->
-
-    <!-- Subtle retry row (only shown on hard failure, not on inferred mode) -->
     <div class="dashboard-error-row" id="dashboard-error-row" hidden>
         <p id="dashboard-error-msg">Traffic data temporarily unavailable.</p>
         <button type="button" id="retry-traffic" class="dashboard-retry">Retry</button>
