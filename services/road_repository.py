@@ -23,7 +23,7 @@ class RoadRepository:
         self.road_file = road_file or PROJECT_ROOT / "data" / "roads.json"
         self.location_file = location_file or PROJECT_ROOT / "data" / "locations.json"
         self.errors = []
-        self.locations, self.roads = self._load()
+        self.locations, self.roads, self.location_records, self.townships = self._load()
         self.by_id = {road.id: road for road in self.roads}
         self.by_edge = {}
         for road in self.roads:
@@ -46,16 +46,29 @@ class RoadRepository:
         if not isinstance(raw_roads, list) or not raw_roads:
             raise RoadDataError("Road data must be a non-empty list.")
         locations = {}
+        location_records = []
+        townships = {}
         for index, item in enumerate(raw_locations):
             try:
                 name = str(item["name"]).strip()
                 lat, lon = float(item["lat"]), float(item["lon"])
+                township = str(item.get("township", "")).strip() or "Yangon"
+                loc_type = str(item.get("type", "")).strip() or "landmark"
                 if not name or not (-90 <= lat <= 90 and -180 <= lon <= 180) or name in locations:
                     raise RoadDataError(f"Invalid or duplicate location: {name or '<blank>'}")
             except (KeyError, TypeError, ValueError, RoadDataError) as exc:
                 self._record_error(f"location[{index}]: {exc}")
                 continue
             locations[name] = (lat, lon)
+            record = {
+                "name": name,
+                "township": township,
+                "type": loc_type,
+                "lat": lat,
+                "lon": lon,
+            }
+            location_records.append(record)
+            townships.setdefault(township, []).append(name)
         if not locations:
             raise RoadDataError("No valid locations are available.")
         roads, ids, directed_edges = [], set(), set()
@@ -76,7 +89,7 @@ class RoadRepository:
         if not roads:
             raise RoadDataError("No valid road segments are available.")
         self._validate_connected(locations, roads)
-        return locations, tuple(roads)
+        return locations, tuple(roads), tuple(location_records), townships
 
     @staticmethod
     def _validate_connected(locations, roads):

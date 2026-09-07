@@ -2,7 +2,7 @@
 import logging
 from threading import RLock
 
-from algorithms.graph import GRAPH, LOCATION_COORDS, get_locations
+from algorithms.graph import GRAPH, LOCATION_COORDS, get_locations, get_location_records
 from algorithms.vehicle import VEHICLE_SPEED
 from app.serialization import serialize_route_result
 from app.validation import validate_route_request
@@ -24,7 +24,8 @@ class Api:
         self._route_service = route_service or RouteService(self._traffic_engine)
 
     def get_locations(self):
-        return get_locations()
+        records = get_location_records()
+        return records if records else get_locations()
 
     def get_vehicles(self):
         return list(VEHICLE_SPEED)[:6]

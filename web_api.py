@@ -50,7 +50,7 @@ def railway_health() -> dict[str, str]:
 
 
 @app.get("/api/locations")
-def locations() -> list[str]:
+def locations() -> list[Any]:
     return application_api.get_locations()
 
 

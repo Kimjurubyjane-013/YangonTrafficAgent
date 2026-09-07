@@ -296,7 +296,7 @@ class TestAllLocationRoutes(unittest.TestCase):
     def test_representative_route_matrix_invariants(self):
         """Test representative directional location pairs across Yangon."""
         sample_locs = [
-            "Hledan Centre", "Junction Square", "Sanchaung", "Shwedagon Pagoda", "Sule Pagoda",
+            "Hledan Centre", "Junction Square", "University of Information Technology (UIT)", "Shwedagon Pagoda", "Sule Pagoda",
         ]
         audit = RouteMatrixAudit(sample_locs, verbose=False)
         summary = audit.run_audit()

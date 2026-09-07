@@ -14,6 +14,10 @@ def get_locations():
     return list(LOCATION_COORDS)
 
 
+def get_location_records():
+    return list(getattr(ROAD_REPOSITORY, "location_records", ()))
+
+
 def validate_graph(graph=GRAPH):
     """Return modelling errors instead of failing later during traversal."""
     errors = []

@@ -698,30 +698,126 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
 
         <label for="start">Starting Point</label>
         <select id="start">
-            <option value="Hledan Centre">Hledan Centre</option>
-            <option value="Junction Square">Junction Square</option>
-            <option value="Inya Lake">Inya Lake</option>
-            <option value="Myanmar Plaza">Myanmar Plaza</option>
-            <option value="Yangon General Hospital">Yangon General Hospital</option>
-            <option value="Yangon Central Station">Yangon Central Station</option>
-            <option value="Sule Pagoda">Sule Pagoda</option>
-            <option value="Junction City">Junction City</option>
-            <option value="Yangon Airport">Yangon Airport</option>
+            <optgroup label="Hlaing Township">
+                <option value="University of Information Technology (UIT)">University of Information Technology (UIT)</option>
+                <option value="MICT Park">MICT Park</option>
+                <option value="LOTTE Hotel Yangon">LOTTE Hotel Yangon</option>
+                <option value="Okkyin Railway Station">Okkyin Railway Station</option>
+                <option value="Thiri Mingalar Market">Thiri Mingalar Market</option>
+            </optgroup>
+            <optgroup label="Kamayut Township">
+                <option value="Hledan Centre" selected>Hledan Centre</option>
+                <option value="University of Yangon">University of Yangon</option>
+                <option value="Junction Square">Junction Square</option>
+                <option value="American Center Yangon">American Center Yangon</option>
+            </optgroup>
+            <optgroup label="Sanchaung Township">
+                <option value="Myaynigone">Myaynigone</option>
+                <option value="Dagon Centre I">Dagon Centre I</option>
+                <option value="Dagon Centre II">Dagon Centre II</option>
+                <option value="Happy Zone Amusement Center">Happy Zone Amusement Center</option>
+            </optgroup>
+            <optgroup label="Dagon Township">
+                <option value="Shwedagon Pagoda">Shwedagon Pagoda</option>
+                <option value="Maha Wizaya Pagoda">Maha Wizaya Pagoda</option>
+                <option value="National Museum of Myanmar">National Museum of Myanmar</option>
+                <option value="National Theatre of Yangon">National Theatre of Yangon</option>
+                <option value="People's Park">People's Park</option>
+                <option value="Happy World Amusement Park">Happy World Amusement Park</option>
+                <option value="Thamada Cinema">Thamada Cinema</option>
+            </optgroup>
+            <optgroup label="Bahan Township">
+                <option value="Myanmar Plaza">Myanmar Plaza</option>
+                <option value="Chaukhtatgyi Buddha Temple">Chaukhtatgyi Buddha Temple</option>
+                <option value="Ngahtatgyi Buddha Temple">Ngahtatgyi Buddha Temple</option>
+            </optgroup>
+            <optgroup label="Yankin Township">
+                <option value="Sedona Hotel Yangon">Sedona Hotel Yangon</option>
+                <option value="Yankin Centre">Yankin Centre</option>
+            </optgroup>
+            <optgroup label="Latha Township">
+                <option value="Theingyi Market">Theingyi Market</option>
+                <option value="Chinatown Night Market">Chinatown Night Market</option>
+            </optgroup>
+            <optgroup label="Pabedan Township">
+                <option value="Junction City">Junction City</option>
+                <option value="Bogyoke Aung San Market">Bogyoke Aung San Market</option>
+            </optgroup>
+            <optgroup label="Kyauktada Township">
+                <option value="Sule Pagoda">Sule Pagoda</option>
+                <option value="Maha Bandula Park">Maha Bandula Park</option>
+            </optgroup>
+            <optgroup label="Lanmadaw Township">
+                <option value="City Mall St. John">City Mall St. John</option>
+                <option value="Yangon General Hospital">Yangon General Hospital</option>
+            </optgroup>
+            <optgroup label="Mingalar Taung Nyunt Township">
+                <option value="Yangon Zoological Gardens">Yangon Zoological Gardens</option>
+                <option value="Mingalar Market">Mingalar Market</option>
+            </optgroup>
         </select>
 
         <button class="swap-route" id="swap-route" type="button" aria-label="Swap starting point and destination">⇅ <span>Swap Locations</span></button>
 
         <label for="destination">Destination</label>
         <select id="destination">
-            <option value="Junction Square">Junction Square</option>
-            <option value="Hledan Centre">Hledan Centre</option>
-            <option value="Inya Lake">Inya Lake</option>
-            <option value="Myanmar Plaza">Myanmar Plaza</option>
-            <option value="Yangon General Hospital">Yangon General Hospital</option>
-            <option value="Yangon Central Station">Yangon Central Station</option>
-            <option value="Sule Pagoda">Sule Pagoda</option>
-            <option value="Junction City">Junction City</option>
-            <option value="Yangon Airport">Yangon Airport</option>
+            <optgroup label="Hlaing Township">
+                <option value="University of Information Technology (UIT)">University of Information Technology (UIT)</option>
+                <option value="MICT Park">MICT Park</option>
+                <option value="LOTTE Hotel Yangon">LOTTE Hotel Yangon</option>
+                <option value="Okkyin Railway Station">Okkyin Railway Station</option>
+                <option value="Thiri Mingalar Market">Thiri Mingalar Market</option>
+            </optgroup>
+            <optgroup label="Kamayut Township">
+                <option value="Junction Square" selected>Junction Square</option>
+                <option value="Hledan Centre">Hledan Centre</option>
+                <option value="University of Yangon">University of Yangon</option>
+                <option value="American Center Yangon">American Center Yangon</option>
+            </optgroup>
+            <optgroup label="Sanchaung Township">
+                <option value="Myaynigone">Myaynigone</option>
+                <option value="Dagon Centre I">Dagon Centre I</option>
+                <option value="Dagon Centre II">Dagon Centre II</option>
+                <option value="Happy Zone Amusement Center">Happy Zone Amusement Center</option>
+            </optgroup>
+            <optgroup label="Dagon Township">
+                <option value="Shwedagon Pagoda">Shwedagon Pagoda</option>
+                <option value="Maha Wizaya Pagoda">Maha Wizaya Pagoda</option>
+                <option value="National Museum of Myanmar">National Museum of Myanmar</option>
+                <option value="National Theatre of Yangon">National Theatre of Yangon</option>
+                <option value="People's Park">People's Park</option>
+                <option value="Happy World Amusement Park">Happy World Amusement Park</option>
+                <option value="Thamada Cinema">Thamada Cinema</option>
+            </optgroup>
+            <optgroup label="Bahan Township">
+                <option value="Myanmar Plaza">Myanmar Plaza</option>
+                <option value="Chaukhtatgyi Buddha Temple">Chaukhtatgyi Buddha Temple</option>
+                <option value="Ngahtatgyi Buddha Temple">Ngahtatgyi Buddha Temple</option>
+            </optgroup>
+            <optgroup label="Yankin Township">
+                <option value="Sedona Hotel Yangon">Sedona Hotel Yangon</option>
+                <option value="Yankin Centre">Yankin Centre</option>
+            </optgroup>
+            <optgroup label="Latha Township">
+                <option value="Theingyi Market">Theingyi Market</option>
+                <option value="Chinatown Night Market">Chinatown Night Market</option>
+            </optgroup>
+            <optgroup label="Pabedan Township">
+                <option value="Junction City">Junction City</option>
+                <option value="Bogyoke Aung San Market">Bogyoke Aung San Market</option>
+            </optgroup>
+            <optgroup label="Kyauktada Township">
+                <option value="Sule Pagoda">Sule Pagoda</option>
+                <option value="Maha Bandula Park">Maha Bandula Park</option>
+            </optgroup>
+            <optgroup label="Lanmadaw Township">
+                <option value="City Mall St. John">City Mall St. John</option>
+                <option value="Yangon General Hospital">Yangon General Hospital</option>
+            </optgroup>
+            <optgroup label="Mingalar Taung Nyunt Township">
+                <option value="Yangon Zoological Gardens">Yangon Zoological Gardens</option>
+                <option value="Mingalar Market">Mingalar Market</option>
+            </optgroup>
         </select>
 
         <details class="journey-conditions" id="journey-conditions">
@@ -1007,31 +1103,66 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
     let activeOptionIndex = 0;
 
     let LOCATION_COORDS = {
+        "University of Information Technology (UIT)": [16.85553, 96.13512],
+        "MICT Park": [16.85100, 96.12870],
+        "LOTTE Hotel Yangon": [16.84070, 96.13190],
+        "Okkyin Railway Station": [16.85240, 96.12480],
+        "Thiri Mingalar Market": [16.85690, 96.10850],
+        "University of Yangon": [16.82490, 96.13420],
         "Hledan Centre": [16.8262, 96.13049],
         "Junction Square": [16.8172, 96.1314],
-        "Inya Lake": [16.8368, 96.1452],
+        "American Center Yangon": [16.82910, 96.13960],
+        "Myaynigone": [16.80570, 96.13250],
+        "Dagon Centre I": [16.80450, 96.13600],
+        "Dagon Centre II": [16.80370, 96.13710],
+        "Happy Zone Amusement Center": [16.80050, 96.13900],
+        "Shwedagon Pagoda": [16.7984, 96.1494],
+        "Maha Wizaya Pagoda": [16.79370, 96.15010],
+        "National Museum of Myanmar": [16.78850, 96.14280],
+        "National Theatre of Yangon": [16.78650, 96.15170],
+        "People's Park": [16.79880, 96.14170],
+        "Happy World Amusement Park": [16.79630, 96.14720],
+        "Thamada Cinema": [16.78180, 96.15850],
         "Myanmar Plaza": [16.8282, 96.1550],
-        "Yangon General Hospital": [16.7789, 96.1481],
-        "Yangon Central Station": [16.7817, 96.1613],
+        "Chaukhtatgyi Buddha Temple": [16.81150, 96.16050],
+        "Ngahtatgyi Buddha Temple": [16.80880, 96.16250],
+        "Sedona Hotel Yangon": [16.82980, 96.15650],
+        "Yankin Centre": [16.83350, 96.16700],
+        "Theingyi Market": [16.77650, 96.15400],
+        "Chinatown Night Market": [16.77250, 96.14880],
+        "Junction City": [16.77896, 96.15427],
+        "Bogyoke Aung San Market": [16.78040, 96.15540],
         "Sule Pagoda": [16.7744, 96.1588],
-        "Yangon Airport": [16.9072, 96.1331],
-        "Junction City": [16.77896, 96.15427]
+        "Maha Bandula Park": [16.77350, 96.16050],
+        "City Mall St. John": [16.78250, 96.14080],
+        "Yangon General Hospital": [16.7789, 96.1481],
+        "Yangon Zoological Gardens": [16.79050, 96.16350],
+        "Mingalar Market": [16.78900, 96.17300]
     };
 
     let GRAPH_EDGES = [
+        ["University of Information Technology (UIT)", "MICT Park"],
+        ["University of Information Technology (UIT)", "LOTTE Hotel Yangon"],
+        ["LOTTE Hotel Yangon", "Hledan Centre"],
         ["Hledan Centre", "Junction Square"],
-        ["Hledan Centre", "Inya Lake"],
-        ["Junction Square", "Myanmar Plaza"],
-        ["Junction Square", "Yangon General Hospital"],
-        ["Inya Lake", "Myanmar Plaza"],
-        ["Inya Lake", "Yangon Airport"],
-        ["Myanmar Plaza", "Yangon Airport"],
-        ["Myanmar Plaza", "Sule Pagoda"],
-        ["Yangon General Hospital", "Yangon Central Station"],
-        ["Yangon Central Station", "Sule Pagoda"],
-        ["Junction City", "Yangon General Hospital"],
-        ["Junction City", "Yangon Central Station"],
-        ["Junction City", "Sule Pagoda"]
+        ["Hledan Centre", "University of Yangon"],
+        ["University of Yangon", "American Center Yangon"],
+        ["American Center Yangon", "Myanmar Plaza"],
+        ["Myanmar Plaza", "Sedona Hotel Yangon"],
+        ["Junction Square", "Myaynigone"],
+        ["Myaynigone", "Dagon Centre I"],
+        ["Dagon Centre I", "Dagon Centre II"],
+        ["Dagon Centre II", "People's Park"],
+        ["People's Park", "Shwedagon Pagoda"],
+        ["Shwedagon Pagoda", "Maha Wizaya Pagoda"],
+        ["Shwedagon Pagoda", "Yangon Zoological Gardens"],
+        ["National Museum of Myanmar", "City Mall St. John"],
+        ["City Mall St. John", "Yangon General Hospital"],
+        ["Yangon General Hospital", "Junction City"],
+        ["Junction City", "Bogyoke Aung San Market"],
+        ["Bogyoke Aung San Market", "Sule Pagoda"],
+        ["Sule Pagoda", "Maha Bandula Park"],
+        ["Thamada Cinema", "Sule Pagoda"]
     ];
 
     const VEHICLE_SPEED = {
@@ -2309,11 +2440,34 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
             destSel.replaceChildren();
             vehicleSel.replaceChildren();
 
+            const townshipGroups = {};
             locations.forEach(loc => {
-                const startOption = document.createElement('option'); startOption.value = loc; startOption.textContent = loc;
-                const destinationOption = startOption.cloneNode(true);
-                startSel.appendChild(startOption); destSel.appendChild(destinationOption);
+                const name = typeof loc === 'string' ? loc : loc.name;
+                const township = (typeof loc === 'object' && loc.township) ? loc.township : 'Yangon';
+                if (!townshipGroups[township]) {
+                    townshipGroups[township] = [];
+                }
+                townshipGroups[township].push(name);
             });
+
+            for (const [township, pois] of Object.entries(townshipGroups)) {
+                const startGroup = document.createElement('optgroup');
+                startGroup.label = township;
+                const destGroup = document.createElement('optgroup');
+                destGroup.label = township;
+
+                pois.forEach(name => {
+                    const startOption = document.createElement('option');
+                    startOption.value = name;
+                    startOption.textContent = name;
+                    const destinationOption = startOption.cloneNode(true);
+                    startGroup.appendChild(startOption);
+                    destGroup.appendChild(destinationOption);
+                });
+
+                startSel.appendChild(startGroup);
+                destSel.appendChild(destGroup);
+            }
 
             vehicles.forEach(v => {
                 const icon = VEHICLE_ICONS[v] || "";
@@ -2321,10 +2475,11 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
                 vehicleSel.appendChild(option);
             });
 
+            const locationNames = locations.map(l => typeof l === 'string' ? l : l.name);
             vehicleSel.value = vehicles.includes('Car') ? 'Car' : vehicles[0];
-            startSel.value = locations.includes('Hledan Centre') ? 'Hledan Centre' : locations[0];
-            const preferredDestination = locations.find(location => location !== startSel.value);
-            destSel.value = locations.includes('Junction Square') && startSel.value !== 'Junction Square'
+            startSel.value = locationNames.includes('Hledan Centre') ? 'Hledan Centre' : locationNames[0];
+            const preferredDestination = locationNames.find(location => location !== startSel.value);
+            destSel.value = locationNames.includes('Junction Square') && startSel.value !== 'Junction Square'
                 ? 'Junction Square'
                 : preferredDestination;
 

@@ -4,7 +4,7 @@ from agent.llm import ask_llm
 
 request = """
 I need the fastest ambulance route
-from Hledan Centre to Yangon Airport.
+from Hledan Centre to Shwedagon Pagoda.
 """
 
 

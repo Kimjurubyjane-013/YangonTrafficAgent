@@ -28,8 +28,8 @@ class RealWorldPipelineTests(unittest.TestCase):
         journeys = [
             ("Hledan Centre", "Junction Square"),
             ("Myanmar Plaza", "Yangon General Hospital"),
-            ("Yangon Airport", "Sule Pagoda"),
-            ("Yangon Airport", "Junction City"),
+            ("University of Information Technology (UIT)", "Sule Pagoda"),
+            ("University of Information Technology (UIT)", "Junction City"),
         ]
         for start, destination in journeys:
             with self.subTest(start=start, destination=destination):

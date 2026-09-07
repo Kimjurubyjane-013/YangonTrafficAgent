@@ -36,25 +36,25 @@ class ArchitectureTests(unittest.TestCase):
         self.assertTrue(validate_graph({"A":{"B":-1}}))
 
     def test_request_validation(self):
-        request,error=validate_route_request("Car","Hledan Centre","Inya Lake",{"weather":"rain","ignored":1})
+        request,error=validate_route_request("Car","Hledan Centre","Junction Square",{"weather":"rain","ignored":1})
         self.assertIsNone(error); self.assertEqual(request.conditions,{"weather":"rain"})
-        self.assertIsNotNone(validate_route_request("Jet","Hledan Centre","Inya Lake")[1])
-        request,error=validate_route_request("Car","Hledan Centre","Inya Lake",{"closed_road":"Pyay Road","incident":"major"})
+        self.assertIsNotNone(validate_route_request("Jet","Hledan Centre","Junction Square")[1])
+        request,error=validate_route_request("Car","Hledan Centre","Junction Square",{"closed_road":"Pyay Road","incident":"major"})
         self.assertIsNone(error); self.assertEqual(request.conditions["closed_road"],"Pyay Road")
-        self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Inya Lake",{"closed_road":"\u4e2d\u6587"})[1])
-        self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Inya Lake",{"time_band":"tomorrow"})[1])
-        request,error=validate_route_request("Car","Hledan Centre","Inya Lake",{"traffic_scenario":"off_peak"})
+        self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Junction Square",{"closed_road":"\u4e2d\u6587"})[1])
+        self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Junction Square",{"time_band":"tomorrow"})[1])
+        request,error=validate_route_request("Car","Hledan Centre","Junction Square",{"traffic_scenario":"off_peak"})
         self.assertIsNone(error); self.assertEqual(request.conditions["traffic_scenario"],"off_peak")
-        self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Inya Lake",{"traffic_scenario":"weekend"})[1])
+        self.assertIsNotNone(validate_route_request("Car","Hledan Centre","Junction Square",{"traffic_scenario":"weekend"})[1])
 
     def test_best_and_alternative_contracts_match(self):
-        api=Api(FakeRouteService()); result=api.find_route("Car","Hledan Centre","Inya Lake")
+        api=Api(FakeRouteService()); result=api.find_route("Car","Hledan Centre","Junction Square")
         self.assertTrue(result["ok"])
         for key in ("route","display_route","geometry","road_names","distance","time","traffic","segment_traffic","decision"):
             self.assertIn(key,result); self.assertIn(key,result["alternatives"][0])
 
     def test_structured_api_error(self):
-        result=Api(FakeRouteService()).find_route("invalid","Hledan Centre","Inya Lake")
+        result=Api(FakeRouteService()).find_route("invalid","Hledan Centre","Junction Square")
         self.assertEqual(result["error_details"]["code"],"unknown_vehicle")
 
     def test_home_agent_and_theme_controls_are_present(self):

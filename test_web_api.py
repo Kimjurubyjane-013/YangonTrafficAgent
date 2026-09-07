@@ -30,7 +30,13 @@ class WebApiTests(unittest.TestCase):
             self.client.get("/health").json(),
             {"status": "ok", "service": "Yangon Traffic Intelligence"},
         )
-        self.assertIn("Hledan Centre", self.client.get("/api/locations").json())
+        locs = self.client.get("/api/locations").json()
+        loc_names = [loc["name"] if isinstance(loc, dict) else loc for loc in locs]
+        self.assertIn("Hledan Centre", loc_names)
+        self.assertIn("University of Information Technology (UIT)", loc_names)
+        uit = next((loc for loc in locs if isinstance(loc, dict) and loc["name"] == "University of Information Technology (UIT)"), None)
+        self.assertIsNotNone(uit)
+        self.assertEqual(uit.get("township"), "Hlaing Township")
         self.assertIn("Car", self.client.get("/api/vehicles").json())
         graph = self.client.get("/api/graph").json()
         self.assertIn("coords", graph)
@@ -60,7 +66,7 @@ class WebApiTests(unittest.TestCase):
 
     def test_invalid_route_is_structured_http_error(self):
         response = self.client.post("/api/route", json={
-            "vehicle": "Jet", "start": "Hledan Centre", "destination": "Inya Lake",
+            "vehicle": "Jet", "start": "Hledan Centre", "destination": "Junction Square",
             "conditions": {},
         })
         self.assertEqual(response.status_code, 400)
@@ -85,7 +91,7 @@ class WebApiTests(unittest.TestCase):
 
         with patch.object(web_api, "application_api", Api(RouteServiceStub())):
             response = self.client.post("/api/route", json={
-                "vehicle": "Car", "start": "Hledan Centre", "destination": "Inya Lake",
+                "vehicle": "Car", "start": "Hledan Centre", "destination": "Junction Square",
                 "conditions": {"time_band": "off_peak"},
             })
         self.assertEqual(response.status_code, 200)
