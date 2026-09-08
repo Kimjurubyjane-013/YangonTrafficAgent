@@ -124,3 +124,31 @@ class WebApiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_regression_find_route_normal_conditions():
+    """
+    Regression test ensuring that a standard 'Normal Conditions' frontend request
+    sends the canonical scenario 'current' and successfully returns a route response
+    with ok=True, rather than failing on an invalid scenario.
+    """
+    from fastapi.testclient import TestClient
+    from web_api import app
+
+    client = TestClient(app)
+    payload = {
+        "vehicle": "Car",
+        "start": "Hledan Centre",
+        "destination": "Junction Square",
+        "conditions": {
+            "traffic_scenario": "current"
+        }
+    }
+    
+    response = client.post("/api/route", json=payload)
+    
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+    data = response.json()
+    assert data.get("ok") is True, "Expected ok=True in routing response"
+    assert "route" in data, "Expected route array in response"
+    assert data.get("traffic_scenario") == "current", "Backend must normalize and return the 'current' scenario"

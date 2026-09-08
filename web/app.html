@@ -713,166 +713,241 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
 <div class="main">
 
     <div class="panel control">
-        <div class="panel-kicker">Plan A Journey</div>
-        <h2 class="primary-panel-title">Route Request</h2>
+        <div class="planner-header">
+            <div class="planner-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            </div>
+            <div>
+                <h2 class="primary-panel-title">Plan Your Journey</h2>
+                <p class="planner-subtitle">Choose your preferences and find the best route with traffic-aware route recommendation.</p>
+            </div>
+        </div>
 
-        <label for="vehicle">Vehicle Type</label>
-        <select id="vehicle" aria-label="Vehicle type">
-            <option value="Car">🚗 Car</option>
-            <option value="Bus">🚌 Bus</option>
-            <option value="Taxi">🚕 Taxi</option>
-            <option value="Ambulance">🚑 Ambulance</option>
-            <option value="Fire Truck">🚒 Fire Truck</option>
-            <option value="Police">🚓 Police</option>
-        </select>
+        <div class="form-group">
+            <label for="start">Starting Point</label>
+            <div class="custom-select-wrapper" data-for="start">
+                <div class="custom-select-trigger" tabindex="0">
+                    <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+                    <span class="custom-select-value">Hledan Centre</span>
+                    <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+                <div class="custom-select-dropdown"></div>
+            </div>
+            <select id="start" style="display:none;">
+                <optgroup label="Hlaing Township">
+                    <option value="University of Information Technology (UIT)">University of Information Technology (UIT)</option>
+                    <option value="MICT Park">MICT Park</option>
+                    <option value="LOTTE Hotel Yangon">LOTTE Hotel Yangon</option>
+                    <option value="Okkyin Railway Station">Okkyin Railway Station</option>
+                    <option value="Thiri Mingalar Market">Thiri Mingalar Market</option>
+                </optgroup>
+                <optgroup label="Kamayut Township">
+                    <option value="Hledan Centre" selected>Hledan Centre</option>
+                    <option value="University of Yangon">University of Yangon</option>
+                    <option value="Junction Square">Junction Square</option>
+                    <option value="American Center Yangon">American Center Yangon</option>
+                </optgroup>
+                <optgroup label="Sanchaung Township">
+                    <option value="Myaynigone">Myaynigone</option>
+                    <option value="Dagon Centre I">Dagon Centre I</option>
+                    <option value="Dagon Centre II">Dagon Centre II</option>
+                    <option value="Happy Zone Amusement Center">Happy Zone Amusement Center</option>
+                </optgroup>
+                <optgroup label="Dagon Township">
+                    <option value="Shwedagon Pagoda">Shwedagon Pagoda</option>
+                    <option value="Maha Wizaya Pagoda">Maha Wizaya Pagoda</option>
+                    <option value="National Museum of Myanmar">National Museum of Myanmar</option>
+                    <option value="National Theatre of Yangon">National Theatre of Yangon</option>
+                    <option value="People's Park">People's Park</option>
+                    <option value="Happy World Amusement Park">Happy World Amusement Park</option>
+                    <option value="Thamada Cinema">Thamada Cinema</option>
+                </optgroup>
+                <optgroup label="Bahan Township">
+                    <option value="Myanmar Plaza">Myanmar Plaza</option>
+                    <option value="Chaukhtatgyi Buddha Temple">Chaukhtatgyi Buddha Temple</option>
+                    <option value="Ngahtatgyi Buddha Temple">Ngahtatgyi Buddha Temple</option>
+                </optgroup>
+                <optgroup label="Yankin Township">
+                    <option value="Sedona Hotel Yangon">Sedona Hotel Yangon</option>
+                    <option value="Yankin Centre">Yankin Centre</option>
+                </optgroup>
+                <optgroup label="Latha Township">
+                    <option value="Theingyi Market">Theingyi Market</option>
+                    <option value="Chinatown Night Market">Chinatown Night Market</option>
+                </optgroup>
+                <optgroup label="Pabedan Township">
+                    <option value="Bogyoke Market">Bogyoke Market</option>
+                    <option value="Junction City">Junction City</option>
+                    <option value="Holy Trinity Anglican Church">Holy Trinity Anglican Church</option>
+                </optgroup>
+                <optgroup label="Kyauktada Township">
+                    <option value="Sule Pagoda">Sule Pagoda</option>
+                    <option value="Yangon City Hall">Yangon City Hall</option>
+                    <option value="Maha Bandula Park">Maha Bandula Park</option>
+                    <option value="High Court Building">High Court Building</option>
+                    <option value="Strand Hotel">Strand Hotel</option>
+                </optgroup>
+                <optgroup label="Botahtaung Township">
+                    <option value="Botahtaung Pagoda">Botahtaung Pagoda</option>
+                    <option value="Secretariat Yangon">Secretariat Yangon</option>
+                    <option value="St. Mary's Cathedral">St. Mary's Cathedral</option>
+                </optgroup>
+                <optgroup label="Mingalar Taung Nyunt Township">
+                    <option value="Yangon Central Railway Station">Yangon Central Railway Station</option>
+                    <option value="Kandawgyi Lake">Kandawgyi Lake</option>
+                    <option value="Karaweik Palace">Karaweik Palace</option>
+                    <option value="Bogyoke Park">Bogyoke Park</option>
+                    <option value="Mingalar Market">Mingalar Market</option>
+                </optgroup>
+            </select>
+        </div>
 
-        <label for="start">Starting Point</label>
-        <select id="start">
-            <optgroup label="Hlaing Township">
-                <option value="University of Information Technology (UIT)">University of Information Technology (UIT)</option>
-                <option value="MICT Park">MICT Park</option>
-                <option value="LOTTE Hotel Yangon">LOTTE Hotel Yangon</option>
-                <option value="Okkyin Railway Station">Okkyin Railway Station</option>
-                <option value="Thiri Mingalar Market">Thiri Mingalar Market</option>
-            </optgroup>
-            <optgroup label="Kamayut Township">
-                <option value="Hledan Centre" selected>Hledan Centre</option>
-                <option value="University of Yangon">University of Yangon</option>
-                <option value="Junction Square">Junction Square</option>
-                <option value="American Center Yangon">American Center Yangon</option>
-            </optgroup>
-            <optgroup label="Sanchaung Township">
-                <option value="Myaynigone">Myaynigone</option>
-                <option value="Dagon Centre I">Dagon Centre I</option>
-                <option value="Dagon Centre II">Dagon Centre II</option>
-                <option value="Happy Zone Amusement Center">Happy Zone Amusement Center</option>
-            </optgroup>
-            <optgroup label="Dagon Township">
-                <option value="Shwedagon Pagoda">Shwedagon Pagoda</option>
-                <option value="Maha Wizaya Pagoda">Maha Wizaya Pagoda</option>
-                <option value="National Museum of Myanmar">National Museum of Myanmar</option>
-                <option value="National Theatre of Yangon">National Theatre of Yangon</option>
-                <option value="People's Park">People's Park</option>
-                <option value="Happy World Amusement Park">Happy World Amusement Park</option>
-                <option value="Thamada Cinema">Thamada Cinema</option>
-            </optgroup>
-            <optgroup label="Bahan Township">
-                <option value="Myanmar Plaza">Myanmar Plaza</option>
-                <option value="Chaukhtatgyi Buddha Temple">Chaukhtatgyi Buddha Temple</option>
-                <option value="Ngahtatgyi Buddha Temple">Ngahtatgyi Buddha Temple</option>
-            </optgroup>
-            <optgroup label="Yankin Township">
-                <option value="Sedona Hotel Yangon">Sedona Hotel Yangon</option>
-                <option value="Yankin Centre">Yankin Centre</option>
-            </optgroup>
-            <optgroup label="Latha Township">
-                <option value="Theingyi Market">Theingyi Market</option>
-                <option value="Chinatown Night Market">Chinatown Night Market</option>
-            </optgroup>
-            <optgroup label="Pabedan Township">
-                <option value="Junction City">Junction City</option>
-                <option value="Bogyoke Aung San Market">Bogyoke Aung San Market</option>
-            </optgroup>
-            <optgroup label="Kyauktada Township">
-                <option value="Sule Pagoda">Sule Pagoda</option>
-                <option value="Maha Bandula Park">Maha Bandula Park</option>
-            </optgroup>
-            <optgroup label="Lanmadaw Township">
-                <option value="City Mall St. John">City Mall St. John</option>
-                <option value="Yangon General Hospital">Yangon General Hospital</option>
-            </optgroup>
-            <optgroup label="Mingalar Taung Nyunt Township">
-                <option value="Yangon Zoological Gardens">Yangon Zoological Gardens</option>
-                <option value="Mingalar Market">Mingalar Market</option>
-            </optgroup>
-        </select>
+        <div class="form-group">
+            <label for="destination">Destination</label>
+            <div class="custom-select-wrapper" data-for="destination">
+                <div class="custom-select-trigger" tabindex="0">
+                    <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    <span class="custom-select-value">Junction Square</span>
+                    <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+                <div class="custom-select-dropdown"></div>
+            </div>
+            <select id="destination" style="display:none;">
+                <optgroup label="Hlaing Township">
+                    <option value="University of Information Technology (UIT)">University of Information Technology (UIT)</option>
+                    <option value="MICT Park">MICT Park</option>
+                    <option value="LOTTE Hotel Yangon">LOTTE Hotel Yangon</option>
+                    <option value="Okkyin Railway Station">Okkyin Railway Station</option>
+                    <option value="Thiri Mingalar Market">Thiri Mingalar Market</option>
+                </optgroup>
+                <optgroup label="Kamayut Township">
+                    <option value="Hledan Centre">Hledan Centre</option>
+                    <option value="University of Yangon">University of Yangon</option>
+                    <option value="Junction Square" selected>Junction Square</option>
+                    <option value="American Center Yangon">American Center Yangon</option>
+                </optgroup>
+                <optgroup label="Sanchaung Township">
+                    <option value="Myaynigone">Myaynigone</option>
+                    <option value="Dagon Centre I">Dagon Centre I</option>
+                    <option value="Dagon Centre II">Dagon Centre II</option>
+                    <option value="Happy Zone Amusement Center">Happy Zone Amusement Center</option>
+                </optgroup>
+                <optgroup label="Dagon Township">
+                    <option value="Shwedagon Pagoda">Shwedagon Pagoda</option>
+                    <option value="Maha Wizaya Pagoda">Maha Wizaya Pagoda</option>
+                    <option value="National Museum of Myanmar">National Museum of Myanmar</option>
+                    <option value="National Theatre of Yangon">National Theatre of Yangon</option>
+                    <option value="People's Park">People's Park</option>
+                    <option value="Happy World Amusement Park">Happy World Amusement Park</option>
+                    <option value="Thamada Cinema">Thamada Cinema</option>
+                </optgroup>
+                <optgroup label="Bahan Township">
+                    <option value="Myanmar Plaza">Myanmar Plaza</option>
+                    <option value="Chaukhtatgyi Buddha Temple">Chaukhtatgyi Buddha Temple</option>
+                    <option value="Ngahtatgyi Buddha Temple">Ngahtatgyi Buddha Temple</option>
+                </optgroup>
+                <optgroup label="Yankin Township">
+                    <option value="Sedona Hotel Yangon">Sedona Hotel Yangon</option>
+                    <option value="Yankin Centre">Yankin Centre</option>
+                </optgroup>
+                <optgroup label="Latha Township">
+                    <option value="Theingyi Market">Theingyi Market</option>
+                    <option value="Chinatown Night Market">Chinatown Night Market</option>
+                </optgroup>
+                <optgroup label="Pabedan Township">
+                    <option value="Bogyoke Market">Bogyoke Market</option>
+                    <option value="Junction City">Junction City</option>
+                    <option value="Holy Trinity Anglican Church">Holy Trinity Anglican Church</option>
+                </optgroup>
+                <optgroup label="Kyauktada Township">
+                    <option value="Sule Pagoda">Sule Pagoda</option>
+                    <option value="Yangon City Hall">Yangon City Hall</option>
+                    <option value="Maha Bandula Park">Maha Bandula Park</option>
+                    <option value="High Court Building">High Court Building</option>
+                    <option value="Strand Hotel">Strand Hotel</option>
+                </optgroup>
+                <optgroup label="Botahtaung Township">
+                    <option value="Botahtaung Pagoda">Botahtaung Pagoda</option>
+                    <option value="Secretariat Yangon">Secretariat Yangon</option>
+                    <option value="St. Mary's Cathedral">St. Mary's Cathedral</option>
+                </optgroup>
+                <optgroup label="Mingalar Taung Nyunt Township">
+                    <option value="Yangon Central Railway Station">Yangon Central Railway Station</option>
+                    <option value="Kandawgyi Lake">Kandawgyi Lake</option>
+                    <option value="Karaweik Palace">Karaweik Palace</option>
+                    <option value="Bogyoke Park">Bogyoke Park</option>
+                    <option value="Mingalar Market">Mingalar Market</option>
+                </optgroup>
+            </select>
+        </div>
 
-        <button class="swap-route" id="swap-route" type="button" aria-label="Swap starting point and destination">⇅ <span>Swap Locations</span></button>
+        <button type="button" class="btn-swap-locations" id="swap-route" aria-label="Swap Start and Destination" title="Swap Locations">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+        </button>
 
-        <label for="destination">Destination</label>
-        <select id="destination">
-            <optgroup label="Hlaing Township">
-                <option value="University of Information Technology (UIT)">University of Information Technology (UIT)</option>
-                <option value="MICT Park">MICT Park</option>
-                <option value="LOTTE Hotel Yangon">LOTTE Hotel Yangon</option>
-                <option value="Okkyin Railway Station">Okkyin Railway Station</option>
-                <option value="Thiri Mingalar Market">Thiri Mingalar Market</option>
-            </optgroup>
-            <optgroup label="Kamayut Township">
-                <option value="Junction Square" selected>Junction Square</option>
-                <option value="Hledan Centre">Hledan Centre</option>
-                <option value="University of Yangon">University of Yangon</option>
-                <option value="American Center Yangon">American Center Yangon</option>
-            </optgroup>
-            <optgroup label="Sanchaung Township">
-                <option value="Myaynigone">Myaynigone</option>
-                <option value="Dagon Centre I">Dagon Centre I</option>
-                <option value="Dagon Centre II">Dagon Centre II</option>
-                <option value="Happy Zone Amusement Center">Happy Zone Amusement Center</option>
-            </optgroup>
-            <optgroup label="Dagon Township">
-                <option value="Shwedagon Pagoda">Shwedagon Pagoda</option>
-                <option value="Maha Wizaya Pagoda">Maha Wizaya Pagoda</option>
-                <option value="National Museum of Myanmar">National Museum of Myanmar</option>
-                <option value="National Theatre of Yangon">National Theatre of Yangon</option>
-                <option value="People's Park">People's Park</option>
-                <option value="Happy World Amusement Park">Happy World Amusement Park</option>
-                <option value="Thamada Cinema">Thamada Cinema</option>
-            </optgroup>
-            <optgroup label="Bahan Township">
-                <option value="Myanmar Plaza">Myanmar Plaza</option>
-                <option value="Chaukhtatgyi Buddha Temple">Chaukhtatgyi Buddha Temple</option>
-                <option value="Ngahtatgyi Buddha Temple">Ngahtatgyi Buddha Temple</option>
-            </optgroup>
-            <optgroup label="Yankin Township">
-                <option value="Sedona Hotel Yangon">Sedona Hotel Yangon</option>
-                <option value="Yankin Centre">Yankin Centre</option>
-            </optgroup>
-            <optgroup label="Latha Township">
-                <option value="Theingyi Market">Theingyi Market</option>
-                <option value="Chinatown Night Market">Chinatown Night Market</option>
-            </optgroup>
-            <optgroup label="Pabedan Township">
-                <option value="Junction City">Junction City</option>
-                <option value="Bogyoke Aung San Market">Bogyoke Aung San Market</option>
-            </optgroup>
-            <optgroup label="Kyauktada Township">
-                <option value="Sule Pagoda">Sule Pagoda</option>
-                <option value="Maha Bandula Park">Maha Bandula Park</option>
-            </optgroup>
-            <optgroup label="Lanmadaw Township">
-                <option value="City Mall St. John">City Mall St. John</option>
-                <option value="Yangon General Hospital">Yangon General Hospital</option>
-            </optgroup>
-            <optgroup label="Mingalar Taung Nyunt Township">
-                <option value="Yangon Zoological Gardens">Yangon Zoological Gardens</option>
-                <option value="Mingalar Market">Mingalar Market</option>
-            </optgroup>
-        </select>
+        <div class="form-group">
+            <label for="vehicle">Vehicle Type</label>
+            <div class="custom-select-wrapper" data-for="vehicle">
+                <div class="custom-select-trigger" tabindex="0">
+                    <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>
+                    <span class="custom-select-value">Car</span>
+                    <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+                <div class="custom-select-dropdown"></div>
+            </div>
+            <select id="vehicle" style="display:none;" aria-label="Vehicle type">
+                <option value="Car" selected>Car</option>
+                <option value="Bus">Bus</option>
+                <option value="Taxi">Taxi</option>
+                <option value="Ambulance">Ambulance</option>
+                <option value="Fire Truck">Fire Truck</option>
+                <option value="Police">Police</option>
+            </select>
+        </div>
 
-        <details class="journey-conditions" id="journey-conditions">
-            <summary>What-If Scenario <span>Optional</span></summary>
-            <label for="scenario-mode">Scenario</label>
-            <small class="scenario-helper">Compare routes under different simulated journey conditions.</small>
-            <select id="scenario-mode">
-                <option value="current">Normal Conditions</option>
+        <div class="form-group">
+            <label for="scenario-mode">Journey Condition</label>
+            <div class="custom-select-wrapper" data-for="scenario-mode">
+                <div class="custom-select-trigger" tabindex="0">
+                    <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    <span class="custom-select-value">Normal Conditions</span>
+                    <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+                <div class="custom-select-dropdown"></div>
+            </div>
+            <select id="scenario-mode" style="display:none;">
+                <option value="current" selected>Normal Conditions</option>
                 <option value="heavy_rain">Heavy Rain</option>
                 <option value="peak">Rush Hour</option>
                 <option value="off_peak">Off-Peak Hours</option>
             </select>
-        </details>
+        </div>
 
-        <button class="btn-find" id="find-btn" type="button">Find Route</button>
-        <button class="btn-reset" id="reset-btn" type="button">Reset Journey</button>
-        <button class="btn-sim" id="sim-btn" type="button" disabled>Start Simulation</button>
+        <button type="button" class="btn-primary-search" id="find-route-btn" onclick="window.findRoute()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Find Route &rarr;
+        </button>
+        <div id="status" class="status-msg"></div>
 
-        <div class="status" id="status"></div>
+        <div class="secondary-actions">
+            <button type="button" class="btn-reset" onclick="window.clearRouteDisplay()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                Reset
+            </button>
+            <button type="button" class="btn-simulation" id="sim-btn" onclick="window.openSimulation?.()" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Start Simulation
+            </button>
+        </div>
 
-        <div class="legend">
-            <span class="traffic-light"></span> Light
-            <span class="traffic-moderate"></span> Moderate
-            <span class="traffic-heavy"></span> Heavy
-            <span id="unknown-legend-item" hidden><i class="traffic-unknown"></i> Unknown</span>
+        <div class="promo-card">
+            <div class="promo-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+            </div>
+            <div>
+                <strong>Explore Yangon Smarter</strong>
+                <p>Traffic-aware insights. Better decisions. A smoother journey.</p>
+            </div>
         </div>
     </div>
 
@@ -935,49 +1010,70 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
     </div>
 
     <div class="panel result">
-        <div class="panel-kicker">Journey Summary</div>
-        <h2 class="primary-panel-title">Route Result</h2>
-        <p id="r-route">Route: -</p>
-        <p id="r-distance">Distance: -</p>
-        <p id="r-time">Travel Time: -</p>
-        <p id="r-traffic">Traffic: -</p>
-        <p id="r-scenario" hidden></p>
-        <div class="route-why" id="route-why" hidden><strong>Why This Route?</strong><span></span></div>
-        <div class="route-provenance" id="route-provenance" hidden></div>
+        <div class="result-header">
+            <div class="result-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v12z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+            </div>
+            <div>
+                <h2 class="primary-panel-title">Route Results</h2>
+                <p class="result-subtitle">Based on current traffic-aware route analysis.</p>
+                <span class="traffic-model-badge">Inferred Traffic</span>
+            </div>
+        </div>
 
-        <h3>Route Options <span class="muted">Best First</span></h3>
-        <div class="route-comparison" id="route-comparison" hidden></div>
         <div id="route-options"></div>
-        <section class="route-forecast" aria-labelledby="forecast-title">
-            <div><strong id="forecast-title">Traffic Outlook</strong></div>
-            <small class="outlook-helper" style="color:var(--text-muted,#8A8497);font-size:10px;margin:2px 0 6px;display:block;">Estimated from the system's time-based traffic model.</small>
-            <select id="forecast-period" aria-label="Traffic forecast period">
-                <option value="now">Now</option><option value="plus_30">+30 Minutes</option>
-                <option value="plus_60">+1 Hour</option><option value="evening_rush">Evening Rush Projection</option>
-            </select>
-            <div class="forecast-result" id="forecast-result" hidden></div>
-        </section>
-        <button class="analysis-link" id="analysis-btn" type="button" disabled>View Route Analysis</button>
+
+        <div class="route-lower-row">
+            <div class="route-why" id="route-why" hidden><strong>Why This Route?</strong><span></span></div>
+            <section class="route-forecast" aria-labelledby="forecast-title">
+                <div><strong id="forecast-title">Traffic Outlook</strong></div>
+                <div class="custom-select-wrapper" data-for="forecast-period">
+                    <div class="custom-select-trigger" tabindex="0">
+                        <span class="custom-select-value">Now</span>
+                        <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                    <div class="custom-select-dropdown"></div>
+                </div>
+                <select id="forecast-period" aria-label="Traffic forecast period" style="display:none;">
+                    <option value="now" selected>Now</option>
+                    <option value="plus_30">+30 Minutes</option>
+                    <option value="plus_60">+1 Hour</option>
+                    <option value="evening_rush">Evening Rush Projection</option>
+                </select>
+                <div class="forecast-result" id="forecast-result" hidden></div>
+            </section>
+        </div>
+
+        <div class="ai-panel planner-intelligence">
+            <div class="agent-panel-head">
+                <div class="route-agent-avatar" aria-hidden="true"><i></i><i></i><span></span></div>
+                <div><h2 style="font-size: 16px; margin: 0; color: #173b4c;">AI Assistant Recommendation</h2></div>
+            </div>
+            <div class="agent-conversation">
+                <div class="message system-msg">
+                    <p id="ai-text">Tell me where you want to go, and I’ll explain the route I recommend.</p>
+                    <details class="decision-details" hidden>
+                        <summary>Show routing evidence</summary>
+                        <pre id="decision-details-text">Route evidence will appear after a search.</pre>
+                    </details>
+                </div>
+            </div>
+        </div>
+        
+        <button class="analysis-link" id="analysis-btn" type="button" style="display:none;">View Route Analysis</button>
+        <!-- Hiding unused elements gracefully -->
+        <p id="r-route" hidden></p>
+        <p id="r-distance" hidden></p>
+        <p id="r-time" hidden></p>
+        <p id="r-traffic" hidden></p>
+        <p id="r-scenario" hidden></p>
+        <div id="route-comparison" hidden></div>
+        <div id="route-provenance" hidden></div>
     </div>
 
-</div>
+  </div>
 
-<div class="ai-panel planner-intelligence">
-    <div class="agent-panel-head">
-        <div class="route-agent-avatar" aria-hidden="true"><i></i><i></i><span></span></div>
-        <div><div class="panel-kicker">Your Route Agent</div><h2>Route Intelligence</h2></div>
-        <div class="agent-ready"><span></span>Ready To Reason</div>
-    </div>
-    <div class="agent-conversation">
-        <div class="agent-name">Yangon Route Agent</div>
-        <div id="ai-text">Tell me where you want to go, and I’ll explain the route I recommend.</div>
-    </div>
-    <div id="decision-details-text" hidden>Route evidence will appear after a search.</div>
-</div>
-
-</div>
-
-<section class="analysis-view" id="analysis-view" hidden>
+  <section class="analysis-view" id="analysis-view" hidden>
 <div class="analysis-page-head">
     <div><div class="panel-kicker">Explainable Route Decision</div><h1>Route Analysis</h1></div>
     <button id="analysis-back" type="button">Back To Route Planner</button>
@@ -1682,7 +1778,10 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
 
         allOptionsData.forEach((opt, index) => {
             const div = document.createElement('div');
-            div.className = 'route-option' + (index === activeOptionIndex ? ' active' : '') + (index === 0 ? ' recommended' : '');
+            const isRecommended = index === 0;
+            div.className = 'route-card' + (isRecommended ? ' route-card-recommended' : ' route-card-alternative');
+            if (index === activeOptionIndex) div.classList.add('active');
+            
             div.setAttribute('role', 'button');
             div.tabIndex = 0;
             div.addEventListener('click', () => selectOption(index));
@@ -1690,66 +1789,71 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
                 if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectOption(index); }
             });
 
-            const label = index === 0 ? `${opt.route_label || \'Route A\'} \u00B7 Recommended` : `${opt.route_label || \'Route \' + String.fromCharCode(65 + index)} \u00B7 Alternative`;
             const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
             const color = YangonTrafficColors.getTrafficColor(level);
-            div.dataset.level = level;
-            div.style.setProperty('--route-traffic-color', color);
-
-            const header = document.createElement('div'); header.className = 'route-option-header';
-            const star = document.createElement('span'); star.className = 'route-recommendation-star'; star.textContent = index === 0 ? '★' : String(index + 1).padStart(2, '0');
-            const title = document.createElement('b'); title.textContent = label;
-            header.append(star, title);
-
-            const routePath = document.createElement('ol'); routePath.className = 'route-option-path';
-            const rawRoads = opt.display_route || opt.route || [];
-            const cleanRoads = [];
-            rawRoads.forEach(name => {
-                const str = String(name || '').trim();
-                if (str && str !== cleanRoads[cleanRoads.length - 1]) cleanRoads.push(str);
-            });
-            cleanRoads.forEach(name => {
-                const item = document.createElement('li'); item.textContent = name; routePath.appendChild(item);
-            });
-
-            const metrics = document.createElement('div'); metrics.className = 'route-option-metrics';
-            const addMetric = (name, value, extraClass = '') => {
-                const item = document.createElement('span'); item.className = extraClass;
-                const valueNode = document.createElement('strong'); valueNode.textContent = value;
-                const labelNode = document.createElement('small'); labelNode.textContent = name;
-                item.append(valueNode, labelNode); metrics.appendChild(item);
-            };
-            addMetric('Distance', `${opt.distance} km`);
-            addMetric('Travel Time', formatDuration(opt.time));
+            
+            const header = document.createElement('div');
+            header.className = 'route-card-header';
+            
+            const titleWrap = document.createElement('div');
+            titleWrap.className = 'route-card-title-wrap';
+            
+            const icon = document.createElement('div');
+            icon.className = 'route-card-icon';
+            icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>`;
+            
+            const name = document.createElement('strong');
+            name.textContent = opt.route_label || (index === 0 ? 'Route A' : 'Route ' + String.fromCharCode(65 + index));
+            
             const badge = document.createElement('span');
-            badge.className = 'badge';
-            badge.style.background = color;
-            badge.textContent = level;
-            badge.title = trafficSourceSummary(opt);
-
-            const badgeRow = document.createElement('div'); badgeRow.className = 'route-option-badges';
-            const trafficGroup = document.createElement('span'); trafficGroup.className = 'route-option-badge-group';
-            const trafficLabel = document.createElement('small'); trafficLabel.textContent = 'Traffic';
-            trafficGroup.append(trafficLabel, badge);
-            badgeRow.append(trafficGroup);
-            div.append(header, routePath, metrics);
-            if (Array.isArray(opt.characteristics) && opt.characteristics.length) {
-                const traits = document.createElement('div'); traits.className = 'route-characteristics';
-                const priority = ['LEAST_CONGESTED', 'FASTEST', 'SHORTEST'];
-                const value = priority.find(item => opt.characteristics.includes(item)) || opt.characteristics[0];
-                const tag = document.createElement('span'); tag.textContent = value.replaceAll('_', ' '); traits.appendChild(tag);
-                div.appendChild(traits);
-            }
-            if (index > 0 && opt.comparison_to_recommended?.explanation) {
-                const comparison = document.createElement('p'); comparison.className = 'route-option-difference';
-                comparison.textContent = opt.comparison_to_recommended.explanation;
-                div.appendChild(comparison);
-            }
-            div.appendChild(badgeRow);
-
+            badge.className = 'route-card-badge';
+            badge.textContent = index === 0 ? 'Recommended' : 'Alternative';
+            
+            titleWrap.append(icon, name, badge);
+            
+            const trafficBadge = document.createElement('div');
+            trafficBadge.className = 'route-card-traffic';
+            trafficBadge.innerHTML = `<span class="traffic-dot" style="background:${color}"></span> ${level} Traffic`;
+            
+            header.append(titleWrap, trafficBadge);
+            
+            const metrics = document.createElement('div');
+            metrics.className = 'route-card-metrics';
+            
+            const timeMetric = document.createElement('div');
+            timeMetric.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <div><strong>${formatDuration(opt.time)}</strong><small>ETA</small></div>`;
+            
+            const distMetric = document.createElement('div');
+            distMetric.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+            <div><strong>${opt.distance} km</strong><small>Distance</small></div>`;
+            
+            const delayMetric = document.createElement('div');
+            delayMetric.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <div><strong>${opt.traffic_delay > 0 ? '+' : ''}${formatDuration(opt.traffic_delay || 0)}</strong><small>Est. Delay</small></div>`;
+            
+            metrics.append(timeMetric, distMetric, delayMetric);
+            
+            const pathNode = document.createElement('div');
+            pathNode.className = 'route-card-path';
+            pathNode.textContent = (opt.display_route || opt.route || []).join(' → ');
+            
+            const btn = document.createElement('button');
+            btn.className = 'route-card-btn';
+            btn.textContent = 'View Details →';
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectOption(index).then(() => {
+                    document.getElementById('analysis-btn').click();
+                });
+            });
+            
+            div.append(header, metrics, pathNode, btn);
             container.appendChild(div);
         });
     }
+
+    
 
     function updateNavHud(opt) {
         const hud = document.getElementById('nav-hud-2d');
@@ -3011,5 +3115,91 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
 <script src="./dashboard.js"></script>
 <script src="./app.js"></script>
 
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Custom dropdown logic
+    document.querySelectorAll('.custom-select-wrapper').forEach(wrapper => {
+        const selectId = wrapper.getAttribute('data-for');
+        const select = document.getElementById(selectId);
+        const trigger = wrapper.querySelector('.custom-select-trigger');
+        const valueSpan = trigger.querySelector('.custom-select-value');
+        const dropdown = wrapper.querySelector('.custom-select-dropdown');
+        
+        // Populate dropdown
+        function populate() {
+            dropdown.innerHTML = '';
+            Array.from(select.children).forEach(child => {
+                if (child.tagName === 'OPTGROUP') {
+                    const label = document.createElement('div');
+                    label.className = 'custom-select-optgroup';
+                    label.textContent = child.label;
+                    dropdown.appendChild(label);
+                    Array.from(child.children).forEach(option => {
+                        createOption(option);
+                    });
+                } else if (child.tagName === 'OPTION') {
+                    createOption(child);
+                }
+            });
+        }
+        
+        function createOption(option) {
+            const div = document.createElement('div');
+            div.className = 'custom-select-option';
+            if (option.selected) div.classList.add('selected');
+            div.textContent = option.textContent;
+            div.dataset.value = option.value;
+            div.addEventListener('click', (e) => {
+                e.stopPropagation();
+                select.value = option.value;
+                valueSpan.textContent = option.textContent;
+                select.dispatchEvent(new Event('change'));
+                wrapper.classList.remove('open');
+                populate(); // refresh selected state
+            });
+            dropdown.appendChild(div);
+        }
+        
+        populate();
+        
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = wrapper.classList.contains('open');
+            document.querySelectorAll('.custom-select-wrapper').forEach(w => w.classList.remove('open'));
+            if (!isOpen) wrapper.classList.add('open');
+        });
+    });
+    
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.custom-select-wrapper').forEach(w => w.classList.remove('open'));
+    });
+    
+    // Sync swap values
+    const swapBtn = document.getElementById('swap-route');
+    if (swapBtn) {
+        swapBtn.addEventListener('click', () => {
+            setTimeout(() => {
+                ['start', 'destination'].forEach(id => {
+                    const sel = document.getElementById(id);
+                    const wrapper = document.querySelector(`.custom-select-wrapper[data-for="${id}"]`);
+                    if (wrapper && sel) {
+                        wrapper.querySelector('.custom-select-value').textContent = sel.options[sel.selectedIndex].text;
+                        // refresh selected class
+                        const dropdown = wrapper.querySelector('.custom-select-dropdown');
+                        Array.from(dropdown.children).forEach(child => {
+                            if (child.classList.contains('custom-select-option')) {
+                                if (child.dataset.value === sel.value) child.classList.add('selected');
+                                else child.classList.remove('selected');
+                            }
+                        });
+                    }
+                });
+            }, 10);
+        });
+    }
+});
+</script>
 </body>
+
 </html>
