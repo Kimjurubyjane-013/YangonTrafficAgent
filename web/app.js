@@ -58,15 +58,22 @@
         document.getElementById('sim-btn').addEventListener('click', window.openSimulation);
         document.getElementById('analysis-btn').addEventListener('click', () => showView('analysis'));
         document.getElementById('analysis-back').addEventListener('click', () => showView('planner'));
+        let routeOutlookRequestId = 0;
         async function refreshRouteOutlook() {
             const output = document.getElementById('forecast-result');
             const route = window.getSelectedRoute?.();
             if (!route) { output.hidden = true; return; }
+            const currentReqId = ++routeOutlookRequestId;
             const period = document.getElementById('forecast-period').value;
             output.hidden = false;
-            output.textContent = 'Updating Traffic Outlook...';
+            output.replaceChildren();
+            const updatingSpan = document.createElement('span');
+            updatingSpan.className = 'reason-box';
+            updatingSpan.textContent = 'Updating Traffic Outlook...';
+            output.appendChild(updatingSpan);
             try {
                 const data = await YangonApi.routeTrafficOutlook(route, period);
+                if (currentReqId !== routeOutlookRequestId) return;
                 if (!data || typeof data !== 'object') throw new Error('Traffic Outlook returned an invalid response.');
                 if (data.error) throw new Error(data.error_details?.message || (typeof data.error === 'string' ? data.error : 'Traffic Outlook is temporarily unavailable.'));
                 const traffic = YangonTrafficColors.normalize(data.traffic);
@@ -103,7 +110,10 @@
                     reasonBox.append(rHeading, rDetail);
                     output.appendChild(reasonBox);
                 }
-            } catch (error) { output.textContent = typeof error?.message === 'string' ? error.message : 'Traffic Outlook is temporarily unavailable.'; }
+            } catch (error) {
+                if (currentReqId !== routeOutlookRequestId) return;
+                output.textContent = typeof error?.message === 'string' ? error.message : 'Traffic Outlook is temporarily unavailable.';
+            }
         }
         document.getElementById('forecast-period').addEventListener('change', refreshRouteOutlook);
         window.refreshRouteOutlook = refreshRouteOutlook;

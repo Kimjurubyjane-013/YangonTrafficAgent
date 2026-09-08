@@ -13,7 +13,7 @@ from services.osrm_service import (
 )
 from services.route_decision_engine import RouteDecisionEngine
 from services.route_comparison import annotate_route_comparison
-from services.traffic_service import TRAFFIC_ENGINE
+from services.traffic_service import TRAFFIC_ENGINE, is_rush_hour
 
 _ENGINE = None
 _GENERIC_ROAD_WORDS = {"road", "street", "avenue", "lane", "highway", "route"}
@@ -202,8 +202,7 @@ def _real_route_provider(start_coord, destination_coord, alternatives=3):
 def _time_band(conditions):
     if conditions.get("time_band") in {"peak", "off_peak"}:
         return conditions["time_band"]
-    hour = yangon_now().hour
-    return "peak" if hour in {7,8,9,16,17,18,19} else "off_peak"
+    return "peak" if is_rush_hour() else "off_peak"
 
 
 def _polyline_length(points):

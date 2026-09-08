@@ -950,9 +950,10 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         <div id="route-options"></div>
         <section class="route-forecast" aria-labelledby="forecast-title">
             <div><strong id="forecast-title">Traffic Outlook</strong></div>
+            <small class="outlook-helper" style="color:var(--text-muted,#8A8497);font-size:10px;margin:2px 0 6px;display:block;">Estimated from the system's time-based traffic model.</small>
             <select id="forecast-period" aria-label="Traffic forecast period">
                 <option value="now">Now</option><option value="plus_30">+30 Minutes</option>
-                <option value="plus_60">+1 Hour</option><option value="evening_rush">Evening Rush</option>
+                <option value="plus_60">+1 Hour</option><option value="evening_rush">Evening Rush Projection</option>
             </select>
             <div class="forecast-result" id="forecast-result" hidden></div>
         </section>
@@ -1639,9 +1640,21 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
 
     function updateRouteResultDetails(opt) {
         const scenario = String(opt.traffic_scenario || 'current').replace('_', '-');
+        const scenarioType = String(opt.scenario_type || 'none');
         const scenarioResult = document.getElementById('r-scenario');
-        scenarioResult.hidden = scenario === 'current';
-        scenarioResult.textContent = scenario === 'current' ? '' : `What-If Scenario Active: ${scenario.replace(/\b\w/g, letter => letter.toUpperCase())}`;
+        if (scenarioType === 'heavy_rain') {
+            scenarioResult.hidden = false;
+            scenarioResult.textContent = 'What-If Scenario Active: Simulated Heavy Rain';
+        } else if (scenarioType === 'rush_hour' || scenario === 'peak') {
+            scenarioResult.hidden = false;
+            scenarioResult.textContent = 'What-If Scenario Active: Rush Hour';
+        } else if (scenario === 'off-peak') {
+            scenarioResult.hidden = false;
+            scenarioResult.textContent = 'What-If Scenario Active: Off-Peak Hours';
+        } else {
+            scenarioResult.hidden = scenario === 'current';
+            scenarioResult.textContent = scenario === 'current' ? '' : `What-If Scenario Active: ${scenario.replace(/\b\w/g, letter => letter.toUpperCase())}`;
+        }
         const trafficResult = document.getElementById('r-traffic');
         const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
         const color = YangonTrafficColors.getTrafficColor(level);

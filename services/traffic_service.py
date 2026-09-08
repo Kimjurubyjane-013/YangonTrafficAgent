@@ -59,7 +59,7 @@ def classify_traffic(score: float) -> str:
     return "Heavy"
 
 
-def classify_route_traffic(states, repository) -> tuple[float, str]:
+def classify_route_traffic(states, repository, fallback_score: float = 50.0) -> tuple[float, str]:
     """Classify a route from distance-weighted segment exposure.
 
     A short severe segment cannot label an otherwise clear journey Heavy. A
@@ -67,7 +67,8 @@ def classify_route_traffic(states, repository) -> tuple[float, str]:
     of route distance or create at least five minutes of measured/modelled delay.
     """
     if not states:
-        return 50.0, "Moderate"
+        score = clamp(fallback_score)
+        return round(score, 1), classify_traffic(score)
     distances = [max(0.001, repository.by_id[state.road_id].distance_km) for state in states]
     total_distance = sum(distances)
     weighted_score = sum(state.traffic_score * distance for state, distance in zip(states, distances)) / total_distance
@@ -131,7 +132,7 @@ class TrafficEngine:
                 states[road.id] = replace(current, score_change=change, trend=trend)
             snapshot = TrafficSnapshot(
                 snapshot_id=key, generated_at=at.isoformat(timespec="seconds"),
-                time_period=period, rush_hour=period in RUSH_HOUR_PERIODS,
+                time_period=period, rush_hour=period in RUSH_HOUR_PERIODS or period == "PEAK",
                 roads=states, scenario=scenario,
             )
             self._snapshots[key] = snapshot
@@ -376,11 +377,24 @@ class TrafficEngine:
                         states.append(snapshot.roads[road.id])
 
         if not states:
-            return {"traffic_level":"Moderate","segment_traffic":["Moderate"],"road_ids":[],
-                "average_score":50.0,"estimated_delay_minutes":0.0,"heavy_segments":0,
-                "critical_segments":0,"cumulative_traffic_impact":0.0,
-                "average_congestion_pressure":0.0,"snapshot_id":snapshot.snapshot_id,
-                "source":"academic_simulation"}
+            fallback_score = (
+                round(sum(state.traffic_score for state in snapshot.roads.values()) / len(snapshot.roads), 1)
+                if snapshot and snapshot.roads else 50.0
+            )
+            fallback_level = classify_traffic(fallback_score)
+            return {
+                "traffic_level": fallback_level,
+                "segment_traffic": [fallback_level],
+                "road_ids": [],
+                "average_score": fallback_score,
+                "estimated_delay_minutes": 0.0,
+                "heavy_segments": 1 if fallback_level == "Heavy" else 0,
+                "critical_segments": 0,
+                "cumulative_traffic_impact": 0.0,
+                "average_congestion_pressure": 0.0,
+                "snapshot_id": snapshot.snapshot_id,
+                "source": "academic_simulation",
+            }
         route_score, route_level = classify_route_traffic(states, self.repository)
         return {
             "traffic_level": route_level, "segment_traffic": [state.traffic_level for state in states],
