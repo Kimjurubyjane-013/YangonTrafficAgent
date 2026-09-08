@@ -1690,7 +1690,7 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
                 if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectOption(index); }
             });
 
-            const label = index === 0 ? `${opt.route_label || 'Route A'} · Recommended` : (opt.route_label || `Route ${String.fromCharCode(65 + index)}`);
+            const label = index === 0 ? `${opt.route_label || \'Route A\'} \u00B7 Recommended` : `${opt.route_label || \'Route \' + String.fromCharCode(65 + index)} \u00B7 Alternative`;
             const level = YangonTrafficColors.normalize(opt.traffic) || 'Unknown';
             const color = YangonTrafficColors.getTrafficColor(level);
             div.dataset.level = level;
