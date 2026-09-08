@@ -5,7 +5,7 @@ from threading import RLock
 from algorithms.graph import GRAPH, LOCATION_COORDS, get_locations, get_location_records
 from algorithms.vehicle import VEHICLE_SPEED
 from app.serialization import serialize_route_result
-from app.validation import validate_route_request
+from app.validation import normalize_scenario_value, validate_route_request
 from services.route_service import RouteService
 from services.road_repository import ROAD_REPOSITORY
 from services.traffic_service import TRAFFIC_ENGINE
@@ -177,22 +177,23 @@ class Api:
         return result
 
     def compare_route_scenario(self, vehicle, start, destination, scenario_type):
-        allowed = {"heavy_rain", "rush_hour"}
-        if scenario_type not in allowed:
+        canonical = normalize_scenario_value(scenario_type)
+        if not canonical:
             message = "Unknown scenario type."
             return {"error": message, "error_details": {"code": "invalid_scenario", "message": message}}
         before = self.find_route(vehicle, start, destination, {"traffic_scenario": "current"})
         if before.get("error"):
             return before
-        conditions = {"traffic_scenario": "current", "scenario_type": scenario_type}
-        after = self.find_route(vehicle, start, destination, conditions)
+        after_conditions = {"traffic_scenario": canonical, "scenario_type": canonical if canonical != "current" else "none"}
+        after = self.find_route(vehicle, start, destination, after_conditions)
         if after.get("error"):
             return after
+        is_live = canonical == "current"
         return {
             "ok": True,
-            "scenario_type": scenario_type,
-            "scenario_label": "SIMULATED",
-            "is_live": False,
+            "scenario_type": canonical,
+            "scenario_label": "LIVE" if is_live else "SIMULATED",
+            "is_live": is_live,
             "before": before,
             "after": after,
             "changes": {

@@ -114,7 +114,9 @@ class TrafficEngine:
     def get_snapshot(self, at: datetime | None = None, force: bool = False,
                      scenario: str = "current") -> TrafficSnapshot:
         at = yangon_now(at)
-        scenario = scenario if scenario in {"current", "off_peak", "peak"} else "current"
+        from app.validation import normalize_scenario_value
+        norm = normalize_scenario_value(scenario)
+        scenario = norm if norm in {"current", "off_peak", "peak"} else "current"
         period = {"off_peak": "OFF_PEAK", "peak": "PEAK"}.get(scenario, get_time_period(at))
         analysis_period = period if scenario != "current" else None
         key = self._snapshot_key(at, scenario)

@@ -19,7 +19,7 @@ _ENGINE = None
 _GENERIC_ROAD_WORDS = {"road", "street", "avenue", "lane", "highway", "route"}
 _TRAFFIC_SCORE = {"Light": 25.0, "Moderate": 55.0, "Heavy": 85.0}
 _VALID_TRAFFIC = frozenset(_TRAFFIC_SCORE)
-_SCENARIO_MULTIPLIERS = {"accident": 1.45, "heavy_rain": 1.22, "rush_hour": 1.18, "major_event": 1.30}
+_SCENARIO_MULTIPLIERS = {"accident": 1.45, "heavy_rain": 1.22, "rush_hour": 1.18, "major_event": 1.30, "peak": 1.18}
 
 
 def _next_traffic_level(level):
@@ -29,6 +29,8 @@ def _next_traffic_level(level):
 def _scenario_effect(conditions, road_names, levels, sources):
     """Return deterministic route-specific scenario effects and honest provenance."""
     kind = str(conditions.get("scenario_type") or "none")
+    if kind == "peak":
+        kind = "rush_hour"
     affected = str(conditions.get("affected_road") or "").strip()
     matches = [index for index, name in enumerate(road_names) if _road_matches(affected, name)]
     applies = kind in {"heavy_rain", "rush_hour", "major_event"} or (kind == "accident" and bool(matches))
@@ -56,9 +58,11 @@ def _scenario_explanation(scenario, road_names, level):
     road = road_names[0] if road_names else "the mapped roads"
     if scenario == "off_peak":
         return f"Off-Peak conditions reduce inferred demand on {road}, resulting in {level} traffic and a scenario-adjusted ETA."
-    if scenario == "peak":
+    if scenario in {"peak", "rush_hour"}:
         return f"Peak-Hour conditions increase inferred demand on {road}, resulting in {level} traffic and a scenario-adjusted ETA."
-    return "Current Conditions use the active Asia/Yangon time window and the best available traffic evidence."
+    if scenario == "heavy_rain":
+        return f"Simulated heavy rain conditions reduce expected road speeds across {road}, resulting in {level} traffic and a weather-adjusted ETA."
+    return ""
 
 
 def _format_minutes(value):
@@ -365,10 +369,18 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
         return {"error": "Unknown location."}
     if vehicle not in VEHICLE_SPEED:
         return {"error": "Unknown vehicle type."}
-    scenario = str(conditions.get("traffic_scenario") or conditions.get("time_band") or "current").lower()
-    if scenario not in {"current", "off_peak", "peak"}:
-        scenario = "current"
-    hypothetical = scenario != "current"
+    from app.validation import normalize_scenario_value
+    raw_st = conditions.get("scenario_type")
+    norm_st = normalize_scenario_value(raw_st) if raw_st not in {"none", None, ""} else "none"
+
+    raw_scenario = conditions.get("traffic_scenario") if "traffic_scenario" in conditions else conditions.get("scenario")
+    if raw_scenario is None:
+        raw_scenario = raw_st if norm_st != "none" else conditions.get("time_band") or "current"
+
+    scenario = normalize_scenario_value(raw_scenario)
+    if not scenario:
+        return {"error": "Unknown scenario type.", "error_details": {"code": "invalid_scenario", "message": "Unknown scenario type."}}
+    hypothetical = scenario != "current" or norm_st not in {"none", "current"}
     try:
         # HERE represents present conditions only. Hypothetical scenarios use
         # mapped-road geometry plus our explicitly labelled inference model.
@@ -377,22 +389,43 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
     except Exception as exc:
         return {"error": str(exc), "routing_mode": "real-world-only"}
 
-    conditions["traffic_scenario"] = scenario
-    conditions["time_band"] = scenario if hypothetical else _time_band(conditions)
-    # Real weather is intentionally not part of normal routing.  Only the
-    # explicit Heavy Rain what-if scenario may activate a weather rule.
-    conditions["weather"] = "storm" if str(conditions.get("scenario_type") or "none") == "heavy_rain" else "clear"
-    conditions.setdefault("incident", "none")
-    scenario_type = str(conditions.get("scenario_type") or "none")
-    if scenario_type == "rush_hour":
-        conditions["time_band"] = "peak"
-    elif scenario_type == "heavy_rain":
+    if norm_st == "heavy_rain" or scenario == "heavy_rain":
+        scenario = "heavy_rain" if scenario == "heavy_rain" else scenario
+        scenario_type = "heavy_rain"
+        conditions["traffic_scenario"] = scenario
         conditions["weather"] = "storm"
+        conditions["scenario_type"] = "heavy_rain"
+        conditions["time_band"] = _time_band(conditions)
+        hypothetical = True
+    elif norm_st in {"rush_hour", "peak"} or scenario == "peak":
+        scenario = "peak"
+        scenario_type = "rush_hour" if norm_st in {"rush_hour", "peak"} else "none"
+        conditions["traffic_scenario"] = "peak"
+        conditions["time_band"] = "peak"
+        conditions["scenario_type"] = scenario_type
+        hypothetical = True
+    elif scenario == "off_peak":
+        scenario_type = "none"
+        conditions["traffic_scenario"] = "off_peak"
+        conditions["time_band"] = "off_peak"
+        conditions["scenario_type"] = "none"
+        hypothetical = True
+    else:  # "current"
+        scenario = "current"
+        scenario_type = "none"
+        conditions["traffic_scenario"] = "current"
+        conditions["time_band"] = _time_band(conditions)
+        conditions["weather"] = "clear"
+        conditions["scenario_type"] = "none"
+        hypothetical = False
+    conditions.setdefault("incident", "none")
+    scenario_type = conditions["scenario_type"]
     traffic_engine = traffic_engine or TRAFFIC_ENGINE
     # Always obtain inferred traffic snapshot — used as fallback for segments
     # without provider coverage, regardless of traffic mode setting.
     if traffic_snapshot is None or getattr(traffic_snapshot, "scenario", "current") != scenario:
-        traffic_snapshot = traffic_engine.get_snapshot(scenario=scenario)
+        snap_scenario = scenario if scenario in {"off_peak", "peak"} else "current"
+        traffic_snapshot = traffic_engine.get_snapshot(scenario=snap_scenario)
     candidates = []
     closure_rejections = []
     closed_road = conditions.get("closed_road", "").strip()
@@ -474,7 +507,7 @@ def run_real_world_agent(start, destination, vehicle, conditions=None, route_pro
             "Light" if has_real_traffic else level,
         )
         if hypothetical:
-            traffic_eta = round(traffic_eta * SCENARIO_ETA_MULTIPLIERS[scenario], 2)
+            traffic_eta = round(traffic_eta * SCENARIO_ETA_MULTIPLIERS.get(scenario, 1.0), 2)
         if scenario_multiplier > 1.0:
             traffic_eta = round(traffic_eta * scenario_multiplier, 2)
         calculated_free_flow = calculate_real_route_time(

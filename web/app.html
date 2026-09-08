@@ -2573,7 +2573,7 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         const searchStartedAt = performance.now();
 
         try {
-            if (conditions.scenario_type && conditions.scenario_type !== 'rush_hour') {
+            if (conditions.scenario_type === 'heavy_rain') {
                 const comparison = await YangonApi.compareScenario({
                     vehicle, start, destination, scenarioType: conditions.scenario_type,
                     affectedRoad: conditions.affected_road
@@ -2678,18 +2678,15 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         const conditions = {};
         const mode = document.getElementById('scenario-mode').value;
         
+        conditions.traffic_scenario = mode;
+        
         if (mode === 'peak' || mode === 'off_peak') {
             conditions.time_band = mode;
         }
         
-        conditions.traffic_scenario = ['current', 'off_peak', 'peak'].includes(mode) ? mode : 'current';
-        
         if (mode === 'heavy_rain') {
             conditions.scenario_type = 'heavy_rain';
-        } else if (mode === 'peak') {
-            conditions.scenario_type = 'rush_hour';
-        } else {
-            conditions.scenario_type = 'none';
+            conditions.weather = 'storm';
         }
         
         return conditions;

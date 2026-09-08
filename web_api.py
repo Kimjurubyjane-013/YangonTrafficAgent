@@ -124,7 +124,7 @@ def route(payload: RoutePayload):
     code = result.get("error_details", {}).get("code", "routing_error")
     if code in {
         "invalid_type", "unknown_vehicle", "unknown_location", "same_location",
-        "invalid_conditions", "invalid_closed_road",
+        "invalid_conditions", "invalid_closed_road", "invalid_scenario",
     }:
         status = 400
     elif code == "internal_error":
