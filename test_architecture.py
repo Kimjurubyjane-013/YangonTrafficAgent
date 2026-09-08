@@ -258,6 +258,36 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn('.custom-select-option.selected', css)
         self.assertIn('body[data-theme=dark] .custom-select-dropdown', css)
 
+    def test_custom_vehicle_dropdown_architecture(self):
+        root = Path(__file__).parent
+        html = (root / "web" / "app.html").read_text(encoding="utf-8")
+        css = (root / "web" / "styles.css").read_text(encoding="utf-8")
+
+        # Vehicle dropdown container, trigger, and list
+        self.assertIn('id="custom-select-vehicle"', html)
+        self.assertIn('id="trigger-vehicle"', html)
+        self.assertIn('id="dropdown-vehicle"', html)
+        self.assertIn('custom-vehicle-icon-badge', html)
+
+        # Native select preserved with visually-hidden-select
+        self.assertIn('<select id="vehicle" class="visually-hidden-select"', html)
+
+        # Exact supported vehicle types preserved
+        for vehicle in ["Car", "Bus", "Taxi", "Ambulance", "Fire Truck", "Police"]:
+            self.assertIn(f'value="{vehicle}"', html)
+            self.assertIn(f'"{vehicle}":', html)  # VEHICLE_SVG_ICONS
+
+        # Vehicle init and refresh calls
+        self.assertIn("initCustomSelect('vehicle'", html)
+        self.assertIn("vehicleSel._refreshCustomSelect?.()", html)
+
+        # CSS classes and dark theme rules
+        self.assertIn(".custom-vehicle-trigger", css)
+        self.assertIn(".custom-vehicle-icon-badge", css)
+        self.assertIn(".custom-select-option.vehicle-option", css)
+        self.assertIn("body[data-theme=dark] .custom-vehicle-icon-badge", css)
+
 
 if __name__ == "__main__": unittest.main()
+
 

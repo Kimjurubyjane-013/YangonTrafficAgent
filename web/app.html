@@ -717,14 +717,28 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         <h2 class="primary-panel-title">Route Request</h2>
 
         <label for="vehicle">Vehicle Type</label>
-        <select id="vehicle" aria-label="Vehicle type">
-            <option value="Car">🚗 Car</option>
-            <option value="Bus">🚌 Bus</option>
-            <option value="Taxi">🚕 Taxi</option>
-            <option value="Ambulance">🚑 Ambulance</option>
-            <option value="Fire Truck">🚒 Fire Truck</option>
-            <option value="Police">🚓 Police</option>
-        </select>
+        <div class="custom-select-wrapper" id="custom-select-vehicle">
+            <button type="button" class="custom-select-trigger custom-vehicle-trigger" id="trigger-vehicle" aria-haspopup="listbox" aria-expanded="false" aria-controls="dropdown-vehicle">
+                <span class="custom-select-trigger-content">
+                    <span class="custom-vehicle-icon-badge" id="trigger-vehicle-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H7c-.6 0-1.1.2-1.5.6L3 10.5V16c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+                    </span>
+                    <span class="custom-select-value" id="trigger-vehicle-value">Car</span>
+                </span>
+                <span class="custom-select-arrow" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </span>
+            </button>
+            <div class="custom-select-dropdown custom-vehicle-dropdown" id="dropdown-vehicle" role="listbox" aria-label="Vehicle Type" hidden></div>
+            <select id="vehicle" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                <option value="Car" selected>🚗 Car</option>
+                <option value="Bus">🚌 Bus</option>
+                <option value="Taxi">🚕 Taxi</option>
+                <option value="Ambulance">🚑 Ambulance</option>
+                <option value="Fire Truck">🚒 Fire Truck</option>
+                <option value="Police">🚓 Police</option>
+            </select>
+        </div>
 
         <label for="start">Starting Point</label>
         <div class="custom-select-wrapper" id="custom-select-start">
@@ -2478,6 +2492,15 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
     // App logic
     // ============================================
 
+    const VEHICLE_SVG_ICONS = {
+        "Car": `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H7c-.6 0-1.1.2-1.5.6L3 10.5V16c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`,
+        "Bus": `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M16 6v6"/><path d="M4 6v8c0 .6.4 1 1 1h14c.6 0 1-.4 1-1V6c0-1.7-1.3-3-3-3H7C5.3 3 4 4.3 4 6z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M4 11h16"/></svg>`,
+        "Taxi": `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2h4v2h-4z"/><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H7c-.6 0-1.1.2-1.5.6L3 10.5V16c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`,
+        "Ambulance": `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-4c0-.6-.4-1-1-1h-2V6c0-.6-.4-1-1-1H3c-.6 0-1 .4-1 1v10c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M8 10h4"/><path d="M10 8v4"/></svg>`,
+        "Fire Truck": `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.6-.4-1-1-1h-2V7c0-.6-.4-1-1-1H3c-.6 0-1 .4-1 1v9c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M4 11h13"/><path d="M7 3l10 3"/></svg>`,
+        "Police": `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M10 5h4"/><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H7c-.6 0-1.1.2-1.5.6L3 10.5V16c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`
+    };
+
     function initCustomSelect(selectId, wrapperId, triggerId, dropdownId) {
         const selectEl = document.getElementById(selectId);
         const wrapper = document.getElementById(wrapperId);
@@ -2485,11 +2508,19 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         const dropdown = document.getElementById(dropdownId);
         if (!selectEl || !wrapper || !trigger || !dropdown) return;
 
+        const isVehicleSelect = selectId === 'vehicle';
         const triggerValue = trigger.querySelector('.custom-select-value');
+        const triggerIconBadge = isVehicleSelect ? trigger.querySelector('.custom-vehicle-icon-badge') : null;
         let highlightedIndex = -1;
 
         function getOptionElements() {
             return Array.from(dropdown.querySelectorAll('.custom-select-option'));
+        }
+
+        function getVehicleCleanName(opt) {
+            if (opt && opt.value) return opt.value;
+            if (!opt || !opt.textContent) return 'Car';
+            return opt.textContent.replace(/^[\s\uD800-\uDBFF\uDC00-\uDFFF\u2600-\u27BF]+/u, '').trim() || 'Car';
         }
 
         function renderOptions() {
@@ -2517,24 +2548,38 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
 
         function createOptionItem(opt) {
             const item = document.createElement('div');
-            item.className = 'custom-select-option';
+            item.className = 'custom-select-option' + (isVehicleSelect ? ' vehicle-option' : '');
             item.setAttribute('role', 'option');
             item.dataset.value = opt.value;
             const isSelected = opt.value === selectEl.value;
             if (isSelected) item.classList.add('selected');
             item.setAttribute('aria-selected', String(isSelected));
 
-            item.innerHTML = `
-                <span class="custom-select-option-content">
-                    <span class="custom-select-option-icon" aria-hidden="true">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            if (isVehicleSelect) {
+                const vehicleName = getVehicleCleanName(opt);
+                const svgIcon = VEHICLE_SVG_ICONS[vehicleName] || VEHICLE_SVG_ICONS["Car"];
+                item.innerHTML = `
+                    <span class="custom-select-option-content">
+                        <span class="custom-vehicle-icon-badge" aria-hidden="true">${svgIcon}</span>
+                        <span class="custom-select-option-label">${vehicleName}</span>
                     </span>
-                    <span class="custom-select-option-label">${opt.textContent}</span>
-                </span>
-                <span class="custom-select-option-check" aria-hidden="true">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                </span>
-            `;
+                    <span class="custom-select-option-check" aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                `;
+            } else {
+                item.innerHTML = `
+                    <span class="custom-select-option-content">
+                        <span class="custom-select-option-icon" aria-hidden="true">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        </span>
+                        <span class="custom-select-option-label">${opt.textContent}</span>
+                    </span>
+                    <span class="custom-select-option-check" aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                `;
+            }
 
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -2557,10 +2602,18 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         function syncSelection() {
             const val = selectEl.value;
             const selectedOpt = Array.from(selectEl.options).find(o => o.value === val);
-            if (selectedOpt) {
-                if (triggerValue) triggerValue.textContent = selectedOpt.textContent;
-            } else if (val && triggerValue) {
-                triggerValue.textContent = val;
+            if (isVehicleSelect) {
+                const vehicleName = selectedOpt ? getVehicleCleanName(selectedOpt) : val;
+                if (triggerValue) triggerValue.textContent = vehicleName;
+                if (triggerIconBadge) {
+                    triggerIconBadge.innerHTML = VEHICLE_SVG_ICONS[vehicleName] || VEHICLE_SVG_ICONS["Car"];
+                }
+            } else {
+                if (selectedOpt) {
+                    if (triggerValue) triggerValue.textContent = selectedOpt.textContent;
+                } else if (val && triggerValue) {
+                    triggerValue.textContent = val;
+                }
             }
 
             const items = getOptionElements();
@@ -2718,10 +2771,12 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
+            initCustomSelect('vehicle', 'custom-select-vehicle', 'trigger-vehicle', 'dropdown-vehicle');
             initCustomSelect('start', 'custom-select-start', 'trigger-start', 'dropdown-start');
             initCustomSelect('destination', 'custom-select-destination', 'trigger-destination', 'dropdown-destination');
         });
     } else {
+        initCustomSelect('vehicle', 'custom-select-vehicle', 'trigger-vehicle', 'dropdown-vehicle');
         initCustomSelect('start', 'custom-select-start', 'trigger-start', 'dropdown-start');
         initCustomSelect('destination', 'custom-select-destination', 'trigger-destination', 'dropdown-destination');
     }
@@ -2797,6 +2852,7 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
 
             startSel._refreshCustomSelect?.();
             destSel._refreshCustomSelect?.();
+            vehicleSel._refreshCustomSelect?.();
 
             if (mapReady) {
                 drawStaticNetwork();

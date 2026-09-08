@@ -1238,10 +1238,73 @@ body[data-theme=dark] .custom-select-option-icon {
     color: #A78BFA;
 }
 
+/* Vehicle Type Custom Dropdown Enhancements */
+.custom-vehicle-trigger {
+    min-height: 48px;
+    border-radius: 12px;
+}
+
+.custom-vehicle-icon-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #EDE9FE;
+    color: #6D28D9;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.custom-vehicle-icon-badge svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+}
+
+.custom-select-option.vehicle-option {
+    min-height: 46px;
+    padding: 0 12px;
+}
+
+.custom-select-option.vehicle-option .custom-select-option-label {
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.custom-select-option.vehicle-option:hover .custom-vehicle-icon-badge,
+.custom-select-option.vehicle-option.highlighted .custom-vehicle-icon-badge {
+    background: #DDD6FE;
+    color: #5B21B6;
+}
+
+.custom-select-option.vehicle-option.selected .custom-vehicle-icon-badge {
+    background: #7C3AED;
+    color: #FFFFFF;
+}
+
+body[data-theme=dark] .custom-vehicle-icon-badge {
+    background: rgba(167, 139, 250, 0.16);
+    color: #A78BFA;
+}
+
+body[data-theme=dark] .custom-select-option.vehicle-option:hover .custom-vehicle-icon-badge,
+body[data-theme=dark] .custom-select-option.vehicle-option.highlighted .custom-vehicle-icon-badge {
+    background: rgba(167, 139, 250, 0.28);
+    color: #EDE9FE;
+}
+
+body[data-theme=dark] .custom-select-option.vehicle-option.selected .custom-vehicle-icon-badge {
+    background: #7C3AED;
+    color: #FFFFFF;
+}
+
 /* Mobile Responsiveness */
 @media (max-height: 680px) {
     .custom-select-dropdown {
         max-height: 250px;
     }
 }
+
 
