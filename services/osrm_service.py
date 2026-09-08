@@ -407,7 +407,7 @@ def _is_dominated_corridor(candidate, primary):
     if cand_dist > prim_dist + 0.05 and cand_dur > prim_dur + 0.05:
         forward = _overlap(candidate["geometry"], primary["geometry"])
         reverse = _overlap(primary["geometry"], candidate["geometry"])
-        if max(forward, reverse) >= 0.75:
+        if max(forward, reverse) >= 0.85:
             return True
     return False
 
@@ -544,7 +544,60 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
                 continue
             accepted.append(record)
 
+
+    # 5. MINIMUM-ONE-ALTERNATIVE SECOND PASS
+    if len(accepted) < 2 and deadline - time.monotonic() > 0.4:
+        extra_fractions = (0.20, 0.35, 0.50, 0.65, 0.80)
+        extra_waypoints = []
+        for raw_source in [rev_raw, fwd_raw]:
+            for raw in raw_source:
+                geom = raw.get("geometry", {}).get("coordinates", []) if isinstance(raw.get("geometry"), dict) else raw.get("geometry", [])
+                if len(geom) < 3: continue
+                for frac in extra_fractions:
+                    idx = max(1, min(len(geom) - 2, int(len(geom) * frac)))
+                    lon, lat = geom[idx]
+                    pt = (lat, lon)
+                    if _km(start_coord, pt) > 0.15 and _km(pt, destination_coord) > 0.15:
+                        if any(_km(m, pt) < 0.05 for m in seen_base_points):
+                            continue
+                        seen_base_points.append(pt)
+                        
+                        prev_pt = (geom[idx-1][1], geom[idx-1][0])
+                        next_pt = (geom[idx+1][1], geom[idx+1][0])
+                        road_bearing = _bearing(prev_pt, next_pt)
+                        # Inspect nearby parallel corridors with larger offsets
+                        for lat_offset_m in [50.0, -50.0, 150.0, -150.0, 300.0, -300.0]:
+                            angle = (road_bearing + (90 if lat_offset_m > 0 else -90)) % 360
+                            rad = math.radians(angle)
+                            d = abs(lat_offset_m) / 1000.0
+                            d_lat = d / 111.0 * math.cos(rad)
+                            d_lon = d / (111.0 * math.cos(math.radians(lat))) * math.sin(rad)
+                            extra_waypoints.append((lat + d_lat, lon + d_lon))
+
+        for midpoint in extra_waypoints:
+            if len(accepted) >= 2 or deadline - time.monotonic() < 0.2:
+                break
+            try:
+                raw_routes = _request([start_coord, midpoint, destination_coord], False, min(1.0, max(0.4, deadline - time.monotonic())))
+                record = _route_record(raw_routes[0], len(accepted), f"Alternative {len(accepted) + 1}", "osrm-via-corridor-pass2")
+            except Exception:
+                continue
+
+            if record:
+                if (_has_self_intersection_loop(record["geometry"])
+                        or _has_backtracking_or_hairpin(record["geometry"], record.get("steps"))
+                        or _has_leave_and_rejoin_excursion(record, primary)):
+                    continue
+                if _is_dominated_corridor(record, primary):
+                    continue
+                if not _is_practical_corridor(record, primary, start_coord, destination_coord):
+                    continue
+                if not _is_diverse(record, accepted):
+                    continue
+                accepted.append(record)
+
     accepted.sort(key=lambda r: (float(r["duration"]), float(r["distance"])))
+
     for i, r in enumerate(accepted):
         r["provider_id"] = i
         r["variant_label"] = "Direct corridor" if i == 0 else f"Alternative {i + 1}"
