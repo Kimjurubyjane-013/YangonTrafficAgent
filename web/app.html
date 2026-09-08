@@ -727,128 +727,156 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
         </select>
 
         <label for="start">Starting Point</label>
-        <select id="start">
-            <optgroup label="Hlaing Township">
-                <option value="University of Information Technology (UIT)">University of Information Technology (UIT)</option>
-                <option value="MICT Park">MICT Park</option>
-                <option value="LOTTE Hotel Yangon">LOTTE Hotel Yangon</option>
-                <option value="Okkyin Railway Station">Okkyin Railway Station</option>
-                <option value="Thiri Mingalar Market">Thiri Mingalar Market</option>
-            </optgroup>
-            <optgroup label="Kamayut Township">
-                <option value="Hledan Centre" selected>Hledan Centre</option>
-                <option value="University of Yangon">University of Yangon</option>
-                <option value="Junction Square">Junction Square</option>
-                <option value="American Center Yangon">American Center Yangon</option>
-            </optgroup>
-            <optgroup label="Sanchaung Township">
-                <option value="Myaynigone">Myaynigone</option>
-                <option value="Dagon Centre I">Dagon Centre I</option>
-                <option value="Dagon Centre II">Dagon Centre II</option>
-                <option value="Happy Zone Amusement Center">Happy Zone Amusement Center</option>
-            </optgroup>
-            <optgroup label="Dagon Township">
-                <option value="Shwedagon Pagoda">Shwedagon Pagoda</option>
-                <option value="Maha Wizaya Pagoda">Maha Wizaya Pagoda</option>
-                <option value="National Museum of Myanmar">National Museum of Myanmar</option>
-                <option value="National Theatre of Yangon">National Theatre of Yangon</option>
-                <option value="People's Park">People's Park</option>
-                <option value="Happy World Amusement Park">Happy World Amusement Park</option>
-                <option value="Thamada Cinema">Thamada Cinema</option>
-            </optgroup>
-            <optgroup label="Bahan Township">
-                <option value="Myanmar Plaza">Myanmar Plaza</option>
-                <option value="Chaukhtatgyi Buddha Temple">Chaukhtatgyi Buddha Temple</option>
-                <option value="Ngahtatgyi Buddha Temple">Ngahtatgyi Buddha Temple</option>
-            </optgroup>
-            <optgroup label="Yankin Township">
-                <option value="Sedona Hotel Yangon">Sedona Hotel Yangon</option>
-                <option value="Yankin Centre">Yankin Centre</option>
-            </optgroup>
-            <optgroup label="Latha Township">
-                <option value="Theingyi Market">Theingyi Market</option>
-                <option value="Chinatown Night Market">Chinatown Night Market</option>
-            </optgroup>
-            <optgroup label="Pabedan Township">
-                <option value="Junction City">Junction City</option>
-                <option value="Bogyoke Aung San Market">Bogyoke Aung San Market</option>
-            </optgroup>
-            <optgroup label="Kyauktada Township">
-                <option value="Sule Pagoda">Sule Pagoda</option>
-                <option value="Maha Bandula Park">Maha Bandula Park</option>
-            </optgroup>
-            <optgroup label="Lanmadaw Township">
-                <option value="City Mall St. John">City Mall St. John</option>
-                <option value="Yangon General Hospital">Yangon General Hospital</option>
-            </optgroup>
-            <optgroup label="Mingalar Taung Nyunt Township">
-                <option value="Yangon Zoological Gardens">Yangon Zoological Gardens</option>
-                <option value="Mingalar Market">Mingalar Market</option>
-            </optgroup>
-        </select>
+        <div class="custom-select-wrapper" id="custom-select-start">
+            <button type="button" class="custom-select-trigger" id="trigger-start" aria-haspopup="listbox" aria-expanded="false" aria-controls="dropdown-start">
+                <span class="custom-select-trigger-content">
+                    <span class="custom-select-trigger-icon" aria-hidden="true">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    </span>
+                    <span class="custom-select-value">Hledan Centre</span>
+                </span>
+                <span class="custom-select-arrow" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </span>
+            </button>
+            <div class="custom-select-dropdown" id="dropdown-start" role="listbox" aria-label="Starting Point" hidden></div>
+            <select id="start" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                <optgroup label="Hlaing Township">
+                    <option value="University of Information Technology (UIT)">University of Information Technology (UIT)</option>
+                    <option value="MICT Park">MICT Park</option>
+                    <option value="LOTTE Hotel Yangon">LOTTE Hotel Yangon</option>
+                    <option value="Okkyin Railway Station">Okkyin Railway Station</option>
+                    <option value="Thiri Mingalar Market">Thiri Mingalar Market</option>
+                </optgroup>
+                <optgroup label="Kamayut Township">
+                    <option value="Hledan Centre" selected>Hledan Centre</option>
+                    <option value="University of Yangon">University of Yangon</option>
+                    <option value="Junction Square">Junction Square</option>
+                    <option value="American Center Yangon">American Center Yangon</option>
+                </optgroup>
+                <optgroup label="Sanchaung Township">
+                    <option value="Myaynigone">Myaynigone</option>
+                    <option value="Dagon Centre I">Dagon Centre I</option>
+                    <option value="Dagon Centre II">Dagon Centre II</option>
+                    <option value="Happy Zone Amusement Center">Happy Zone Amusement Center</option>
+                </optgroup>
+                <optgroup label="Dagon Township">
+                    <option value="Shwedagon Pagoda">Shwedagon Pagoda</option>
+                    <option value="Maha Wizaya Pagoda">Maha Wizaya Pagoda</option>
+                    <option value="National Museum of Myanmar">National Museum of Myanmar</option>
+                    <option value="National Theatre of Yangon">National Theatre of Yangon</option>
+                    <option value="People's Park">People's Park</option>
+                    <option value="Happy World Amusement Park">Happy World Amusement Park</option>
+                    <option value="Thamada Cinema">Thamada Cinema</option>
+                </optgroup>
+                <optgroup label="Bahan Township">
+                    <option value="Myanmar Plaza">Myanmar Plaza</option>
+                    <option value="Chaukhtatgyi Buddha Temple">Chaukhtatgyi Buddha Temple</option>
+                    <option value="Ngahtatgyi Buddha Temple">Ngahtatgyi Buddha Temple</option>
+                </optgroup>
+                <optgroup label="Yankin Township">
+                    <option value="Sedona Hotel Yangon">Sedona Hotel Yangon</option>
+                    <option value="Yankin Centre">Yankin Centre</option>
+                </optgroup>
+                <optgroup label="Latha Township">
+                    <option value="Theingyi Market">Theingyi Market</option>
+                    <option value="Chinatown Night Market">Chinatown Night Market</option>
+                </optgroup>
+                <optgroup label="Pabedan Township">
+                    <option value="Junction City">Junction City</option>
+                    <option value="Bogyoke Aung San Market">Bogyoke Aung San Market</option>
+                </optgroup>
+                <optgroup label="Kyauktada Township">
+                    <option value="Sule Pagoda">Sule Pagoda</option>
+                    <option value="Maha Bandula Park">Maha Bandula Park</option>
+                </optgroup>
+                <optgroup label="Lanmadaw Township">
+                    <option value="City Mall St. John">City Mall St. John</option>
+                    <option value="Yangon General Hospital">Yangon General Hospital</option>
+                </optgroup>
+                <optgroup label="Mingalar Taung Nyunt Township">
+                    <option value="Yangon Zoological Gardens">Yangon Zoological Gardens</option>
+                    <option value="Mingalar Market">Mingalar Market</option>
+                </optgroup>
+            </select>
+        </div>
 
         <button class="swap-route" id="swap-route" type="button" aria-label="Swap starting point and destination">⇅ <span>Swap Locations</span></button>
 
         <label for="destination">Destination</label>
-        <select id="destination">
-            <optgroup label="Hlaing Township">
-                <option value="University of Information Technology (UIT)">University of Information Technology (UIT)</option>
-                <option value="MICT Park">MICT Park</option>
-                <option value="LOTTE Hotel Yangon">LOTTE Hotel Yangon</option>
-                <option value="Okkyin Railway Station">Okkyin Railway Station</option>
-                <option value="Thiri Mingalar Market">Thiri Mingalar Market</option>
-            </optgroup>
-            <optgroup label="Kamayut Township">
-                <option value="Junction Square" selected>Junction Square</option>
-                <option value="Hledan Centre">Hledan Centre</option>
-                <option value="University of Yangon">University of Yangon</option>
-                <option value="American Center Yangon">American Center Yangon</option>
-            </optgroup>
-            <optgroup label="Sanchaung Township">
-                <option value="Myaynigone">Myaynigone</option>
-                <option value="Dagon Centre I">Dagon Centre I</option>
-                <option value="Dagon Centre II">Dagon Centre II</option>
-                <option value="Happy Zone Amusement Center">Happy Zone Amusement Center</option>
-            </optgroup>
-            <optgroup label="Dagon Township">
-                <option value="Shwedagon Pagoda">Shwedagon Pagoda</option>
-                <option value="Maha Wizaya Pagoda">Maha Wizaya Pagoda</option>
-                <option value="National Museum of Myanmar">National Museum of Myanmar</option>
-                <option value="National Theatre of Yangon">National Theatre of Yangon</option>
-                <option value="People's Park">People's Park</option>
-                <option value="Happy World Amusement Park">Happy World Amusement Park</option>
-                <option value="Thamada Cinema">Thamada Cinema</option>
-            </optgroup>
-            <optgroup label="Bahan Township">
-                <option value="Myanmar Plaza">Myanmar Plaza</option>
-                <option value="Chaukhtatgyi Buddha Temple">Chaukhtatgyi Buddha Temple</option>
-                <option value="Ngahtatgyi Buddha Temple">Ngahtatgyi Buddha Temple</option>
-            </optgroup>
-            <optgroup label="Yankin Township">
-                <option value="Sedona Hotel Yangon">Sedona Hotel Yangon</option>
-                <option value="Yankin Centre">Yankin Centre</option>
-            </optgroup>
-            <optgroup label="Latha Township">
-                <option value="Theingyi Market">Theingyi Market</option>
-                <option value="Chinatown Night Market">Chinatown Night Market</option>
-            </optgroup>
-            <optgroup label="Pabedan Township">
-                <option value="Junction City">Junction City</option>
-                <option value="Bogyoke Aung San Market">Bogyoke Aung San Market</option>
-            </optgroup>
-            <optgroup label="Kyauktada Township">
-                <option value="Sule Pagoda">Sule Pagoda</option>
-                <option value="Maha Bandula Park">Maha Bandula Park</option>
-            </optgroup>
-            <optgroup label="Lanmadaw Township">
-                <option value="City Mall St. John">City Mall St. John</option>
-                <option value="Yangon General Hospital">Yangon General Hospital</option>
-            </optgroup>
-            <optgroup label="Mingalar Taung Nyunt Township">
-                <option value="Yangon Zoological Gardens">Yangon Zoological Gardens</option>
-                <option value="Mingalar Market">Mingalar Market</option>
-            </optgroup>
-        </select>
+        <div class="custom-select-wrapper" id="custom-select-destination">
+            <button type="button" class="custom-select-trigger" id="trigger-destination" aria-haspopup="listbox" aria-expanded="false" aria-controls="dropdown-destination">
+                <span class="custom-select-trigger-content">
+                    <span class="custom-select-trigger-icon" aria-hidden="true">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    </span>
+                    <span class="custom-select-value">Junction Square</span>
+                </span>
+                <span class="custom-select-arrow" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </span>
+            </button>
+            <div class="custom-select-dropdown" id="dropdown-destination" role="listbox" aria-label="Destination" hidden></div>
+            <select id="destination" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                <optgroup label="Hlaing Township">
+                    <option value="University of Information Technology (UIT)">University of Information Technology (UIT)</option>
+                    <option value="MICT Park">MICT Park</option>
+                    <option value="LOTTE Hotel Yangon">LOTTE Hotel Yangon</option>
+                    <option value="Okkyin Railway Station">Okkyin Railway Station</option>
+                    <option value="Thiri Mingalar Market">Thiri Mingalar Market</option>
+                </optgroup>
+                <optgroup label="Kamayut Township">
+                    <option value="Junction Square" selected>Junction Square</option>
+                    <option value="Hledan Centre">Hledan Centre</option>
+                    <option value="University of Yangon">University of Yangon</option>
+                    <option value="American Center Yangon">American Center Yangon</option>
+                </optgroup>
+                <optgroup label="Sanchaung Township">
+                    <option value="Myaynigone">Myaynigone</option>
+                    <option value="Dagon Centre I">Dagon Centre I</option>
+                    <option value="Dagon Centre II">Dagon Centre II</option>
+                    <option value="Happy Zone Amusement Center">Happy Zone Amusement Center</option>
+                </optgroup>
+                <optgroup label="Dagon Township">
+                    <option value="Shwedagon Pagoda">Shwedagon Pagoda</option>
+                    <option value="Maha Wizaya Pagoda">Maha Wizaya Pagoda</option>
+                    <option value="National Museum of Myanmar">National Museum of Myanmar</option>
+                    <option value="National Theatre of Yangon">National Theatre of Yangon</option>
+                    <option value="People's Park">People's Park</option>
+                    <option value="Happy World Amusement Park">Happy World Amusement Park</option>
+                    <option value="Thamada Cinema">Thamada Cinema</option>
+                </optgroup>
+                <optgroup label="Bahan Township">
+                    <option value="Myanmar Plaza">Myanmar Plaza</option>
+                    <option value="Chaukhtatgyi Buddha Temple">Chaukhtatgyi Buddha Temple</option>
+                    <option value="Ngahtatgyi Buddha Temple">Ngahtatgyi Buddha Temple</option>
+                </optgroup>
+                <optgroup label="Yankin Township">
+                    <option value="Sedona Hotel Yangon">Sedona Hotel Yangon</option>
+                    <option value="Yankin Centre">Yankin Centre</option>
+                </optgroup>
+                <optgroup label="Latha Township">
+                    <option value="Theingyi Market">Theingyi Market</option>
+                    <option value="Chinatown Night Market">Chinatown Night Market</option>
+                </optgroup>
+                <optgroup label="Pabedan Township">
+                    <option value="Junction City">Junction City</option>
+                    <option value="Bogyoke Aung San Market">Bogyoke Aung San Market</option>
+                </optgroup>
+                <optgroup label="Kyauktada Township">
+                    <option value="Sule Pagoda">Sule Pagoda</option>
+                    <option value="Maha Bandula Park">Maha Bandula Park</option>
+                </optgroup>
+                <optgroup label="Lanmadaw Township">
+                    <option value="City Mall St. John">City Mall St. John</option>
+                    <option value="Yangon General Hospital">Yangon General Hospital</option>
+                </optgroup>
+                <optgroup label="Mingalar Taung Nyunt Township">
+                    <option value="Yangon Zoological Gardens">Yangon Zoological Gardens</option>
+                    <option value="Mingalar Market">Mingalar Market</option>
+                </optgroup>
+            </select>
+        </div>
 
         <details class="journey-conditions" id="journey-conditions">
             <summary>What-If Scenario <span>Optional</span></summary>
@@ -2450,6 +2478,254 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
     // App logic
     // ============================================
 
+    function initCustomSelect(selectId, wrapperId, triggerId, dropdownId) {
+        const selectEl = document.getElementById(selectId);
+        const wrapper = document.getElementById(wrapperId);
+        const trigger = document.getElementById(triggerId);
+        const dropdown = document.getElementById(dropdownId);
+        if (!selectEl || !wrapper || !trigger || !dropdown) return;
+
+        const triggerValue = trigger.querySelector('.custom-select-value');
+        let highlightedIndex = -1;
+
+        function getOptionElements() {
+            return Array.from(dropdown.querySelectorAll('.custom-select-option'));
+        }
+
+        function renderOptions() {
+            dropdown.replaceChildren();
+            const children = Array.from(selectEl.children);
+
+            children.forEach(child => {
+                if (child.tagName === 'OPTGROUP') {
+                    const header = document.createElement('div');
+                    header.className = 'custom-select-group-header';
+                    header.setAttribute('role', 'presentation');
+                    header.textContent = child.label;
+                    dropdown.appendChild(header);
+
+                    Array.from(child.children).forEach(opt => {
+                        createOptionItem(opt);
+                    });
+                } else if (child.tagName === 'OPTION') {
+                    createOptionItem(child);
+                }
+            });
+
+            syncSelection();
+        }
+
+        function createOptionItem(opt) {
+            const item = document.createElement('div');
+            item.className = 'custom-select-option';
+            item.setAttribute('role', 'option');
+            item.dataset.value = opt.value;
+            const isSelected = opt.value === selectEl.value;
+            if (isSelected) item.classList.add('selected');
+            item.setAttribute('aria-selected', String(isSelected));
+
+            item.innerHTML = `
+                <span class="custom-select-option-content">
+                    <span class="custom-select-option-icon" aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    </span>
+                    <span class="custom-select-option-label">${opt.textContent}</span>
+                </span>
+                <span class="custom-select-option-check" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </span>
+            `;
+
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectValue(opt.value);
+            });
+
+            dropdown.appendChild(item);
+        }
+
+        function selectValue(val) {
+            if (selectEl.value !== val) {
+                selectEl.value = val;
+                selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            syncSelection();
+            closeDropdown();
+            trigger.focus();
+        }
+
+        function syncSelection() {
+            const val = selectEl.value;
+            const selectedOpt = Array.from(selectEl.options).find(o => o.value === val);
+            if (selectedOpt) {
+                if (triggerValue) triggerValue.textContent = selectedOpt.textContent;
+            } else if (val && triggerValue) {
+                triggerValue.textContent = val;
+            }
+
+            const items = getOptionElements();
+            items.forEach(item => {
+                const isSelected = item.dataset.value === val;
+                item.classList.toggle('selected', isSelected);
+                item.setAttribute('aria-selected', String(isSelected));
+            });
+        }
+
+        function openDropdown() {
+            if (selectEl.disabled || trigger.classList.contains('disabled')) return;
+            document.querySelectorAll('.custom-select-wrapper.open').forEach(w => {
+                if (w !== wrapper) {
+                    w.classList.remove('open');
+                    const trig = w.querySelector('.custom-select-trigger');
+                    const drop = w.querySelector('.custom-select-dropdown');
+                    if (trig) trig.setAttribute('aria-expanded', 'false');
+                    if (drop) drop.hidden = true;
+                }
+            });
+
+            wrapper.classList.add('open');
+            trigger.setAttribute('aria-expanded', 'true');
+            dropdown.hidden = false;
+
+            const items = getOptionElements();
+            const selIdx = items.findIndex(i => i.classList.contains('selected'));
+            highlightedIndex = selIdx >= 0 ? selIdx : 0;
+            updateHighlight(items);
+
+            if (selIdx >= 0 && items[selIdx]) {
+                items[selIdx].scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+        function closeDropdown() {
+            wrapper.classList.remove('open');
+            trigger.setAttribute('aria-expanded', 'false');
+            dropdown.hidden = true;
+            highlightedIndex = -1;
+            getOptionElements().forEach(i => i.classList.remove('highlighted'));
+        }
+
+        function updateHighlight(items) {
+            items.forEach((it, idx) => {
+                it.classList.toggle('highlighted', idx === highlightedIndex);
+            });
+            if (highlightedIndex >= 0 && items[highlightedIndex]) {
+                items[highlightedIndex].scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (wrapper.classList.contains('open')) {
+                closeDropdown();
+            } else {
+                openDropdown();
+            }
+        });
+
+        const label = document.querySelector(`label[for="${selectId}"]`);
+        if (label) {
+            label.addEventListener('click', (e) => {
+                e.preventDefault();
+                trigger.focus();
+                openDropdown();
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!wrapper.contains(e.target)) {
+                closeDropdown();
+            }
+        });
+
+        trigger.addEventListener('keydown', (e) => {
+            const items = getOptionElements();
+            const isOpen = wrapper.classList.contains('open');
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!isOpen) {
+                    openDropdown();
+                } else if (items.length > 0) {
+                    highlightedIndex = (highlightedIndex + 1) % items.length;
+                    updateHighlight(items);
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!isOpen) {
+                    openDropdown();
+                } else if (items.length > 0) {
+                    highlightedIndex = (highlightedIndex - 1 + items.length) % items.length;
+                    updateHighlight(items);
+                }
+            } else if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (!isOpen) {
+                    openDropdown();
+                } else if (highlightedIndex >= 0 && items[highlightedIndex]) {
+                    selectValue(items[highlightedIndex].dataset.value);
+                }
+            } else if (e.key === 'Escape') {
+                if (isOpen) {
+                    e.preventDefault();
+                    closeDropdown();
+                }
+            } else if (e.key === 'Tab') {
+                if (isOpen) {
+                    closeDropdown();
+                }
+            }
+        });
+
+        const origValueDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+        Object.defineProperty(selectEl, 'value', {
+            get() {
+                return origValueDesc.get.call(this);
+            },
+            set(newVal) {
+                origValueDesc.set.call(this, newVal);
+                syncSelection();
+            }
+        });
+
+        const origDisabledDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'disabled');
+        Object.defineProperty(selectEl, 'disabled', {
+            get() {
+                return origDisabledDesc.get.call(this);
+            },
+            set(val) {
+                origDisabledDesc.set.call(this, val);
+                trigger.classList.toggle('disabled', Boolean(val));
+                trigger.setAttribute('aria-disabled', String(Boolean(val)));
+                if (val) closeDropdown();
+            }
+        });
+
+        selectEl.focus = function () {
+            trigger.focus();
+        };
+
+        selectEl.addEventListener('change', syncSelection);
+
+        const observer = new MutationObserver(() => {
+            renderOptions();
+        });
+        observer.observe(selectEl, { childList: true, subtree: true });
+
+        renderOptions();
+        selectEl._refreshCustomSelect = renderOptions;
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            initCustomSelect('start', 'custom-select-start', 'trigger-start', 'dropdown-start');
+            initCustomSelect('destination', 'custom-select-destination', 'trigger-destination', 'dropdown-destination');
+        });
+    } else {
+        initCustomSelect('start', 'custom-select-start', 'trigger-start', 'dropdown-start');
+        initCustomSelect('destination', 'custom-select-destination', 'trigger-destination', 'dropdown-destination');
+    }
+
     async function populateDropdowns() {
         try {
             const [locations, vehicles, graphData] = await Promise.all([
@@ -2518,6 +2794,9 @@ body[data-theme=dark] .sim-controls [data-action="exit"] { background: #D94A45 !
             destSel.value = locationNames.includes('Junction Square') && startSel.value !== 'Junction Square'
                 ? 'Junction Square'
                 : preferredDestination;
+
+            startSel._refreshCustomSelect?.();
+            destSel._refreshCustomSelect?.();
 
             if (mapReady) {
                 drawStaticNetwork();

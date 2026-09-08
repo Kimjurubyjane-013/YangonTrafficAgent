@@ -917,3 +917,331 @@ body[data-theme=dark] .kpi-clock { background: #4a1d5a !important; color: #f0abf
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* ==========================================================================
+   PREMIUM LOCATION DROPDOWN (Starting Point / Destination)
+   ========================================================================== */
+
+.custom-select-wrapper {
+    position: relative;
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+/* Visually hide native select while keeping it accessible and in the DOM */
+.visually-hidden-select {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Trigger Button */
+.custom-select-trigger {
+    width: 100%;
+    min-height: 46px;
+    padding: 0 12px;
+    background: #FFFFFF;
+    border: 1px solid #CBD8E1;
+    border-radius: 11px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #171526;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    user-select: none;
+    text-align: left;
+}
+
+.custom-select-trigger:hover:not(.disabled) {
+    border-color: #8B5CF6;
+    background: #FFFFFF;
+}
+
+.custom-select-trigger:focus-visible,
+.custom-select-wrapper.open .custom-select-trigger {
+    border-color: #7C3AED;
+    box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.18);
+    outline: none;
+}
+
+.custom-select-trigger.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #F3F0FA;
+    border-color: #CBD8E1;
+}
+
+.custom-select-trigger-content {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex: 1;
+    min-width: 0;
+}
+
+.custom-select-trigger-icon {
+    color: #7C3AED;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.custom-select-value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    font-weight: 500;
+    color: inherit;
+}
+
+.custom-select-arrow {
+    color: #8A8497;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, color 0.15s ease;
+}
+
+.custom-select-wrapper.open .custom-select-arrow {
+    transform: rotate(180deg);
+    color: #7C3AED;
+}
+
+/* Floating Dropdown Card */
+.custom-select-dropdown {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    background: #FFFFFF;
+    border: 1px solid #E6E1EF;
+    border-radius: 14px;
+    box-shadow: 0 10px 25px rgba(109, 40, 217, 0.09), 0 4px 10px rgba(0, 0, 0, 0.04);
+    max-height: 330px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px 0;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(109, 40, 217, 0.28) rgba(124, 58, 237, 0.05);
+}
+
+/* Custom Scrollbar - WebKit / Chromium */
+.custom-select-dropdown::-webkit-scrollbar {
+    width: 7px;
+}
+
+.custom-select-dropdown::-webkit-scrollbar-track {
+    background: rgba(124, 58, 237, 0.05);
+    border-radius: 999px;
+    margin: 6px 0;
+}
+
+.custom-select-dropdown::-webkit-scrollbar-thumb {
+    background: rgba(109, 40, 217, 0.28);
+    border-radius: 999px;
+    transition: background 0.2s ease;
+}
+
+.custom-select-dropdown::-webkit-scrollbar-thumb:hover {
+    background: rgba(109, 40, 217, 0.45);
+}
+
+/* Township Group Headers */
+.custom-select-group-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: #171526;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 10px 14px 4px 14px;
+    margin-top: 6px;
+    user-select: none;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+}
+
+.custom-select-group-header:first-child {
+    margin-top: 2px;
+}
+
+/* Location Option Rows */
+.custom-select-option {
+    min-height: 40px;
+    padding: 0 12px;
+    margin: 2px 6px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    color: #374151;
+    font-size: 13.5px;
+    user-select: none;
+}
+
+.custom-select-option-content {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex: 1;
+    min-width: 0;
+}
+
+.custom-select-option-icon {
+    color: #8B5CF6;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.85;
+}
+
+.custom-select-option-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.custom-select-option-check {
+    display: none;
+    color: #6D28D9;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Hover & Active Highlight */
+.custom-select-option:hover,
+.custom-select-option.highlighted {
+    background: #F5F3FF;
+    color: #5B21B6;
+}
+
+.custom-select-option:hover .custom-select-option-icon,
+.custom-select-option.highlighted .custom-select-option-icon {
+    opacity: 1;
+}
+
+/* Selected State */
+.custom-select-option.selected {
+    background: #EDE9FE;
+    color: #5B21B6;
+    font-weight: 600;
+}
+
+.custom-select-option.selected .custom-select-option-label {
+    font-weight: 600;
+}
+
+.custom-select-option.selected .custom-select-option-check {
+    display: flex;
+}
+
+/* ==========================================================================
+   DARK THEME OVERRIDES FOR LOCATION DROPDOWNS
+   ========================================================================== */
+
+body[data-theme=dark] .custom-select-trigger {
+    background: #141722;
+    border-color: rgba(167, 139, 250, 0.16);
+    color: #F7F6FB;
+}
+
+body[data-theme=dark] .custom-select-trigger:hover:not(.disabled) {
+    border-color: #8B5CF6;
+    background: #141722;
+}
+
+body[data-theme=dark] .custom-select-trigger.disabled {
+    background: #181B27;
+    border-color: rgba(167, 139, 250, 0.1);
+    color: #6B6880;
+}
+
+body[data-theme=dark] .custom-select-trigger-icon {
+    color: #A78BFA;
+}
+
+body[data-theme=dark] .custom-select-arrow {
+    color: #B1ACC2;
+}
+
+body[data-theme=dark] .custom-select-wrapper.open .custom-select-arrow {
+    color: #A78BFA;
+}
+
+body[data-theme=dark] .custom-select-dropdown {
+    background: #181B27;
+    border-color: rgba(167, 139, 250, 0.22);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+    scrollbar-color: rgba(167, 139, 250, 0.35) rgba(255, 255, 255, 0.03);
+}
+
+body[data-theme=dark] .custom-select-dropdown::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+body[data-theme=dark] .custom-select-dropdown::-webkit-scrollbar-thumb {
+    background: rgba(167, 139, 250, 0.35);
+}
+
+body[data-theme=dark] .custom-select-dropdown::-webkit-scrollbar-thumb:hover {
+    background: rgba(167, 139, 250, 0.55);
+}
+
+body[data-theme=dark] .custom-select-group-header {
+    color: #DDD6FE;
+}
+
+body[data-theme=dark] .custom-select-option {
+    color: #E2E8F0;
+}
+
+body[data-theme=dark] .custom-select-option:hover,
+body[data-theme=dark] .custom-select-option.highlighted {
+    background: #252836;
+    color: #DDD6FE;
+}
+
+body[data-theme=dark] .custom-select-option.selected {
+    background: #1E1B4B;
+    color: #DDD6FE;
+}
+
+body[data-theme=dark] .custom-select-option.selected .custom-select-option-check {
+    color: #A78BFA;
+}
+
+body[data-theme=dark] .custom-select-option-icon {
+    color: #A78BFA;
+}
+
+/* Mobile Responsiveness */
+@media (max-height: 680px) {
+    .custom-select-dropdown {
+        max-height: 250px;
+    }
+}
+

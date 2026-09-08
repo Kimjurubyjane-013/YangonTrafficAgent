@@ -228,5 +228,36 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("best.every(road => trafficLevel(road.traffic_level) === 'Heavy')", dashboard)
         self.assertIn("'Best Available Flow'", dashboard)
 
+    def test_custom_location_dropdown_architecture(self):
+        root = Path(__file__).parent
+        html = (root / "web" / "app.html").read_text(encoding="utf-8")
+        css = (root / "web" / "styles.css").read_text(encoding="utf-8")
+
+        # Dropdown containers and trigger buttons
+        self.assertIn('id="custom-select-start"', html)
+        self.assertIn('id="trigger-start"', html)
+        self.assertIn('id="dropdown-start"', html)
+        self.assertIn('id="custom-select-destination"', html)
+        self.assertIn('id="trigger-destination"', html)
+        self.assertIn('id="dropdown-destination"', html)
+
+        # Native selects are preserved with visually-hidden-select
+        self.assertIn('<select id="start" class="visually-hidden-select"', html)
+        self.assertIn('<select id="destination" class="visually-hidden-select"', html)
+
+        # JS initialization and option builder function
+        self.assertIn('function initCustomSelect(', html)
+        self.assertIn('custom-select-group-header', html)
+        self.assertIn('custom-select-option', html)
+
+        # Custom scrollbar styles per specifications
+        self.assertIn('.custom-select-dropdown::-webkit-scrollbar', css)
+        self.assertIn('rgba(124, 58, 237, 0.05)', css)
+        self.assertIn('rgba(109, 40, 217, 0.28)', css)
+        self.assertIn('.custom-select-group-header', css)
+        self.assertIn('.custom-select-option.selected', css)
+        self.assertIn('body[data-theme=dark] .custom-select-dropdown', css)
+
 
 if __name__ == "__main__": unittest.main()
+
