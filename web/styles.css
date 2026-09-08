@@ -855,3 +855,15 @@ body[data-theme=dark] .kpi-heavy .kpi-icon, body[data-theme=dark] .hotspot-icon 
     .dashboard-hero { flex-direction: column; align-items: flex-start; gap: 16px; padding: 16px; }
     .dashboard-title { font-size: 28px; flex-wrap: wrap; }
 }
+
+
+/* --- EXTRA UI FIXES --- */
+.view-all-btn { flex-shrink: 0; white-space: nowrap; }
+.card-icon { flex-shrink: 0; }
+.dashboard-card-head h2 { white-space: nowrap; }
+.traffic-mode-pill { flex-shrink: 0; white-space: nowrap; }
+.dashboard-title { flex-wrap: wrap; }
+.card-head-left { min-width: 0; }
+.card-head-left > div { min-width: 0; }
+.card-subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+

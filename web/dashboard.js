@@ -41,7 +41,7 @@
             const row = document.createElement('tr');
             
             const levelClass = trafficLevel(road.traffic_level).toLowerCase();
-            const badge = `<span class="traffic-badge ${levelClass}">● ${road.traffic_level}</span>`;
+            const badge = `<span class="traffic-badge ${levelClass}">\u25CF ${road.traffic_level}</span>`;
             
             row.innerHTML = `
                 <td><strong>${String(index + 1).padStart(2, '0')}</strong></td>
@@ -60,7 +60,7 @@
         const isCollapsed = list.classList.contains('collapsed');
         if (isCollapsed) {
             list.classList.remove('collapsed');
-            btn.innerHTML = 'Show less &uarr;';
+            btn.innerHTML = 'Show less ↑';
         } else {
             list.classList.add('collapsed');
             btn.innerHTML = 'View all &rarr;';
@@ -75,7 +75,7 @@
         const now = currentYangonTime();
 
         // Title Pill
-        setText('traffic-mode-pill', '● ' + mode);
+        setText('traffic-mode-pill', '\u25CF ' + mode);
         const pill = byId('traffic-mode-pill');
         if (pill) {
             pill.className = `traffic-mode-pill mode-${mode.toLowerCase()}`;
@@ -117,7 +117,7 @@
             setText('dashboard-error-msg', message || 'Traffic data temporarily unavailable.');
         }
         setText('last-updated-time', currentYangonTime());
-        setText('traffic-mode-pill', '● Error');
+        setText('traffic-mode-pill', '\u25CF Error');
         setState('', 'ready');
     }
 
