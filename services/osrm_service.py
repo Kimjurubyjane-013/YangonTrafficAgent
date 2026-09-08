@@ -489,32 +489,34 @@ def _fetch_real_routes_uncached(start_coord, destination_coord, alternatives=3, 
 
     # 3. Extract candidate corridor waypoints from real road geometries (prioritizing rev_raw then fwd_raw)
     candidate_waypoints = []
+    seen_base_points = []
+    fractions = (0.25, 0.40, 0.55, 0.70)
     for raw_source in [rev_raw, fwd_raw]:
         for raw in raw_source:
             geom = raw.get("geometry", {}).get("coordinates", []) if isinstance(raw.get("geometry"), dict) else raw.get("geometry", [])
             if len(geom) < 3:
                 continue
-            for frac in (0.45, 0.60, 0.35):
-                idx = int(len(geom) * frac)
-                if 1 <= idx < len(geom) - 1:
-                    lon, lat = geom[idx]
-                    pt = (lat, lon)
-                    if _km(start_coord, pt) > 0.12 and _km(pt, destination_coord) > 0.12:
-                        prev_pt = (geom[idx-1][1], geom[idx-1][0])
-                        next_pt = (geom[idx+1][1], geom[idx+1][0])
-                        road_bearing = _bearing(prev_pt, next_pt)
-                        for lat_offset_m in [30.0, -30.0, 0.0]:
-                            if lat_offset_m == 0.0:
-                                offset_pt = pt
-                            else:
-                                angle = (road_bearing + (90 if lat_offset_m > 0 else -90)) % 360
-                                rad = math.radians(angle)
-                                d = abs(lat_offset_m) / 1000.0
-                                d_lat = d / 111.0 * math.cos(rad)
-                                d_lon = d / (111.0 * math.cos(math.radians(lat))) * math.sin(rad)
-                                offset_pt = (lat + d_lat, lon + d_lon)
-                            if not any(_km(m, offset_pt) < 0.05 for m in candidate_waypoints):
-                                candidate_waypoints.append(offset_pt)
+            for frac in fractions:
+                idx = max(1, min(len(geom) - 2, int(len(geom) * frac)))
+                lon, lat = geom[idx]
+                pt = (lat, lon)
+                if _km(start_coord, pt) > 0.12 and _km(pt, destination_coord) > 0.12:
+                    if any(_km(m, pt) < 0.08 for m in seen_base_points):
+                        continue
+                    seen_base_points.append(pt)
+                    candidate_waypoints.append(pt)
+
+                    # Lateral offsets (+/- 30m) for divided dual-carriageway directionality
+                    prev_pt = (geom[idx-1][1], geom[idx-1][0])
+                    next_pt = (geom[idx+1][1], geom[idx+1][0])
+                    road_bearing = _bearing(prev_pt, next_pt)
+                    for lat_offset_m in [30.0, -30.0]:
+                        angle = (road_bearing + (90 if lat_offset_m > 0 else -90)) % 360
+                        rad = math.radians(angle)
+                        d = abs(lat_offset_m) / 1000.0
+                        d_lat = d / 111.0 * math.cos(rad)
+                        d_lon = d / (111.0 * math.cos(math.radians(lat))) * math.sin(rad)
+                        candidate_waypoints.append((lat + d_lat, lon + d_lon))
 
     # 4. Fresh-route A->B legally through the discovered corridor waypoints
     for midpoint in candidate_waypoints:

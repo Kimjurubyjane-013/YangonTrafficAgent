@@ -297,6 +297,13 @@ class TestBidirectionalConsistency(unittest.TestCase):
         self.assertTrue(any("Pyay Road" in r for r in fwd_roads))
         self.assertLess(res_fwd.get("distance", 999), 1.8)
 
+        # Forward journey must restore genuine, practical route alternatives
+        fwd_alts = res_fwd.get("alternatives", [])
+        self.assertGreaterEqual(len(fwd_alts), 1, "Forward journey must return at least 1 practical alternative")
+        all_alt_roads = [alt.get("road_names", []) + alt.get("display_route", []) for alt in fwd_alts]
+        has_nar_nat_taw = any(any("Nar Nat Taw" in r for r in rset) for rset in all_alt_roads)
+        self.assertTrue(has_nar_nat_taw, f"Expected Nar Nat Taw Road in forward alternatives: {fwd_alts}")
+
         res_rev = run_real_world_agent(junction, hledan, "Car")
         self.assertNotIn("error", res_rev, f"Reverse route failed: {res_rev}")
         rev_alts = res_rev.get("alternatives", [])
